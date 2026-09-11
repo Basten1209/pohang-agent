@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="400" viewBox="0 0 1500 400">
+<title>RUN2구룡포 데이터 기반 일정 재계산 아키텍처</title>
+<desc>모바일웹의 입력과 E-UM, TourAPI, Kakao 데이터를 통합한다. 결정 규칙으로 방문·축소·취소를 판단하고 LLM이 확정 결정을 유지하며 설명한다. 사용자가 재계산을 요청하면 최신 데이터를 다시 조회한다.</desc>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 8 5 L 1 9" fill="none" stroke="#526979" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+  <marker id="tealarrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 1 1 L 8 5 L 1 9" fill="none" stroke="#087F82" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+  <style>
+  text { font-family:'Malgun Gothic',sans-serif; fill:#15354B; text-anchor:middle; }
+  .source { font-size:33px; font-weight:700; }
+  .heading { font-size:35px; font-weight:700; }
+  .detail { font-size:26px; font-weight:400; fill:#273E4C; }
+  .step { fill:white; stroke:#BCC9D1; stroke-width:2; }
+  .link { fill:none; stroke:#526979; stroke-width:2.4; marker-end:url(#arrow); }
+  </style>
+</defs>
+<rect width="1500" height="400" fill="white"/>
+<!-- Source adapters share one bus into data integration. -->
+<rect x="55" y="16" width="420" height="68" rx="10" fill="#EAF6F4" stroke="#087F82" stroke-width="3"/>
+<text x="265" y="61" class="source" style="fill:#087F82">E-UM 교통·대기</text>
+<rect x="540" y="16" width="420" height="68" rx="10" fill="#F5F7F9" stroke="#BCC9D1" stroke-width="2"/>
+<text x="750" y="61" class="source">TourAPI 관광정보</text>
+<rect x="1025" y="16" width="420" height="68" rx="10" fill="#F5F7F9" stroke="#BCC9D1" stroke-width="2"/>
+<text x="1235" y="61" class="source">Kakao 차량 ETA</text>
+<path d="M265 84 V119 H1235 V84 M750 84 V119" fill="none" stroke="#A9B7BF" stroke-width="2.4"/>
+<path d="M265 84 V119 H456 V169" fill="none" stroke="#087F82" stroke-width="3" marker-end="url(#tealarrow)"/>
+<!-- Main flow. -->
+<rect x="30" y="174" width="260" height="122" rx="11" class="step"/>
+<text x="160" y="222" class="heading">모바일웹</text>
+<text x="160" y="265" class="detail">입력 확인·재계산</text>
+<rect x="324" y="174" width="264" height="122" rx="11" fill="#EAF6F4" stroke="#087F82" stroke-width="3"/>
+<text x="456" y="222" class="heading">데이터 통합</text>
+<text x="456" y="265" class="detail">시각·단위·유효성</text>
+<rect x="622" y="174" width="264" height="122" rx="11" fill="#EAF6F4" stroke="#087F82" stroke-width="3"/>
+<text x="754" y="222" class="heading">결정 규칙</text>
+<text x="754" y="265" class="detail">시간·증상·허용 장소</text>
+<rect x="920" y="174" width="264" height="122" rx="11" class="step"/>
+<text x="1052" y="222" class="heading">LLM 설명</text>
+<text x="1052" y="265" class="detail">확정 결정 유지</text>
+<rect x="1218" y="174" width="252" height="122" rx="11" class="step"/>
+<text x="1344" y="222" class="heading">일정 결과</text>
+<text x="1344" y="265" class="detail">방문·축소·취소</text>
+<path d="M290 235 H318" class="link"/>
+<path d="M588 235 H616" class="link"/>
+<path d="M886 235 H914" class="link"/>
+<path d="M1184 235 H1212" class="link"/>
+<!-- User-triggered recalculation loop. -->
+<path d="M1344 299 V369 H160 V303" class="link"/>
+<rect x="409" y="344" width="685" height="45" fill="white"/>
+<text x="754" y="377" font-size="30">재계산 요청 시 최신 데이터 조회</text>
+</svg>
