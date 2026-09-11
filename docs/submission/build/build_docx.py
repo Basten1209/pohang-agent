@@ -40,7 +40,7 @@ HEAD_FILL = 'E2E9F1'
 BOX_FILL = 'EEF3F8'
 TBL_HEAD_FILL = 'D9E2F3'
 CODE_FILL = 'F2F2F2'
-LINE = 276            # 1.15 line spacing (auto)
+LINE = 256            # ~1.07 line spacing (auto)
 CELL_INNER_W = 9322   # 9526 table width - 2*102 cell margins (twips)
 TABLE_W = 9200
 
@@ -51,7 +51,7 @@ FIGURES = {
     'sysarch':      ('rIdRun2Figure3', 'run2-sysarch.png', 'application-system-architecture.png'),
     'dataflow':     ('rIdRun2Figure4', 'run2-dataflow.png', 'api-data-flow.png'),
 }
-FIG_WIDTH_TWIPS = {'journey': 8900, 'architecture': 8900, 'sysarch': 8300, 'dataflow': 8300}
+FIG_WIDTH_TWIPS = {'journey': 8200, 'architecture': 8400, 'sysarch': 7400, 'dataflow': 7600}
 FIG_DOCPR_ID = {'journey': 101, 'architecture': 102, 'sysarch': 103, 'dataflow': 104}
 
 
@@ -135,16 +135,16 @@ def spacer(after=60, height=100):
 # ---------------------------------------------------------------- block renderers
 
 BULLET = {
-    1: dict(marker='□', left=284, hanging=284, before=150, after=50, bold=True, size=BODY_SZ, keep_next=True),
-    2: dict(marker='○', left=567, hanging=283, before=0, after=40, bold=False, size=BODY_SZ, keep_next=False),
-    3: dict(marker='-', left=851, hanging=284, before=0, after=30, bold=False, size=BODY_SZ, keep_next=False),
-    4: dict(marker='·', left=1134, hanging=283, before=0, after=30, bold=False, size=BODY_SZ, keep_next=False),
+    1: dict(marker='□', left=284, hanging=284, before=120, after=30, bold=True, size=BODY_SZ, keep_next=True),
+    2: dict(marker='○', left=567, hanging=283, before=0, after=24, bold=False, size=BODY_SZ, keep_next=False),
+    3: dict(marker='-', left=851, hanging=284, before=0, after=16, bold=False, size=BODY_SZ, keep_next=False),
+    4: dict(marker='·', left=1134, hanging=283, before=0, after=16, bold=False, size=BODY_SZ, keep_next=False),
 }
 
 
 def render_section_heading(number, title, first):
     txt = '%s. %s' % (number, title)
-    return para(run(txt, bold=True, size=26, color=NAVY), left=80, before=60 if first else 260, after=110,
+    return para(run(txt, bold=True, size=26, color=NAVY), left=80, before=60 if first else 200, after=90,
                 keep_next=True, keep_lines=True, shd=HEAD_FILL,
                 border='<w:bottom w:val="single" w:sz="8" w:space="1" w:color="%s"/>' % ACCENT)
 
@@ -160,18 +160,18 @@ def render_p(block, ctx):
 
 def render_note(block, ctx):
     runs = run('※', size=SMALL_SZ, color='404040') + tab_run() + inline_runs(block['text'], size=SMALL_SZ, color='404040')
-    return para(runs, left=851, hanging=284, before=10, after=50, keep_next=False, tabs=[851])
+    return para(runs, left=851, hanging=284, before=6, after=36, keep_next=False, tabs=[851])
 
 
 def render_box(block, ctx):
     runs = inline_runs(block['text'], size=BODY_SZ, bold=True, color=NAVY)
-    return para(runs, left=200, right=120, before=90, after=150, shd=BOX_FILL,
+    return para(runs, left=200, right=120, before=70, after=110, shd=BOX_FILL,
                 border='<w:left w:val="single" w:sz="24" w:space="6" w:color="%s"/>' % ACCENT, keep_next=True)
 
 
-def cell_paras(text, jc='left', bold=False, size=SMALL_SZ):
+def cell_paras(text, jc='left', bold=False, size=19):
     # allow manual line splitting inside cells with ' / '? keep simple: one paragraph
-    return para(inline_runs(text, size=size, bold=bold), before=0, after=0, line=252, jc=jc)
+    return para(inline_runs(text, size=size, bold=bold), before=0, after=0, line=240, jc=jc)
 
 
 def render_table(block, ctx):
@@ -207,8 +207,8 @@ def render_table(block, ctx):
                    ''.join(tc(c, cols[i], 'center' if align[i] == 'c' else 'left') for i, c in enumerate(r)))
     tbl.append('</w:tbl>')
     caption = para(run('[표 %d] ' % n, bold=True, size=SMALL_SZ, color=NAVY) + inline_runs(block['caption'], size=SMALL_SZ, bold=True, color=NAVY),
-                   left=80, before=110, after=50, keep_next=True)
-    return caption + ''.join(tbl) + spacer(after=80)
+                   left=80, before=90, after=40, keep_next=True)
+    return caption + ''.join(tbl) + spacer(after=60)
 
 
 def render_figure(block, ctx):
@@ -231,9 +231,9 @@ def render_figure(block, ctx):
         '<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="%d" cy="%d"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>'
         '</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>'
         % (cx, cy, docpr, docpr, descr, docpr, docpr, rid, cx, cy))
-    img_p = para(drawing, before=100, after=40, jc='center', keep_next=True, line=240)
+    img_p = para(drawing, before=80, after=30, jc='center', keep_next=True, line=240)
     cap = para(run('[그림 %d] ' % n, bold=True, size=SMALL_SZ, color=NAVY) + inline_runs(block['caption'], size=SMALL_SZ, color='404040'),
-               before=0, after=130, jc='center')
+               before=0, after=100, jc='center')
     return img_p + cap
 
 

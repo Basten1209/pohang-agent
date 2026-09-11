@@ -1,0 +1,605 @@
+{
+ "number": 3,
+ "title": "서비스(아이디어) 목표 및 구현 방법",
+ "blocks": [
+  {
+   "t": "box",
+   "text": "본선 시연 목표: 계획 저장부터 재계산까지 한 PWA에서 E-UM 실제 조회로 결정이 바뀜을 보임"
+  },
+  {
+   "t": "p",
+   "level": 1,
+   "text": "구현 목표와 범위: 실제 데이터로 결정이 달라지는 MVP"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "본선 MVP: 자연어 계획 입력 → 계획 저장 → 완주 입력 → **E-UM 실호출** → 규칙 결정 → LLM 설명·길찾기 → 재계산"
+  },
+  {
+   "t": "p",
+   "level": 3,
+   "text": "동일 조건에서 혼잡 관측(`hour`·`cntPerc`)만 갱신해도 결정이 달라지는 재계산 시연(디지털 트윈 실제 활용 증명)"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "대표 데모 3종(동일 사용자·동일 API): 정상 `GO` / 시간 부족 `SHORTEN` / 위험 증상 `MEDICAL_FIRST` + 변형 2종(혼잡 갱신 → 추가 축소, 대기·강수 갱신 → `INDOOR`)"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "MVP 포함: 계획·컨디션 입력, 페이스 카드, E-UM 2종 실호출, 기상·관광·경로 조합, 규칙 결정·LLM 설명·길찾기·재계산"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "MVP 제외·확장: 웨어러블, 공식 기록 자동 연동, 대중교통 실시간(TAGO 검증 후), 할인·제휴·셔틀·예약"
+  },
+  {
+   "t": "p",
+   "level": 3,
+   "text": "데모 대회: 운영자 등록 데모 대회(`raceId`)에 코스·출발 시각·급수 지점을 출처·갱신일과 등록, 완주 기록은 사용자 입력"
+  },
+  {
+   "t": "note",
+   "text": "외부 API 실호출은 현재 미검증(1주차 검증), 시연 수치는 가정값(실측 아님)"
+  },
+  {
+   "t": "p",
+   "level": 1,
+   "text": "시스템 아키텍처: 4계층 구조, 안전 판단은 규칙·설명은 LLM"
+  },
+  {
+   "t": "figure",
+   "id": "sysarch",
+   "caption": "RUN2구룡포 시스템 아키텍처 (PWA → Application API → AI Orchestration → External Data)"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "사용자·응용 계층: PWA Client(입력·페이스 카드·일정·길찾기·재계산) / Application API(검증·인증·속도 제한·캐시, 내부 API 3종) / Data Store(계획·대회 정보·정적 후보·캐시·익명 이벤트)"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "AI Orchestration 계층: API Adapter(병렬 호출·공통 형식 표준화·장애 시 캐시·정적 대체) → 결정 규칙(위험 증상·시간 예산·활동 강도·데이터 가용성으로 상태 코드 확정)"
+  },
+  {
+   "t": "p",
+   "level": 3,
+   "text": "LLM Layer: 상태 코드·허용 장소·제약·관측 시각 안에서만 일정·설명 생성"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "External Data 계층: E-UM 2종·기상청·TourAPI·Kakao·포항 버스/TAGO 6종을 Adapter 뒤에 배치(아래 표)"
+  },
+  {
+   "t": "p",
+   "level": 1,
+   "text": "디지털 트윈·외부 데이터 연동 계획: E-UM 2종 필수 실호출"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "데이터별 호출·필드·용도·검증 계획(표, 우선순위 순)"
+  },
+  {
+   "t": "table",
+   "caption": "디지털 트윈·외부 데이터 연동 계획",
+   "widths": [
+    22,
+    38,
+    20,
+    20
+   ],
+   "align": [
+    "l",
+    "l",
+    "l",
+    "l"
+   ],
+   "header": [
+    "데이터",
+    "호출·주요 필드",
+    "용도",
+    "검증 계획"
+   ],
+   "rows": [
+    [
+     "**E-UM 교통** `INT_S07_005` [2]",
+     "`GET /dpg/traffic/congestion` → `hour`, `cntPerc`",
+     "교통 여유 보조 신호",
+     "1주차 키 실응답·필드"
+    ],
+    [
+     "**E-UM 대기** `INT_S01_004` [3]",
+     "`GET /dpg/atmosphere/device/realtime`(`id`) → `logDateTime`, `pm10` 등",
+     "환경 표시, 실내외 보조",
+     "1주차 장비 `id`·단위"
+    ],
+    [
+     "기상청 단기예보 [6]",
+     "`getVilageFcst` → `PTY`, `RN1`, `WSD`",
+     "관광 시간대 기상",
+     "키 발급 후 실응답"
+    ],
+    [
+     "TourAPI [5]",
+     "`locationBasedList2`·`detailIntro2`·`searchFestival2`(후보·운영정보·행사)",
+     "관광 후보 순서화",
+     "구룡포 반경 후보 수"
+    ],
+    [
+     "Kakao Mobility [4]",
+     "`/v1/directions`, `/v1/future/directions`",
+     "현재·예정 출발 ETA",
+     "1주차 시연 경로"
+    ],
+    [
+     "Google Maps URL, 포항 버스(정적)",
+     "`maps/dir/?api=1`(무키), 노선 파일",
+     "경로 실패 대체, 정적 노선",
+     "링크·파일 확인"
+    ],
+    [
+     "확장·조건부",
+     "E-UM 자외선·수위·방파제 CCTV, TAGO(포항 미지원 시 숨김)",
+     "야외·해안 보조(CCTV 혼잡도 해석 금지)",
+     "3주차: 센서 범위 확인 후 조건부"
+    ]
+   ]
+  },
+  {
+   "t": "p",
+   "level": 3,
+   "text": "`INDOOR` 판정 입력: 기상청 `PTY`·`RN1`·`WSD`, E-UM `pm10`·`pm25`·`temp`(임계값 운영 설정, 의료 기준 아님, `STALE`은 제외)"
+  },
+  {
+   "t": "p",
+   "level": 3,
+   "text": "조건부 안전 규칙(확장, 센서 범위 확인 후 활성): 수위 `INT_S05_006` 등급 운영 임계 초과 시 방파제·해안 후보를 `allowedPlaceIds`에서 제외 → `SHORTEN`/`INDOOR`, CCTV `INT_S06_006`는 이상행동 통계 참고만"
+  },
+  {
+   "t": "note",
+   "text": "`cntPerc`는 구룡포 전체 장비 통합 혼잡률(도로별 ETA 환산 금지), 임계값은 시연용 운영 설정, 대기값은 의료 기준 해석 금지, Kakao·TourAPI는 미래 도착·영업 미보장"
+  },
+  {
+   "t": "p",
+   "level": 1,
+   "text": "데이터 처리 파이프라인 7단계: 입력 → 병렬 호출 → 표준화 → 대체 → 결정 → LLM 설명 → 출력"
+  },
+  {
+   "t": "figure",
+   "id": "dataflow",
+   "caption": "API 데이터 흐름 7단계 (사용자 입력 → 병렬 호출 → 표준화 → 대체 → 결정 규칙 → LLM → PWA 결과)"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "1~2단계: PWA 입력 → E-UM 2종·기상청·TourAPI·Kakao 병렬 호출(호출별 3초·재시도 1회, 초과 시 해당 소스만 대체)"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "3~4단계 표준화·대체: 좌표·시각·단위·신선도(`FRESH`/`STALE`) 정규화, 오류·빈 응답은 캐시·정적 대체, `STALE`은 표시 후 판단 제외"
+  },
+  {
+   "t": "code",
+   "title": "공통 외부 데이터 형식 (E-UM 교통, 값은 시연 가정)",
+   "lines": [
+    "{",
+    "  \"source\": \"POHANG_EUM_TRAFFIC\",",
+    "  \"observedAt\": \"2026-10-13T10:00:00+09:00\",",
+    "  \"fetchedAt\": \"2026-10-13T10:23:10+09:00\",",
+    "  \"freshness\": \"FRESH\",",
+    "  \"fallbackUsed\": false,",
+    "  \"values\": { \"hour\": 10, \"cntPerc\": 42 }",
+    "}"
+   ]
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "5~7단계: 회복 관문·시간 예산으로 변경 불가 상태 코드 확정 → LLM 설명·일정 → 페이스 카드·일정·주의 알림·지도 URL·기준시각 반환"
+  },
+  {
+   "t": "p",
+   "level": 1,
+   "text": "AI 의사결정 설계: 결정 규칙이 확정하고 LLM은 그 안에서 설명"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "구성요소별 담당 업무와 하지 않는 일"
+  },
+  {
+   "t": "table",
+   "caption": "AI 의사결정 역할 분리",
+   "widths": [
+    20,
+    46,
+    34
+   ],
+   "align": [
+    "l",
+    "l",
+    "l"
+   ],
+   "header": [
+    "구성요소",
+    "담당",
+    "하지 않는 일"
+   ],
+   "rows": [
+    [
+     "결정 규칙",
+     "위험 증상 중단, 시간 예산, 활동 강도 상한, 실내·실외 가능성, 상태 코드 확정",
+     "자연어 설득, 임의 장소 추천"
+    ],
+    [
+     "LLM",
+     "자연어 제약 추출, 확정 상태·허용 장소 안에서 일정 구성·근거 설명·질의응답",
+     "`MEDICAL_FIRST` 해제, 데이터 누락 은폐, 의료 진단"
+    ],
+    [
+     "API Adapter",
+     "응답 형식·시각·좌표·단위·신선도 표준화",
+     "안전 기준 결정"
+    ]
+   ]
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "시간 예산 모델: 복귀 마감에서 역산한 여유(slack)로 판정, 임계값은 운영 설정"
+  },
+  {
+   "t": "code",
+   "title": "시간 예산 모델",
+   "lines": [
+    "availableWindow = returnDeadline - currentTime",
+    "requiredWindow  = recoveryBuffer + outboundETA + visitDuration",
+    "                + returnETA + safetyBuffer",
+    "safetyBuffer    = baseBuffer + trafficBuffer(cntPerc)",
+    "trafficBuffer   : cntPerc 하위/중위/상위 구간 -> +0/+10/+20분 (시연 설정)",
+    "slack           = availableWindow - requiredWindow",
+    "slack < 0  -> SHORTEN: ① 장소별 체류를 최소 체류로 축소",
+    "              ② 복귀 지점에서 먼 장소부터 제거 후 재계산",
+    "최소 코스(허용 장소 1곳 + 왕복 ETA)도 slack < 0 -> CANCEL",
+    "출력: 권장안 1개 + 대안 최대 2개 (stopOrder ⊂ allowedPlaceIds)"
+   ]
+  },
+  {
+   "t": "p",
+   "level": 3,
+   "text": "예: 시연 `cntPerc` 42 → +0분(slack +15) / 상위 구간 갱신 → +20분 → slack −5 → 추가 축소, 최소 코스도 음수면 `CANCEL`(구간·가산분은 시연 설정)"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "회복 관문(Recovery Gate): 시간 계산보다 먼저 실행, 통과 시에만 시간 예산·후보 계산"
+  },
+  {
+   "t": "p",
+   "level": 3,
+   "text": "`dangerSymptoms`(통증·어지럼·메스꺼움) 있으면 `MEDICAL_FIRST`: 후보·LLM 일정 생성 생략, 고정 안전문구·현장 의료지원 안내만"
+  },
+  {
+   "t": "p",
+   "level": 3,
+   "text": "‘많이 지침’ → `HIGH_SELF_REPORTED_FATIGUE`, `maxWalkingMinutes` 축소, `DELAY`·`SHORTEN`·`INDOOR` 제한"
+  },
+  {
+   "t": "p",
+   "level": 3,
+   "text": "`DELAY` 권장 출발 시각: 후보 출발 시각(현재+회복 버퍼, 이후 `hour` 단위)별 Kakao `/v1/future/directions` ETA·시간대 가산분으로 slack 재계산 → 0 이상인 가장 이른 시각(1주차 검증)"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "LLM 입출력 경계: 원본 건강·위치 이력 대신 파생 상태·산출 수치만 입력"
+  },
+  {
+   "t": "p",
+   "level": 3,
+   "text": "입력: `decision`, `reasonCodes`, `allowedPlaceIds`, `maxWalkingMinutes`, `returnDeadline`, `dataFreshness`, 권장 출발·복귀 시각"
+  },
+  {
+   "t": "p",
+   "level": 3,
+   "text": "출력 `headline`·`explanation[]`·`stopOrder[]`·`limitations[]` → 필수 키·`stopOrder`⊂`allowedPlaceIds`·금지 표현·새 수치 검증, 실패 시 템플릿"
+  },
+  {
+   "t": "p",
+   "level": 1,
+   "text": "생성형 AI 활용 방식: 제약 추출·설명 생성·질의응답"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "자연어 제약 추출: 2절 예문 → 구조화 필드(아래 예시) → 사용자 확인 후 저장"
+  },
+  {
+   "t": "p",
+   "level": 3,
+   "text": "추출 실패·모호·사용자 수정 시: 종목·목표기록·복귀 마감·이동수단을 폼 항목으로 직접 입력, LLM 없이 저장"
+  },
+  {
+   "t": "code",
+   "title": "자연어 제약 추출 결과(예시)",
+   "lines": [
+    "{",
+    "  \"returnPoint\": \"대회장 주차장\",",
+    "  \"returnDeadline\": \"2026-10-13T14:00:00+09:00\",",
+    "  \"walkingPreference\": \"SHORT\"",
+    "}"
+   ]
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "설명 생성: `SHORTEN`+`LOW_TIME_SLACK` → ‘14:00 복귀를 위해 관광을 45분으로 줄임(교통 관측 10:00 기준)’"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "질의응답: ‘호미곶은 왜 빠졌나요’ 등 후속 질문에 허용 장소·제약 안에서만 답변"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "가드레일 5가지: 상태 코드 변경 금지, 관측 시각 포함, 비의료 문구(5절), 허용 장소 외 언급 금지, 수치는 입력값만"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "구조화 출력: JSON 스키마 출력을 지원하는 상용 LLM API(본선 지원 AI 구독 활용)+Pydantic 재검증"
+  },
+  {
+   "t": "p",
+   "level": 1,
+   "text": "내부 API 3종·데이터 모델 5종: 상태 코드 중심 저장, 위치 이력 미저장"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "내부 API 3종의 요청·응답 핵심 필드(표)"
+  },
+  {
+   "t": "table",
+   "caption": "내부 Application API 명세 요약",
+   "widths": [
+    30,
+    34,
+    36
+   ],
+   "align": [
+    "l",
+    "l",
+    "l"
+   ],
+   "header": [
+    "API",
+    "요청 핵심 필드",
+    "응답 핵심 필드"
+   ],
+   "rows": [
+    [
+     "`POST /api/race-plans`",
+     "`distanceKm`, `targetDurationMinutes`, `returnDeadline` 등 7개",
+     "`targetPaceSecPerKm`, `targetElapsedSec`, 예상 완주시각·날씨 요약"
+    ],
+    [
+     "`POST /api/post-race/decision`",
+     "`racePlanId`, `finishDurationMinutes`, `selfReportedState`, `dangerSymptoms[]`",
+     "`decision`, `reasonCodes`, `recommendedDepartureAt`, `returnStartBy`, `itinerary` 등"
+    ],
+    [
+     "`POST /api/itineraries/replan`",
+     "`itineraryId`, `currentAt`, `currentPlaceId`, `changeReason`",
+     "유지 또는 `SHORTEN`·`INDOOR`·`CANCEL` 전환, 새 순서·복귀 마감"
+    ]
+   ]
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "데이터 모델 5종과 보존 원칙(행사 후 삭제·단기 캐시·비식별 집계)"
+  },
+  {
+   "t": "p",
+   "level": 3,
+   "text": "`RacePlan`(목표기록·출발·복귀 마감·이동수단) / `FinishCheck`(실제기록·피로도·위험 증상) / `Itinerary`(결정상태·장소순서·ETA·설명)"
+  },
+  {
+   "t": "p",
+   "level": 3,
+   "text": "`EnvironmentSnapshot`(출처·관측 시각·값·freshness·fallback) / `ConversionEvent`(계획열람·길찾기·도착확인)"
+  },
+  {
+   "t": "p",
+   "level": 1,
+   "text": "장애·대체 정책: 데이터가 끊겨도 결정과 설명은 멈추지 않음"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "상황별 서버 동작과 사용자 표시"
+  },
+  {
+   "t": "table",
+   "caption": "외부 데이터 장애·대체 정책",
+   "widths": [
+    24,
+    40,
+    36
+   ],
+   "align": [
+    "l",
+    "l",
+    "l"
+   ],
+   "header": [
+    "상황",
+    "서버 동작",
+    "사용자 표시"
+   ],
+   "rows": [
+    [
+     "키 누락·401 / timeout·5xx",
+     "Adapter 비활성 또는 재시도 1회 후 캐시",
+     "‘연결 대기’·‘최근 확인 데이터 사용’ + 데이터 기준시각"
+    ],
+    [
+     "빈 관광 결과",
+     "정적 후보 5~10개로 대체",
+     "‘운영시간은 방문 전 확인’"
+    ],
+    [
+     "오래된 관측값(`STALE` 기준: 소스별 갱신 주기)",
+     "`STALE` 표시 후 판단 제외, 보수적 기본값 적용",
+     "데이터 기준시각 명시"
+    ],
+    [
+     "Kakao 경로 실패",
+     "등록 구간은 정적 이동 버퍼(운영 설정) + Google Maps URL",
+     "예상시간 한계 + 길찾기 버튼"
+    ],
+    [
+     "LLM 오류·스키마 불일치",
+     "결정 유지, 템플릿 설명",
+     "기본 설명으로 지속"
+    ],
+    [
+     "자연어 추출 실패",
+     "폼 입력으로 전환, LLM 미사용",
+     "항목 직접 입력 안내"
+    ]
+   ]
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "판단 제외 원칙: 경로 시간·정적 버퍼가 모두 없으면 확정 일정 보류(`CANCEL`)"
+  },
+  {
+   "t": "p",
+   "level": 3,
+   "text": "누락·`STALE` 관측은 표시 후 판단 제외 → 보수적 기본값(교통은 정적 여유, 대기·기상은 `INDOOR` 입력 제외), 대체는 `fallbackUsed=true` 기록"
+  },
+  {
+   "t": "p",
+   "level": 1,
+   "text": "기술 스택(예정)·3주 일정(9.21~10.12): 1주차 실호출 검증으로 위험 조기 해소"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "기술 스택(예정): PWA React+Vite+Workbox / 백엔드 FastAPI+httpx(병렬)+Pydantic / PostgreSQL(또는 SQLite)+캐시"
+  },
+  {
+   "t": "p",
+   "level": 3,
+   "text": "배포는 클라우드 컨테이너, API 키는 서버 환경변수(5절)"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "주차별 산출물·완료 기준(키 신청은 9.18 발표 직후 착수, 멘토링 피드백은 2주차 말 반영)"
+  },
+  {
+   "t": "table",
+   "caption": "3주 개발 일정",
+   "widths": [
+    10,
+    16,
+    42,
+    32
+   ],
+   "align": [
+    "c",
+    "c",
+    "l",
+    "l"
+   ],
+   "header": [
+    "주차",
+    "기간",
+    "산출물",
+    "완료 기준"
+   ],
+   "rows": [
+    [
+     "1주차",
+     "9.21~9.27",
+     "PWA 핵심 화면, `RacePlan`·페이스 계산, E-UM 2종·Kakao Adapter 실호출, 기상청·TourAPI mock",
+     "팀 통제: 공통 형식·mock 계약 고정 / 키 승인 시: E-UM 2종 HTTP 200·기대 필드, 장비 `id`·단위, Kakao 경로"
+    ],
+    [
+     "2주차",
+     "9.28~10.4",
+     "회복 관문·시간 예산 규칙, 후보 필터·정적 대체, LLM 구조화 출력·템플릿, 판단 화면·지도 URL",
+     "결정 테스트 ①~④ 통과, LLM 가드레일 테스트 4종 통과(템플릿 전환)"
+    ],
+    [
+     "3주차",
+     "10.5~10.12",
+     "replan API·재계산, 장애 시나리오 테스트, 데모 3종 시드, 러너 5명 과업 테스트",
+     "시나리오 3종 시연, 결정 테스트 ⑤~⑦ 통과, 출처·기준시각·비의료 문구·접근성 점검"
+    ]
+   ]
+  },
+  {
+   "t": "p",
+   "level": 3,
+   "text": "키 미승인 대비: 9.27까지 미승인 시 mock으로 2주차 진행, 승인 즉시 Adapter만 교체, 2주차 말 멘토링에서 재판정"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "팀 역할 4구분: 기획·검증 / 프런트 / 백엔드·AI / 디자인·발표"
+  },
+  {
+   "t": "p",
+   "level": 1,
+   "text": "검증 계획과 완료 기준: 계약·결정·사용성·데모 4단계"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "API 계약 테스트: E-UM 2종 HTTP 200·명세 필드, `serviceKey` 401 처리·비밀값 로그 미출력, 나머지 3종 스키마·실응답 비교"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "결정 테스트 7종: 시나리오별 기대 상태 코드 고정·자동 검증"
+  },
+  {
+   "t": "p",
+   "level": 3,
+   "text": "테스트 ①~④: 정상 → `GO` / 피로 높음 → `DELAY`·`SHORTEN` / 야외 불리 → `INDOOR` / 귀가 여유 부족 → `CANCEL`"
+  },
+  {
+   "t": "p",
+   "level": 3,
+   "text": "테스트 ⑤~⑦: 위험 증상 → 항상 `MEDICAL_FIRST` / 혼잡 갱신·일부 장애 → 재계산·캐시·정적 대체·한계 표시 / 웨어러블 없이 전체 여정"
+  },
+  {
+   "t": "p",
+   "level": 3,
+   "text": "LLM 가드레일 테스트 4종: 허용 외 장소 주입 / 금지 표현(‘탈수 진단’ 등) / 필수 키 누락 / 입력에 없는 수치 → 모두 템플릿 전환·결정 상태 불변 확인"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "사용성 검증: 러너 5명 과업 테스트 — 입력 이해도(추출 무수정)·결과 이해도(결정 이유·복귀 시각)·과업 완료"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "데모 완료 기준: E-UM 실제 호출 화면·실호출 로그 1회 이상, 관측 갱신에 따른 결정 변화 1회 이상, LLM 근거·변경 알림·일정 시각화, 시나리오 3종 동일 API"
+  }
+ ]
+}
