@@ -4,7 +4,7 @@ Usage: python3 validate_section.py sections/sec3.json
 Exits non-zero on structural errors. Prints stats (char count, tables, figures)."""
 import json, sys, re
 
-ALLOWED_T = {"p", "note", "table", "figure", "code", "box"}
+ALLOWED_T = {"p", "prose", "note", "table", "figure", "code", "box"}
 FIG_IDS = {"journey", "architecture", "sysarch", "dataflow"}
 FIG_SECTION = {"journey": 2, "architecture": 2, "sysarch": 3, "dataflow": 3}
 
@@ -40,6 +40,22 @@ def main(path):
             if lv is not None and prev_level and lv > prev_level + 1: warns.append(f"block {i}: level jumps from {prev_level} to {lv}")
             if lv: prev_level = lv
             chars += L
+            for flag in ("keep_next", "compact"):
+                if flag in b and not isinstance(b[flag], bool):
+                    errors.append(f"block {i}: {flag} must be boolean")
+        elif t == "prose":
+            txt = b.get("text", "")
+            if not isinstance(txt, str) or not txt.strip():
+                errors.append(f"block {i}: prose needs non-empty text")
+            else:
+                if re.match(r"^\s*[□○•※]", txt):
+                    errors.append(f"block {i}: prose must not start with a bullet marker")
+                chars += len(plain(txt))
+            if "level" in b:
+                errors.append(f"block {i}: prose must not have a bullet level")
+            if "keep_next" in b and not isinstance(b["keep_next"], bool):
+                errors.append(f"block {i}: keep_next must be boolean")
+            prev_level = 0
         elif t == "note":
             txt = b.get("text", "")
             if not txt.strip(): errors.append(f"block {i}: empty note")

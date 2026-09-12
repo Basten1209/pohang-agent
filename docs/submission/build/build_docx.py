@@ -4,7 +4,7 @@
 Base package: the previously submitted draft (draft_x/), which is the official form with
 붙임1 cleaned/filled and 붙임3 untouched. We keep those parts byte-identical and replace the
 붙임2 body (two page-tables in the draft) with one flowing content table rendered from
-sections/sec1..5.json (개조식 blocks).
+sections/sec1..5.json (개조식과 설명 문단).
 """
 import json, os, re, shutil, sys, zipfile, copy
 from xml.sax.saxutils import escape
@@ -153,9 +153,18 @@ def render_p(block, ctx):
     lv = block['level']
     st = BULLET[lv]
     runs = run(st['marker'], bold=st['bold'], size=st['size']) + tab_run() + inline_runs(block['text'], size=st['size'], bold=st['bold'])
-    keep_next = st['keep_next'] or ctx.get('force_keep_next', False)
-    return para(runs, left=st['left'], hanging=st['hanging'], before=st['before'], after=st['after'],
+    keep_next = st['keep_next'] or ctx.get('force_keep_next', False) or block.get('keep_next', False)
+    compact = block.get('compact', False)
+    return para(runs, left=st['left'], hanging=st['hanging'], before=st['before'],
+                after=0 if compact else st['after'], line=240 if compact else LINE,
                 keep_next=keep_next, tabs=[st['left']])
+
+
+def render_prose(block, ctx):
+    # Align with the level-2 bullet marker, without a marker or hanging indent.
+    # Long explanatory paragraphs may flow across pages with widow control.
+    return para(inline_runs(block['text']), left=284, before=0, after=80,
+                keep_next=block.get('keep_next', False) or ctx.get('force_keep_next', False))
 
 
 def render_note(block, ctx):
@@ -257,7 +266,7 @@ def render_code(block, ctx):
     return ''.join(out) + spacer(after=60)
 
 
-RENDER = {'p': render_p, 'note': render_note, 'box': render_box, 'table': render_table, 'figure': render_figure, 'code': render_code}
+RENDER = {'p': render_p, 'prose': render_prose, 'note': render_note, 'box': render_box, 'table': render_table, 'figure': render_figure, 'code': render_code}
 
 
 def render_sections(sections, ctx):

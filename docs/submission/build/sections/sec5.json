@@ -5,7 +5,7 @@
   {
    "t": "p",
    "level": 1,
-   "text": "안전·윤리 원칙: 의료 진단·안전 보장 없음, 위험 증상은 규칙이 중단"
+   "text": "안전·윤리 원칙: 의료 진단·안전 보장 없음, 위험 증상 입력 시 관광 생성 중단"
   },
   {
    "t": "p",
@@ -15,7 +15,7 @@
   {
    "t": "p",
    "level": 3,
-   "text": "금지 표현 ‘탈수 진단’·‘심장 이상 감지’·‘안전 보장’ → 권장 표현 ‘운동부하가 높게 관찰됨’·‘휴식 또는 의료부스 방문 권고’·‘현재 조건에서 관광 비추천’"
+   "text": "금지 표현 ‘탈수 진단’·‘심장 이상 감지’·‘안전 보장’ → 권장 표현 ‘입력한 컨디션을 고려해 휴식 권고’·‘휴식 또는 의료부스 방문 권고’·‘현재 조건에서 관광 비추천’"
   },
   {
    "t": "p",
@@ -25,7 +25,7 @@
   {
    "t": "p",
    "level": 2,
-   "text": "데이터 한계 공개(3절과 동일): 누락·`STALE` 관측은 표시 후 판단 제외(보수적 기본값), 경로 시간 없으면 일정 보류(`CANCEL`)"
+   "text": "데이터 한계 공개(3절과 동일): 누락·`STALE`은 판단에서 제외하고 대체 여부·한계 표시, 경로 ETA·캐시·정적 이동 버퍼 모두 없으면 `CANCEL`"
   },
   {
    "t": "p",
@@ -35,7 +35,7 @@
   {
    "t": "p",
    "level": 2,
-   "text": "위치는 장소 단위로 일시 사용(**원본 위치 이력** 미저장), 자가 컨디션은 상태 코드만, 자연어 원문 장기 저장 없음"
+   "text": "위치는 장소 단위로 일시 사용(**원본 위치 이력** 미저장), 자가 컨디션은 상태 코드만 저장, 자연어 원문은 장기 저장하지 않음"
   },
   {
    "t": "p",
@@ -55,7 +55,12 @@
   {
    "t": "p",
    "level": 1,
-   "text": "리스크와 대응: 외부 의존은 대체 경로, 지연 시 확장 항목부터 제외"
+   "text": "적용·운영 제약과 대응: 장애 시 대체 경로, 개발 지연 시 확장 항목 제외"
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "효과 해석의 한계(3절과 동일): 웨어러블·대중교통 실시간·공식 기록 자동 연동은 확장 항목으로, 현재 기대효과의 전제에서 제외"
   },
   {
    "t": "p",
@@ -104,7 +109,7 @@
     [
      "LLM 출력 오류·스키마 불일치",
      "설명 누락, 금지 표현 노출",
-     "JSON 스키마·Pydantic 재검증 + 가드레일 테스트 4종(허용 외 장소·금지 표현·필수 키·새 수치) / 실패 시 결정 유지·템플릿 설명"
+     "JSON 스키마·Pydantic 재검증 + 가드레일 테스트 4종(허용 외 장소 추천·금지 표현·필수 키·새 수치) / 실패 시 결정 유지·템플릿 설명"
     ],
     [
      "관광 운영정보 부정확·빈 결과",
@@ -126,72 +131,97 @@
   {
    "t": "p",
    "level": 1,
-   "text": "현재 준비 상태와 정직한 한계: 설계·API 명세 초안 완료, 실호출은 1주차 검증"
+   "text": "참고자료: 정책 [1], 데이터 [2]~[6], 대회 [7], 러닝·관광 사례 [8]~[15]"
   },
   {
    "t": "p",
    "level": 2,
-   "text": "미검증: 외부 API **실호출** 현재 없음 → 1주차 E-UM 2종 실응답·장비 `id`·단위, Kakao 경로 검증"
-  },
-  {
-   "t": "p",
-   "level": 3,
-   "text": "E-UM 이용 신청: 기존 계정에서 활용분야 관광·목적 학술/연구로 9.18 직후 신청(현재 승인 전)"
+   "text": "[1] 포항시의회 제332회 회의록(2026.7.22) `council.pohang.go.kr/mnts/cnts/mnt/mntsViewer.php?schSn=6049`",
+   "compact": true
   },
   {
    "t": "p",
    "level": 2,
-   "text": "시연 점검 7항목(3절 결정 테스트 ①~⑦·장애 정책과 1:1 대응)"
-  },
-  {
-   "t": "p",
-   "level": 3,
-   "text": "정상 `GO`(①) / 시간 부족 `SHORTEN`·`CANCEL`(②·④) / 야외 불리 `INDOOR`(③) / 위험 증상 `MEDICAL_FIRST`(⑤) / 혼잡 갱신·API·경로 실패 대체(⑥) / 웨어러블 없이 전체 여정(⑦) / LLM 오류 템플릿"
+   "text": "[2] E-UM 디지털트윈 포항 API 자료실, 교통 혼잡 `INT_S07_005` 명세 `pohang-eum.kr/data/list/detail/INT_S07_005`",
+   "compact": true
   },
   {
    "t": "p",
    "level": 2,
-   "text": "MVP 제외(3절과 동일): 웨어러블·대중교통 실시간·공식 기록 자동 연동 전제 효과 미주장"
-  },
-  {
-   "t": "p",
-   "level": 1,
-   "text": "참고자료: 정책 [1], 데이터 명세 [2]~[6], 대회 요건 [7]"
+   "text": "[3] E-UM 디지털트윈 포항 API 자료실, 대기환경 실시간 `INT_S01_004` 명세 `pohang-eum.kr/data/list/detail/INT_S01_004`",
+   "compact": true
   },
   {
    "t": "p",
    "level": 2,
-   "text": "[1] 포항시의회 제332회 회의록(2026.7.22) `council.pohang.go.kr/mnts/cnts/mnt/mntsViewer.php?schSn=6049`"
+   "text": "[4] Kakao Mobility 길찾기 API 가이드 `developers.kakaomobility.com/guide/navi-api/directions.html`",
+   "compact": true
   },
   {
    "t": "p",
    "level": 2,
-   "text": "[2] E-UM 디지털트윈 포항 API 자료실, 교통 혼잡 `INT_S07_005` 명세 `pohang-eum.kr/data/list/detail/INT_S07_005`"
+   "text": "[5] 한국관광공사 TourAPI 국문 관광정보 서비스(공공데이터포털) `data.go.kr/tcs/dss/selectApiDataDetailView.do?publicDataPk=15101578`",
+   "compact": true
   },
   {
    "t": "p",
    "level": 2,
-   "text": "[3] E-UM 디지털트윈 포항 API 자료실, 대기환경 실시간 `INT_S01_004` 명세 `pohang-eum.kr/data/list/detail/INT_S01_004`"
+   "text": "[6] 기상청 단기예보 조회서비스(공공데이터포털) `data.go.kr/data/15084084/openapi.do`",
+   "compact": true
   },
   {
    "t": "p",
    "level": 2,
-   "text": "[4] Kakao Mobility 길찾기 API 가이드 `developers.kakaomobility.com/guide/navi-api/directions.html`"
+   "text": "[7] 2026 디지털 트윈 구룡포 AI 해커톤 대회 안내(주최 측 자료)",
+   "compact": true
   },
   {
    "t": "p",
    "level": 2,
-   "text": "[5] 한국관광공사 TourAPI 국문 관광정보 서비스(공공데이터포털) `data.go.kr/tcs/dss/selectApiDataDetailView.do?publicDataPk=15101578`"
+   "text": "[8] 문화체육관광부, 2025년 국민생활체육조사(2026.1.20) `mcst.go.kr/site/s_policy/subPolicy/sportstour/sportstour29.jsp`",
+   "compact": true
   },
   {
    "t": "p",
    "level": 2,
-   "text": "[6] 기상청 단기예보 조회서비스(공공데이터포털) `data.go.kr/data/15084084/openapi.do`"
+   "text": "[9] 한국관광공사, 트렌드 트립 #7 런트립(2025.6.23) `datalab.visitkorea.or.kr/site/portal/ex/bbs/View.do?bcIdx=309226&cbIdx=1129`",
+   "compact": true
   },
   {
    "t": "p",
    "level": 2,
-   "text": "[7] 2026 디지털 트윈 구룡포 AI 해커톤 대회 안내(주최 측 자료)"
+   "text": "[10] 포항시 대회 개최 안내 보도(2026.4.24), 통일기원 포항마라톤의 송도·영일대 코스 `news.tf.co.kr/read/releasecopy/2316866.htm`",
+   "compact": true
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "[11] 경상북도, 2026 포항철강마라톤 개최 결과(2026.6.14) `inseri.gb.go.kr/Main/saemaul/page.do?mnu_uid=6792&cmd=2&B_NUM=508459301&B_STEP=508459300`",
+   "compact": true
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "[12] 경주시, 2026 경주벚꽃마라톤 개최 안내 `gyeongju.go.kr/news/page.do?mnu_uid=1342&parm_bod_uid=310262&step=258`",
+   "compact": true
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "[13] 제주관광협회, 제30회 국제관광마라톤축제 참여업체 모집(2026.3.13) `visitjeju.or.kr/visitjeju/comm/notice.htm?act=view&seq=58528`",
+   "compact": true
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "[14] 프레시안, 호미곶에서 열린 제20회 통일기원 포항해변마라톤대회 성료(2022.11.14) `pressian.com/pages/articles/2022111318233820703`",
+   "compact": true
+  },
+  {
+   "t": "p",
+   "level": 2,
+   "text": "[15] 한국관광공사, 호미곶·구룡포 여행기사(2018.12, 관광 자원 확인용) `korean.visitkorea.or.kr/detail/rem_detail.do?cotid=1a630749-2c55-4ead-b296-1762de6ca640`",
+   "compact": true
   }
  ]
 }
