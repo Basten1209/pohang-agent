@@ -2,6 +2,14 @@
 
 완주 후 구룡포에 들렀다 포항역으로 돌아오는 러너를 위한 모바일 PWA입니다. 기획·명세는 [`docs/`](../docs)를, 이전 Vite+Express 데모는 저장소 루트를 참고하세요.
 
+## 화면 (iPhone 13 기준)
+
+| 내 하루 만들기 | 구룡포 코스 | 에이전트 미리보기 | 다음 행동 |
+| --- | --- | --- | --- |
+| ![](docs/screenshots/1-내하루만들기.png) | ![](docs/screenshots/3-구룡포코스.png) | ![](docs/screenshots/4-에이전트-미리보기.png) | ![](docs/screenshots/6-다음행동.png) |
+
+나머지: [데모 컨트롤](docs/screenshots/2-데모컨트롤.png) · [변경 적용 후](docs/screenshots/5-변경적용후.png). 키 없이 실행한 화면이라 에이전트 응답에 "시연 응답" 배지가 붙어 있습니다.
+
 ## 실행
 
 Node.js 22.12 이상이 필요합니다.
