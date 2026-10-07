@@ -1,5 +1,7 @@
 # RUN2구룡포 — 완주 다음의 여행
 
+> **새 구현: [`web/`](web/README.md)** — TanStack Start · shadcn · Vercel AI SDK · 모바일 PWA로 다시 만든 버전입니다. 결정 엔진·설정·이벤트는 jsonb 기반으로 확장할 수 있습니다. 아래는 이전 Vite+Express 데모 설명이며 비교용으로 남겨 두었습니다.
+
 서울에서 기차로 온 10km 러너가 완주 후 구룡포에 들렀다가 포항역으로 돌아오는 **로컬 실행 데모**입니다. 최신 [여정 기획](docs/run2-guryongpo-hackathon-journey.md)과 [사용자 동작·API 명세](docs/run2-guryongpo-atomic-spec.md)를 기준으로 만들었습니다.
 
 ## 실행

@@ -1,0 +1,7 @@
+{$DOMAIN} {
+	encode zstd gzip
+	# Chat responses stream (SSE); never buffer them.
+	reverse_proxy app:3000 {
+		flush_interval -1
+	}
+}

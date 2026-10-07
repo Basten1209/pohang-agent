@@ -1,0 +1,117 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap');
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@source '../node_modules/streamdown/dist/*.js';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * shadcn tokens mapped onto the RUN2구룡포 palette:
+ * ink #203f42 · teal #244c50 · harbour orange #d78258 · lime #e7efad · paper #f8f9f5
+ */
+:root {
+  --radius: 1rem;
+  --background: oklch(0.982 0.005 120);
+  --foreground: oklch(0.33 0.035 200);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.33 0.035 200);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.33 0.035 200);
+  --primary: oklch(0.38 0.045 200);
+  --primary-foreground: oklch(0.985 0.005 120);
+  --secondary: oklch(0.95 0.012 130);
+  --secondary-foreground: oklch(0.33 0.035 200);
+  --muted: oklch(0.955 0.008 130);
+  --muted-foreground: oklch(0.6 0.015 170);
+  --accent: oklch(0.93 0.09 115);
+  --accent-foreground: oklch(0.3 0.04 200);
+  --destructive: oklch(0.58 0.2 27);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.92 0.01 130);
+  --input: oklch(0.9 0.012 130);
+  --ring: oklch(0.55 0.06 200);
+  --chart-1: oklch(0.7 0.11 50);
+  --chart-2: oklch(0.45 0.05 200);
+  --chart-3: oklch(0.86 0.1 115);
+  --chart-4: oklch(0.65 0.08 180);
+  --chart-5: oklch(0.6 0.15 30);
+  --harbor: oklch(0.7 0.11 50);
+  --harbor-foreground: oklch(0.99 0 0);
+  --lime: oklch(0.93 0.09 115);
+  --lime-foreground: oklch(0.3 0.04 200);
+  --sidebar: oklch(0.38 0.045 200);
+  --sidebar-foreground: oklch(0.985 0.005 120);
+  --sidebar-primary: oklch(0.93 0.09 115);
+  --sidebar-primary-foreground: oklch(0.3 0.04 200);
+  --sidebar-accent: oklch(0.44 0.045 200);
+  --sidebar-accent-foreground: oklch(0.985 0.005 120);
+  --sidebar-border: oklch(0.45 0.04 200);
+  --sidebar-ring: oklch(0.93 0.09 115);
+}
+
+@theme inline {
+  --font-sans: 'DM Sans', 'Noto Sans KR', ui-sans-serif, system-ui, sans-serif;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-harbor: var(--harbor);
+  --color-harbor-foreground: var(--harbor-foreground);
+  --color-lime: var(--lime);
+  --color-lime-foreground: var(--lime-foreground);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    word-break: keep-all;
+    overscroll-behavior-y: none;
+  }
+}
+
+@utility pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
