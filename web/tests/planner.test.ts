@@ -6,6 +6,7 @@ import type { Observations, Plan, TripConfig } from '#/core/schema'
 import { planSchema } from '#/core/schema'
 import { clock } from '#/core/time'
 import { mapUrl } from '#/core/links'
+import { interpret } from '#/core/intents'
 
 const calculate = planner(seedConfig)
 const plan: Plan = { ...seedConfig.defaults.plan, condition: 'TIRED' }
@@ -182,5 +183,19 @@ describe('설정이 곧 정책 (jsonb 확장)', () => {
     const r = planner(noCafe)(plan, obs)
     expect(r.stops.map((s) => s.id)).toEqual(['food', 'street'])
     expect(r.excluded).toEqual([])
+  })
+})
+
+describe('열차 시각 읽기', () => {
+  it.each([
+    ['18시 30분 기차예요', '18:30'],
+    ['18시30분 열차', '18:30'],
+    ['오후 6시 반 기차', '18:30'],
+    ['18:05 기차로 바뀌었어', '18:05'],
+    ['16시 기차로 바뀌었어요', '16:00'],
+  ])('%s → %s', (text, time) => {
+    const intent = interpret(text)
+    expect(intent.kind).toBe('CHANGE')
+    if (intent.kind === 'CHANGE') expect(intent.changes.trainTime).toBe(time)
   })
 })

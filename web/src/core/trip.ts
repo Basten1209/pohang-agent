@@ -19,7 +19,8 @@ export const tripStateSchema = z.object({
   screen: screenSchema,
   plan: planSchema,
   observations: observationsSchema,
-  phase: z.number().int().min(0).max(2),
+  /** 0 before arrival · 1 in Pohang · 2 running · 3 finished the race */
+  phase: z.number().int().min(0).max(3),
   candidate: z.boolean(),
   checks: z.array(z.boolean()).length(3),
   created: z.boolean(),
@@ -37,16 +38,29 @@ export const initialTrip = (config: TripConfig): TripState => ({
   created: false,
 })
 
-export type TripEvent =
-  | { type: 'plan.patched'; patch: Partial<Plan> }
-  | { type: 'observations.patched'; patch: Partial<Observations> }
-  | { type: 'readings.patched'; readings: Record<string, number | null> }
-  | { type: 'screen.changed'; screen: Screen }
-  | { type: 'trip.created' }
-  | { type: 'day.advanced'; phase: number }
-  | { type: 'day.checkToggled'; index: number }
-  | { type: 'candidate.toggled' }
-  | { type: 'trip.reset'; plan: Plan; observations: Observations }
+/** Events are validated at the server boundary, so they have a schema, not just a type. */
+export const tripEventSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('plan.patched'), patch: planSchema.partial() }),
+  z.object({
+    type: z.literal('observations.patched'),
+    patch: observationsSchema.partial(),
+  }),
+  z.object({
+    type: z.literal('readings.patched'),
+    readings: z.record(z.string(), z.number().finite().nullable()),
+  }),
+  z.object({ type: z.literal('screen.changed'), screen: screenSchema }),
+  z.object({ type: z.literal('trip.created') }),
+  z.object({ type: z.literal('day.advanced'), phase: z.number().int() }),
+  z.object({ type: z.literal('day.checkToggled'), index: z.number().int() }),
+  z.object({ type: z.literal('candidate.toggled') }),
+  z.object({
+    type: z.literal('trip.reset'),
+    plan: planSchema,
+    observations: observationsSchema,
+  }),
+])
+export type TripEvent = z.infer<typeof tripEventSchema>
 
 type Handlers = {
   [K in TripEvent['type']]: (
@@ -75,7 +89,7 @@ const handlers: Handlers = {
     }),
   'screen.changed': (s, e) => ({ ...s, screen: e.screen }),
   'trip.created': (s) => ({ ...s, created: true }),
-  'day.advanced': (s, e) => ({ ...s, phase: clamp(0, 2)(e.phase) }),
+  'day.advanced': (s, e) => ({ ...s, phase: clamp(0, 3)(e.phase) }),
   'day.checkToggled': (s, e) => ({
     ...s,
     checks: s.checks.map((c, i) => (i === e.index ? !c : c)),

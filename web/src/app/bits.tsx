@@ -9,6 +9,14 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+  FieldTitle,
+} from '@/components/ui/field'
+import { RadioGroupItem } from '@/components/ui/radio-group'
 
 /** Place icons are named in config (`attrs.icon`); unknown names fall back to a pin. */
 const icons: Record<string, LucideIcon> = {
@@ -43,4 +51,27 @@ export const PageHeader = ({
     </div>
     {action}
   </div>
+)
+
+/** One option of a RadioGroup, as a full-width choice card. */
+export const Choice = ({
+  id,
+  value,
+  title,
+  description,
+}: {
+  id: string
+  value: string
+  title: string
+  description?: string
+}) => (
+  <FieldLabel htmlFor={id}>
+    <Field orientation="horizontal">
+      <FieldContent>
+        <FieldTitle>{title}</FieldTitle>
+        {description && <FieldDescription>{description}</FieldDescription>}
+      </FieldContent>
+      <RadioGroupItem value={value} id={id} />
+    </Field>
+  </FieldLabel>
 )

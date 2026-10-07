@@ -37,13 +37,11 @@ import {
 } from '@/components/ui/empty'
 import {
   Field,
-  FieldContent,
   FieldDescription,
   FieldGroup,
   FieldLabel,
   FieldLegend,
   FieldSet,
-  FieldTitle,
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
@@ -54,7 +52,7 @@ import {
   ItemMedia,
   ItemTitle,
 } from '@/components/ui/item'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { RadioGroup } from '@/components/ui/radio-group'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { canTravel } from '#/core/planner'
 import type { Decision } from '#/core/planner'
@@ -69,8 +67,7 @@ import {
   skipStop,
   startReturn,
 } from '#/core/trip'
-import { AgentPanel } from './agent-panel'
-import { PageHeader, PlaceIcon } from './bits'
+import { Choice, PageHeader, PlaceIcon } from './bits'
 import {
   AdjustCard,
   ItineraryCard,
@@ -96,28 +93,6 @@ const Columns = ({ main, rail }: { main: ReactNode; rail: ReactNode }) => (
 )
 
 /** A radio option rendered as shadcn's choice card (FieldLabel > Field). */
-const Choice = ({
-  id,
-  value,
-  title,
-  description,
-}: {
-  id: string
-  value: string
-  title: string
-  description?: string
-}) => (
-  <FieldLabel htmlFor={id}>
-    <Field orientation="horizontal">
-      <FieldContent>
-        <FieldTitle>{title}</FieldTitle>
-        {description && <FieldDescription>{description}</FieldDescription>}
-      </FieldContent>
-      <RadioGroupItem value={value} id={id} />
-    </Field>
-  </FieldLabel>
-)
-
 // ── S1 내 하루 만들기 ─────────────────────────────────────────────────────
 
 export const PlanScreen = () => {
@@ -582,7 +557,6 @@ export const CourseScreen = () => {
           <>
             <TrainCard />
             <AdjustCard />
-            <AgentPanel />
             <Button className="hidden lg:flex" disabled={!travel} onClick={() => run(accept(state, it))}>
               이 코스로 갈게요 <ArrowRight />
             </Button>
@@ -727,7 +701,6 @@ export const NextScreen = () => {
         rail={
           <>
             <TrainCard />
-            <AgentPanel />
             <Button variant="outline" onClick={() => run(startReturn(state))}>
               <TrainFront /> 포항역으로 돌아가기
             </Button>

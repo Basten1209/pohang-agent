@@ -47,13 +47,15 @@ const emptyChanges: Changes = {
 type Extractor = (message: string) => Partial<Changes> | 'CLARIFY'
 
 const trainTime: Extractor = (message) => {
-  const m = message.match(/(\d{1,2})(?:시|:)(?:(\d{2})(?:분)?)?/)
+  // 18:30 · 18시 30분 · 18시30분 · 18시 반
+  const m = message.match(/(\d{1,2})(?:시\s*(?:(\d{1,2})분|(반))?|:(\d{2}))/)
   if (!m) return {}
+  const minute = m[2] ? m[2].padStart(2, '0') : m[3] ? '30' : (m[4] ?? '00')
   let hour = Number(m[1])
   if (hour <= 12 && !/오후|오전/.test(message)) return 'CLARIFY'
   if (/오후/.test(message) && hour < 12) hour += 12
   if (/오전/.test(message) && hour === 12) hour = 0
-  const value = `${String(hour).padStart(2, '0')}:${m[2] || '00'}`
+  const value = `${String(hour).padStart(2, '0')}:${minute}`
   return timeSchema.safeParse(value).success ? { trainTime: value } : 'CLARIFY'
 }
 

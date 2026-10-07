@@ -52,9 +52,15 @@ export const places = pgTable(
 )
 
 /** Latest folded state per trip (a cache of `trip_events`). */
+/**
+ * One row per trip: the folded state (the server is the source of truth),
+ * the conversation as AI SDK UIMessages, and harness bookkeeping in `meta`
+ * (ingested tool calls, stored previews).
+ */
 export const trips = pgTable('trips', {
   id: uuid('id').primaryKey(),
   state: jsonb('state').$type<unknown>(),
+  messages: jsonb('messages').$type<unknown[]>().notNull().default([]),
   meta: meta(),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
@@ -124,6 +130,7 @@ export const bootstrapStatements = [
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
   )`,
+  `ALTER TABLE trips ADD COLUMN IF NOT EXISTS messages jsonb NOT NULL DEFAULT '[]'::jsonb`,
   `CREATE TABLE IF NOT EXISTS trip_events (
     id bigserial PRIMARY KEY,
     trip_id uuid NOT NULL,

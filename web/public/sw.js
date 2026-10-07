@@ -8,8 +8,8 @@
  *   - images / icons    → stale-while-revalidate
  * Bump VERSION to drop old caches.
  */
-const VERSION = 'run2-v1'
-const SHELL = ['/', '/manifest.webmanifest', '/favicon.svg', '/icons/icon-192.png']
+const VERSION = 'run2-v2'
+const SHELL = ['/', '/classic', '/manifest.webmanifest', '/favicon.svg', '/icons/icon-192.png']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

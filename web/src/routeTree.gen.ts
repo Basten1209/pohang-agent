@@ -10,15 +10,21 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ClassicRouteImport } from './routes/classic'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiConfigRouteImport } from './routes/api/config'
 import { Route as ApiEvidenceRouteImport } from './routes/api/evidence'
 import { Route as ApiStatusRouteImport } from './routes/api/status'
-import { Route as ApiTripsTripIdEventsRouteImport } from './routes/api/trips.$tripId.events'
+import { Route as ApiTripsTripIdRouteImport } from './routes/api/trips.$tripId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClassicRoute = ClassicRouteImport.update({
+  id: '/classic',
+  path: '/classic',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiChatRoute = ApiChatRouteImport.update({
@@ -41,71 +47,78 @@ const ApiStatusRoute = ApiStatusRouteImport.update({
   path: '/api/status',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiTripsTripIdEventsRoute = ApiTripsTripIdEventsRouteImport.update({
-  id: '/api/trips/$tripId/events',
-  path: '/api/trips/$tripId/events',
+const ApiTripsTripIdRoute = ApiTripsTripIdRouteImport.update({
+  id: '/api/trips/$tripId',
+  path: '/api/trips/$tripId',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/classic': typeof ClassicRoute
   '/api/chat': typeof ApiChatRoute
   '/api/config': typeof ApiConfigRoute
   '/api/evidence': typeof ApiEvidenceRoute
   '/api/status': typeof ApiStatusRoute
-  '/api/trips/$tripId/events': typeof ApiTripsTripIdEventsRoute
+  '/api/trips/$tripId': typeof ApiTripsTripIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/classic': typeof ClassicRoute
   '/api/chat': typeof ApiChatRoute
   '/api/config': typeof ApiConfigRoute
   '/api/evidence': typeof ApiEvidenceRoute
   '/api/status': typeof ApiStatusRoute
-  '/api/trips/$tripId/events': typeof ApiTripsTripIdEventsRoute
+  '/api/trips/$tripId': typeof ApiTripsTripIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/classic': typeof ClassicRoute
   '/api/chat': typeof ApiChatRoute
   '/api/config': typeof ApiConfigRoute
   '/api/evidence': typeof ApiEvidenceRoute
   '/api/status': typeof ApiStatusRoute
-  '/api/trips/$tripId/events': typeof ApiTripsTripIdEventsRoute
+  '/api/trips/$tripId': typeof ApiTripsTripIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/classic'
     | '/api/chat'
     | '/api/config'
     | '/api/evidence'
     | '/api/status'
-    | '/api/trips/$tripId/events'
+    | '/api/trips/$tripId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/classic'
     | '/api/chat'
     | '/api/config'
     | '/api/evidence'
     | '/api/status'
-    | '/api/trips/$tripId/events'
+    | '/api/trips/$tripId'
   id:
     | '__root__'
     | '/'
+    | '/classic'
     | '/api/chat'
     | '/api/config'
     | '/api/evidence'
     | '/api/status'
-    | '/api/trips/$tripId/events'
+    | '/api/trips/$tripId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ClassicRoute: typeof ClassicRoute
   ApiChatRoute: typeof ApiChatRoute
   ApiConfigRoute: typeof ApiConfigRoute
   ApiEvidenceRoute: typeof ApiEvidenceRoute
   ApiStatusRoute: typeof ApiStatusRoute
-  ApiTripsTripIdEventsRoute: typeof ApiTripsTripIdEventsRoute
+  ApiTripsTripIdRoute: typeof ApiTripsTripIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -115,6 +128,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/classic': {
+      id: '/classic'
+      path: '/classic'
+      fullPath: '/classic'
+      preLoaderRoute: typeof ClassicRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/chat': {
@@ -145,11 +165,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/trips/$tripId/events': {
-      id: '/api/trips/$tripId/events'
-      path: '/api/trips/$tripId/events'
-      fullPath: '/api/trips/$tripId/events'
-      preLoaderRoute: typeof ApiTripsTripIdEventsRouteImport
+    '/api/trips/$tripId': {
+      id: '/api/trips/$tripId'
+      path: '/api/trips/$tripId'
+      fullPath: '/api/trips/$tripId'
+      preLoaderRoute: typeof ApiTripsTripIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -157,11 +177,12 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ClassicRoute: ClassicRoute,
   ApiChatRoute: ApiChatRoute,
   ApiConfigRoute: ApiConfigRoute,
   ApiEvidenceRoute: ApiEvidenceRoute,
   ApiStatusRoute: ApiStatusRoute,
-  ApiTripsTripIdEventsRoute: ApiTripsTripIdEventsRoute,
+  ApiTripsTripIdRoute: ApiTripsTripIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -2,13 +2,15 @@
 
 완주 후 구룡포에 들렀다 포항역으로 돌아오는 러너를 위한 모바일 PWA입니다. 기획·명세는 [`docs/`](../docs)를, 이전 Vite+Express 데모는 저장소 루트를 참고하세요.
 
-## 화면 (iPhone 13 기준)
+## 화면 (iPhone 13 기준, 실제 모델로 진행)
 
-| 내 하루 만들기 | 구룡포 코스 | 에이전트 미리보기 | 다음 행동 |
-| --- | --- | --- | --- |
-| ![](docs/screenshots/1-내하루만들기.png) | ![](docs/screenshots/3-구룡포코스.png) | ![](docs/screenshots/4-에이전트-미리보기.png) | ![](docs/screenshots/6-다음행동.png) |
+앱 전체가 하나의 대화입니다. 일정 입력·완주 체크인·코스 변경·이동 안내가 모두 에이전트의 도구 호출이고, 입력이 필요한 순간에는 대화 안에 카드가 뜹니다.
 
-나머지: [데모 시나리오](docs/screenshots/2-데모컨트롤.png) · [변경 적용 후](docs/screenshots/5-변경적용후.png).
+| 일정 만들기 | 완주 후 | 변경 승인 | 이동 중 | 도착 |
+| --- | --- | --- | --- | --- |
+| ![](docs/screenshots/chat-1-일정.png) | ![](docs/screenshots/chat-2-완주후.png) | ![](docs/screenshots/chat-3-변경승인.png) | ![](docs/screenshots/chat-4-이동중.png) | ![](docs/screenshots/chat-5-도착.png) |
+
+화면 단위 UI는 `/classic`에 남겨 두었고, 같은 서버 여정을 읽고 씁니다: [하루 만들기](docs/screenshots/1-내하루만들기.png) · [데모 시나리오](docs/screenshots/2-데모컨트롤.png) · [코스](docs/screenshots/3-구룡포코스.png) · [다음 행동](docs/screenshots/6-다음행동.png).
 
 ## 실행
 
@@ -62,33 +64,46 @@ SELECT payload #>> '{patch,trainTime}' FROM trip_events WHERE payload -> 'patch'
 | --- | --- | --- |
 | `app_config` | key, version | `value`(policy·sources·agent·scenarios·anchors·defaults), `meta` |
 | `places` | id, kind, sort, active | `attrs`(이름·설명·좌표·야외 여부·아이콘…), `meta`(출처·검증 상태) |
-| `trips` | id | `state`(최신 접힌 상태), `meta` |
+| `trips` | id | `state`(최신 접힌 상태 — 서버가 단일 원천), `messages`(AI SDK UIMessage 대화), `meta`(적용한 카드 id·변경 미리보기) |
 | `trip_events` | trip_id, type, created_at | `payload`(이벤트 본문), `meta` — append-only, GIN 인덱스 |
 | `observation_snapshots` | source_id, status, observed_at | `payload`(허용 필드만), `meta` — 실응답 스냅샷 재생용 |
 
 ## Agent 흐름
 
+설계: [`docs/agent-ux.md`](docs/agent-ux.md). 한 턴은 `src/server/agent/harness.ts`의 `runTurn` 하나입니다.
+
 ```
-요청 → 게이트(증상·UNWELL → 의료 우선 / 컨디션 미응답) — 모델·외부 호출 0회
-     → 모델(gpt-6-luna) + 도구: get_plan_context · refresh_trip_context · compare_transport · preview_itinerary
-        · 질문/비교 문장에는 preview_itinerary를 아예 제공하지 않음(activeTools)
-        · 턴당 모델 4단계, 도구 3회, 20초 — config.agent
-        · 모델 출력은 끝까지 버퍼링; 실패하면 버리고
-     → 결정적 해석기(같은 도구 함수)로 응답, metadata.mode = FALLBACK
+클라이언트 → 마지막 메시지 1개만 전송 (사용자 문장, 또는 카드 답·승인이 담긴 assistant 메시지)
+서버      → 저장된 대화에 병합 (클라이언트는 새 문장과 열린 카드의 답·승인만 바꿀 수 있음)
+          → 카드 답을 이벤트로 결정적 적용 (모델이 폼 값을 옮겨 적지 않음)
+          → 안전 게이트: 증상 언급 → SAFETY, 모델 호출 0
+          → ToolLoopAgent (prepareStep마다)
+               · 단계(stage)별 activeTools — 질문 문장이면 커밋 도구 제외
+               · 강제 도구 — 완주 → ask_condition, 계획 진입 → plan_course,
+                 변경 미리보기 → apply_plan_change(승인 카드)
+               · 지시문 = 기본 원칙 + 단계 지시 + 여정 요약
+               · toolApproval: 계획 변경은 항상 사용자 승인(HMAC 서명), "이 코스로 갈게요"는 자동 승인
+          → 단계가 기다리는 카드가 없으면 하네스가 붙임 (await_progress 등)
+          → data-trip(요약 바), 대화·meta 저장
 ```
 
-화면의 시간·코스·이유는 항상 결정 엔진의 구조화된 출력에서 그립니다. 모델 문장은 설명일 뿐이고, 변경은 미리보기 카드의 **이 변경 적용하기**로만 반영됩니다.
+도구는 세 종류입니다. **Ask**(`ask_trip_basics`, `ask_condition`, `ask_quick_reply`, `await_progress`)는 `execute`가 없어 루프가 멈추고 카드가 뜹니다. **Read**(`plan_course`, `explain_plan`, `check_live_conditions`, `compare_transport`, `summarize_trip`, `show_safety_help`)는 여정을 바꾸지 않습니다. **Commit**(`record_race_progress`, `apply_plan_change`, `start_journey`, `set_demo_observation`)만 이벤트를 남깁니다.
+
+키가 없거나 모델 호출이 실패하면 같은 하네스에서 규칙 기반 `LanguageModelV4`(`scripted-model.ts`)가 응답합니다. 도구·승인·카드·저장이 모두 같고 모델만 바뀝니다(헤더 배지: AI / 규칙 모델 / 규칙 모델(대체)).
+
+시연 조건은 채팅에 `/시연 혼잡만 82%로`처럼 보내거나 헤더 메뉴 → 시연 조건에서 고릅니다.
 
 ## 환경 변수와 키 보관
 
 | 변수 | 용도 |
 | --- | --- |
-| `OPENAI_API_KEY` | 없으면 결정적 시연 모드 |
+| `OPENAI_API_KEY` | 없으면 같은 하네스가 규칙 기반 모델로 동작 |
 | `OPENAI_MODEL` | 기본은 설정의 `agent.model`(gpt-6-luna) |
 | `EUM_SERVICE_KEY` | pohang-eum.kr → 마이페이지 → 나의 API의 인증키 |
 | `EUM_AIR_DEVICE_ID` | INT_S01_004 대기 장비 id |
 | `DATABASE_URL` | 있으면 PostgreSQL, 없으면 PGlite |
 | `PGLITE_DIR` | 프로덕션에서 PGlite를 디스크에 보존(GCP: `/data/pglite`) |
+| `AGENT_APPROVAL_SECRET` | 변경 승인 서명 키(선택, 없으면 `OPENAI_API_KEY`에서 유도) |
 
 키는 서버 코드에서만 읽습니다. `VITE_` 접두사를 붙이면 브라우저 번들에 들어가므로 절대 붙이지 마세요.
 
@@ -111,10 +126,12 @@ SELECT payload #>> '{patch,trainTime}' FROM trip_events WHERE payload -> 'patch'
 ## 구조
 
 ```text
-src/core/        순수 함수: schema · defaults(시드 설정) · planner · signals · trip(이벤트) · intents · preview · evidence · links · fp
-src/server/      DB(drizzle 스키마·PGlite/pg·repo) · config(시드⊕jsonb⊕env) · agent(tools·agent·model) · sources(E-UM)
-src/routes/      / (앱, client-only) · /api/chat · /api/config · /api/evidence · /api/status · /api/trips/$tripId/events
-src/app/         화면: use-trip(이벤트 저장소) · screens · cards · sheets · agent-panel
+src/core/        순수 함수: schema · defaults(시드 설정) · planner · signals · trip(이벤트) · stage(대화 단계) · view · intents · preview · evidence · links · fp
+src/server/      DB(drizzle·PGlite/pg·repo) · trips(여정 저장·commit) · config(시드⊕jsonb⊕env) · sources(E-UM)
+src/server/agent harness(턴 루프) · tools(Ask/Read/Commit) · ingest(카드 답→이벤트) · prompts · scripted-model · model
+src/routes/      / (채팅) · /classic (화면) · /api/chat · /api/trips/$tripId · /api/config · /api/evidence · /api/status
+src/chat/        chat(useChat·헤더·입력) · cards(도구별 카드)
+src/app/         classic 화면 · trip-client(여정 id·서버 호출·오프라인 캐시) · use-trip
 src/components/  shadcn/ui · ai-elements (레지스트리 원본, 수정 없음)
-tests/           planner(D01–D08) · trip · agent(Mock LanguageModelV4) · db(PGlite jsonb) · evidence
+tests/           planner(D01–D08) · trip · db(PGlite jsonb) · evidence · harness(대화 전체 e2e·도구 통제·대체 모델)
 ```
