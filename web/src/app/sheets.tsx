@@ -1,141 +1,133 @@
-import {
-  ArrowRight,
-  ArrowUpRight,
-  BusFront,
-  CheckCircle2,
-  ChevronRight,
-  CircleHelp,
-  Clock3,
-  Navigation,
-  Radio,
-  RotateCcw,
-} from 'lucide-react'
+import { ArrowUpRight, ChevronRight, RotateCcw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Badge } from '#/components/ui/badge'
-import { Button } from '#/components/ui/button'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Drawer,
   DrawerContent,
   DrawerDescription,
+  DrawerFooter,
   DrawerHeader,
   DrawerTitle,
-} from '#/components/ui/drawer'
-import { Input } from '#/components/ui/input'
-import { Label } from '#/components/ui/label'
-import { Skeleton } from '#/components/ui/skeleton'
+} from '@/components/ui/drawer'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from '@/components/ui/item'
+import { Separator } from '@/components/ui/separator'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import type { Evidence } from '#/core/evidence'
 import { clock } from '#/core/time'
 import { changeTrain, runScenario } from '#/core/trip'
-import { cn } from '#/lib/utils'
-import { Eyebrow, PlaceIcon } from './bits'
 import { useApp } from './context'
 import type { Sheet } from './context'
 
-const titleOf = (sheet: Sheet, placeName?: string) =>
-  sheet === 'demo'
-    ? '데모 컨트롤'
-    : sheet === 'evidence'
-      ? '데이터와 연결 상태'
-      : sheet === 'train'
-        ? '귀가 열차 시각 변경'
-        : sheet === 'taxi'
-          ? '포항역 복귀 · 이동수단 비교'
-          : sheet === 'why'
-            ? '이 코스를 제안한 이유'
-            : (placeName ?? '')
+type SheetSpec = { title: string; description: string; body: ReactNode; footer?: ReactNode }
 
 export const Sheets = () => {
-  const { sheet, open, config } = useApp()
-  const place =
-    sheet && typeof sheet === 'object'
-      ? config.places.find((p) => p.id === sheet.place)
-      : undefined
-  const body: ReactNode =
-    sheet === 'demo' ? (
-      <DemoSheet />
-    ) : sheet === 'evidence' ? (
-      <EvidenceSheet />
-    ) : sheet === 'train' ? (
-      <TrainSheet />
-    ) : sheet === 'taxi' ? (
-      <TaxiSheet />
-    ) : sheet === 'why' ? (
-      <WhySheet />
-    ) : place ? (
-      <PlaceSheet id={place.id} />
-    ) : null
+  const { sheet, open } = useApp()
+  const spec = useSpec(sheet)
   return (
     <Drawer open={sheet !== null} onOpenChange={(o) => !o && open(null)}>
-      <DrawerContent className="mx-auto max-h-[92dvh] max-w-xl">
-        <DrawerHeader className="text-left">
-          <DrawerTitle className="text-lg font-extrabold text-primary">
-            {titleOf(sheet, place?.attrs.short)}
-          </DrawerTitle>
-          <DrawerDescription className="sr-only">
-            {titleOf(sheet, place?.attrs.short)}
-          </DrawerDescription>
-        </DrawerHeader>
-        <div className="space-y-4 overflow-y-auto px-4 pb-safe">{body}</div>
+      <DrawerContent className="mx-auto max-h-[90dvh] max-w-xl">
+        {spec && (
+          <>
+            <DrawerHeader>
+              <DrawerTitle>{spec.title}</DrawerTitle>
+              <DrawerDescription>{spec.description}</DrawerDescription>
+            </DrawerHeader>
+            <div className="flex flex-col gap-4 overflow-y-auto px-4">{spec.body}</div>
+            <DrawerFooter className="pb-safe">{spec.footer}</DrawerFooter>
+          </>
+        )}
       </DrawerContent>
     </Drawer>
   )
 }
 
-const Intro = ({ children }: { children: ReactNode }) => (
-  <p className="text-sm leading-relaxed text-muted-foreground">{children}</p>
-)
-
-const DemoSheet = () => {
-  const { config, state, run, open } = useApp()
-  const go = (id: string) => {
-    run(runScenario(config, state, id))
-    open(null)
+/** Sheet id → title, description, body. */
+const useSpec = (sheet: Sheet): SheetSpec | null => {
+  const { config } = useApp()
+  if (sheet === 'demo')
+    return { title: '데모 시나리오', description: '설정(jsonb)에 저장된 시연 조건을 적용해요.', ...demo() }
+  if (sheet === 'evidence')
+    return { title: '데이터와 연결 상태', description: '시연 관측과 실제 연결을 구분해서 보여줘요.', body: <EvidenceBody /> }
+  if (sheet === 'train')
+    return { title: '귀가 열차 시각', description: '10월 13일 포항역 출발. 실제 예약은 바뀌지 않아요.', body: <TrainBody /> }
+  if (sheet === 'taxi')
+    return { title: '포항역 복귀 이동수단', description: '비교만 하고 선택은 바꾸지 않아요.', body: <TaxiBody /> }
+  if (sheet === 'why')
+    return { title: '계산 근거', description: '입력한 조건과 결정 엔진의 계산이에요.', body: <WhyBody /> }
+  if (sheet && typeof sheet === 'object') {
+    const place = config.places.find((p) => p.id === sheet.place)
+    if (place)
+      return { title: place.attrs.title, description: place.attrs.subtitle, body: <PlaceBody id={place.id} /> }
   }
+  return null
+}
+
+const demo = () => ({ body: <DemoBody />, footer: <DemoReset /> })
+
+const DemoBody = () => {
+  const { config, state, run, open } = useApp()
   return (
-    <>
-      <Intro>
-        민준님의 하루를 빠르게 시연해 보세요. 시나리오는 설정(jsonb)에서 불러온
-        데이터예요.
-      </Intro>
-      <div className="space-y-2">
-        {config.scenarios.map((s, i) => (
+    <ItemGroup>
+      {config.scenarios.map((s) => (
+        <Item key={s.id} variant="outline" size="sm" asChild>
           <button
-            key={s.id}
             type="button"
-            onClick={() => go(s.id)}
-            className="flex w-full items-center gap-3 rounded-2xl border bg-card p-3 text-left active:bg-secondary"
+            className="text-left"
+            onClick={() => {
+              run(runScenario(config, state, s.id))
+              open(null)
+            }}
           >
-            <span className="grid size-8 place-items-center rounded-full bg-secondary text-xs font-bold">
-              {String(i + 1).padStart(2, '0')}
-            </span>
-            <span className="flex-1">
-              <span className="block text-sm font-bold text-primary">
-                {s.title}
-              </span>
-              <span className="block text-xs text-muted-foreground">
-                {s.desc}
-              </span>
-            </span>
-            <ChevronRight className="size-4 text-muted-foreground" />
+            <ItemContent>
+              <ItemTitle>{s.title}</ItemTitle>
+              <ItemDescription>{s.desc}</ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <ChevronRight />
+            </ItemActions>
           </button>
-        ))}
-      </div>
-      <Button variant="outline" className="w-full" onClick={() => go('reset')}>
-        <RotateCcw /> 내 하루 만들기부터 다시 시작
-      </Button>
-    </>
+        </Item>
+      ))}
+    </ItemGroup>
   )
 }
 
-const statusTone: Record<Evidence['status'], string> = {
-  LIVE: 'bg-emerald-100 text-emerald-800',
-  SNAPSHOT: 'bg-amber-100 text-amber-800',
-  NOT_CONFIGURED: 'bg-secondary text-muted-foreground',
-  ERROR: 'bg-red-100 text-red-800',
+const DemoReset = () => {
+  const { config, state, run, open } = useApp()
+  return (
+    <Button
+      variant="outline"
+      onClick={() => {
+        run(runScenario(config, state, 'reset'))
+        open(null)
+      }}
+    >
+      <RotateCcw /> 처음부터 다시
+    </Button>
+  )
 }
 
-const EvidenceSheet = () => {
+const Row = ({ label, value }: { label: string; value: ReactNode }) => (
+  <div className="flex justify-between gap-4 text-sm">
+    <span className="text-muted-foreground">{label}</span>
+    <span className="text-right font-medium">{value}</span>
+  </div>
+)
+
+const EvidenceBody = () => {
   const { state, storage } = useApp()
   const [evidence, setEvidence] = useState<Evidence[] | null>(null)
   const [status, setStatus] = useState<Record<string, unknown> | null>(null)
@@ -159,211 +151,107 @@ const EvidenceSheet = () => {
     void load()
   }, [])
   const obs = state.observations
-  const rows: [string, ReactNode][] = [
-    ['일정·이동 경로', 'SIMULATED'],
-    ['결정에 쓰는 관측', `${obs.provenance} · ${obs.freshness}`],
-    [
-      '혼잡 / 초미세먼지',
-      `${obs.readings.congestion ?? '—'}% / ${obs.readings.pm25 ?? '—'}`,
-    ],
-    [
-      'OpenAI',
-      status
-        ? status.agent === 'CONFIGURED'
-          ? `연결 · ${status.model}`
-          : '미설정 · 시연 응답'
-        : '…',
-    ],
-    ['저장소', String(status?.storage ?? storage)],
-  ]
   return (
     <>
-      <div className="flex gap-3 rounded-2xl bg-accent p-3 text-accent-foreground">
-        <Radio className="mt-0.5 size-5 shrink-0" />
-        <div>
-          <p className="text-sm font-bold">시연과 실제 연결을 구분해요</p>
-          <p className="text-xs leading-relaxed">
-            코스 계산에는 화면의 시연 관측을 사용해요. E-UM 실응답은
-            단위·범위·관측 시각 검증을 위해 별도로 표시해요.
-          </p>
-        </div>
+      <div className="flex flex-col gap-2">
+        <Row label="일정·이동 경로" value="SIMULATED" />
+        <Row label="결정에 쓰는 관측" value={`${obs.provenance} · ${obs.freshness}`} />
+        <Row
+          label="혼잡 / 초미세먼지"
+          value={`${obs.readings.congestion ?? '—'}% / ${obs.readings.pm25 ?? '—'}`}
+        />
+        <Row
+          label="OpenAI"
+          value={status ? (status.agent === 'CONFIGURED' ? `연결 · ${status.model}` : '미설정 · 시연 응답') : '…'}
+        />
+        <Row label="저장소" value={String(status?.storage ?? storage)} />
       </div>
-      <dl className="divide-y rounded-2xl border bg-card text-sm">
-        {rows.map(([k, v]) => (
-          <div key={k} className="flex justify-between gap-3 px-3 py-2">
-            <dt className="text-muted-foreground">{k}</dt>
-            <dd className="text-right font-semibold text-primary">{v}</dd>
-          </div>
-        ))}
-      </dl>
-      <Button className="w-full" onClick={load} disabled={busy}>
-        <Radio /> E-UM 실제 연결 다시 확인
-      </Button>
+      <Separator />
       {evidence === null || busy ? (
-        <Skeleton className="h-24 w-full rounded-2xl" />
+        <Skeleton className="h-20 w-full" />
       ) : (
-        evidence.map((e) => (
-          <div
-            key={e.sourceId}
-            className="space-y-1 rounded-2xl border bg-card p-3"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <strong className="text-sm text-primary">{e.label}</strong>
-              <span
-                className={cn(
-                  'rounded-full px-2 py-0.5 text-[10px] font-bold',
-                  statusTone[e.status],
-                )}
-              >
-                {e.status}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {e.sourceId} · {e.message}
-            </p>
-            {e.value !== null && (
-              <p className="text-sm font-bold text-primary">
-                {e.value}{' '}
-                <span className="text-xs font-normal text-muted-foreground">
-                  {e.unit}
-                </span>
-              </p>
-            )}
-            <p className="text-[11px] text-muted-foreground">
-              조회{' '}
-              {new Date(e.fetchedAt).toLocaleString('ko-KR', {
-                timeZone: 'Asia/Seoul',
-              })}{' '}
-              · 관측{' '}
-              {e.observedAt
-                ? new Date(e.observedAt).toLocaleString('ko-KR', {
-                    timeZone: 'Asia/Seoul',
-                  })
-                : '확인 불가'}{' '}
-              · {e.freshness}
-            </p>
-          </div>
-        ))
+        <ItemGroup>
+          {evidence.map((e) => (
+            <Item key={e.sourceId} variant="outline" size="sm">
+              <ItemContent>
+                <ItemTitle>
+                  {e.label} <Badge variant={e.status === 'LIVE' ? 'default' : 'outline'}>{e.status}</Badge>
+                </ItemTitle>
+                <ItemDescription>
+                  {e.value !== null ? `${e.value} ${e.unit} · ` : ''}
+                  {e.message}
+                </ItemDescription>
+              </ItemContent>
+            </Item>
+          ))}
+        </ItemGroup>
       )}
-      <details className="rounded-2xl border bg-card p-3 text-xs leading-relaxed text-muted-foreground">
-        <summary className="cursor-pointer font-semibold text-primary">
-          시연 데이터·사진 출처와 보관
-        </summary>
-        <p className="mt-2">
-          식당·카페는 상호 미정 후보예요. 버스편, 운영시간, 경사·계단, 요금은
-          검증되지 않았어요. 택시 선택은 실데이터 연동 전까지 비활성화돼요.
-        </p>
-        <p className="mt-2">
-          일정은 이 기기에 저장되고 7일 후 초기화돼요. 계획 변경 이벤트(구조화된
-          값)만 서버에 기록하고, 채팅 원문은 저장하지 않아요.
-        </p>
-        <p className="mt-2">
-          사진:{' '}
-          <a
-            className="underline"
-            target="_blank"
-            rel="noreferrer"
-            href="https://korean.visitkorea.or.kr/detail/ms_detail.do?cotid=945b0346-06ca-4783-a8f2-1cdc911ecd3f"
-          >
-            한국관광공사 구룡포항
-          </a>{' '}
-          ·{' '}
-          <a
-            className="underline"
-            target="_blank"
-            rel="noreferrer"
-            href="https://badaon.or.kr/seantour_map/travel/destination/detail.do?destId=DEST000662"
-          >
-            바다온 일본인 가옥거리
-          </a>
-        </p>
-      </details>
+      <Button variant="outline" onClick={load} disabled={busy}>
+        E-UM 연결 다시 확인
+      </Button>
+      <p className="text-xs text-muted-foreground">
+        식당·카페는 상호 미정 후보예요. 일정은 이 기기에 저장되고 7일 뒤 초기화돼요. 서버에는 구조화된 변경 이벤트만 기록하고 채팅 원문은 저장하지 않아요. 사진: 한국관광공사, 바다온.
+      </p>
     </>
   )
 }
 
-const TrainSheet = () => {
+const TrainBody = () => {
   const { state, run, open } = useApp()
   const [draft, setDraft] = useState(state.plan.trainTime)
   return (
     <form
-      className="space-y-4"
+      className="flex flex-col gap-4"
       onSubmit={(e) => {
         e.preventDefault()
         run(changeTrain(draft))
         open(null)
       }}
     >
-      <Intro>
-        10월 13일, 포항역에서 출발하는 시각이에요. 실제 열차 예약은 바뀌지
-        않아요.
-      </Intro>
-      <div className="space-y-2">
-        <Label htmlFor="train">서울행 열차 출발</Label>
-        <Input
-          id="train"
-          type="time"
-          required
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          className="h-12 text-base"
-        />
-      </div>
-      <div className="grid grid-cols-3 gap-2">
+      <Field>
+        <FieldLabel htmlFor="train">서울행 열차 출발</FieldLabel>
+        <Input id="train" type="time" required value={draft} onChange={(e) => setDraft(e.target.value)} />
+      </Field>
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        value={draft}
+        onValueChange={(v) => v && setDraft(v)}
+      >
         {['16:00', '17:00', '18:30'].map((t) => (
-          <Button
-            key={t}
-            type="button"
-            variant={draft === t ? 'default' : 'outline'}
-            onClick={() => setDraft(t)}
-          >
+          <ToggleGroupItem key={t} value={t}>
             {t}
-          </Button>
+          </ToggleGroupItem>
         ))}
-      </div>
-      <Button type="submit" className="h-12 w-full">
-        이 시각에 맞춰 다시 계산 <ArrowRight />
-      </Button>
+      </ToggleGroup>
+      <Button type="submit">이 시각으로 다시 계산</Button>
     </form>
   )
 }
 
-const TaxiSheet = () => {
+const TaxiBody = () => {
   const { map, config } = useApp()
   return (
     <>
-      <Intro>
-        구룡포 → 포항역 구간만 비교해요. 비교를 열어도 이동수단은 바뀌지 않아요.
-      </Intro>
-      <div className="flex items-start gap-3 rounded-2xl border-2 border-primary bg-card p-3">
-        <BusFront className="mt-0.5 size-6 text-primary" />
-        <div className="flex-1">
-          <p className="flex items-center gap-2 text-sm font-bold text-primary">
-            버스 <Badge>기본 선택</Badge>
-          </p>
-          <p className="text-sm">
-            {config.policy.legs.return.minutes}분 · 도보·대기·승차 포함 (시연)
-          </p>
-          <p className="text-xs text-muted-foreground">
-            요금 확인 필요 · 실제 운행편 확인 필요
-          </p>
-        </div>
-        <CheckCircle2 className="size-5 text-primary" />
-      </div>
-      <div className="flex items-start gap-3 rounded-2xl border bg-card p-3 opacity-80">
-        <Navigation className="mt-0.5 size-6 text-muted-foreground" />
-        <div>
-          <p className="text-sm font-bold">택시</p>
-          <p className="text-sm">예상시간·요금 확인 필요</p>
-          <p className="text-xs text-muted-foreground">
-            자동차 경로 API 미연결 · 배차 대기 별도
-          </p>
-        </div>
-      </div>
-      <Button variant="outline" className="w-full" disabled>
-        요금 확인 후 선택할 수 있어요
-      </Button>
-      <Button asChild className="w-full">
+      <ItemGroup>
+        <Item variant="outline" size="sm">
+          <ItemContent>
+            <ItemTitle>
+              버스 <Badge>선택됨</Badge>
+            </ItemTitle>
+            <ItemDescription>
+              {config.policy.legs.return.minutes}분 · 도보·대기 포함 (시연) · 요금 확인 필요
+            </ItemDescription>
+          </ItemContent>
+        </Item>
+        <Item variant="outline" size="sm">
+          <ItemContent>
+            <ItemTitle>택시</ItemTitle>
+            <ItemDescription>시간·요금 확인 필요 · 경로 API 미연결</ItemDescription>
+          </ItemContent>
+        </Item>
+      </ItemGroup>
+      <Button asChild>
         <a href={map('STATION')} target="_blank" rel="noreferrer">
           카카오맵에서 경로 확인 <ArrowUpRight />
         </a>
@@ -372,78 +260,55 @@ const TaxiSheet = () => {
   )
 }
 
-const WhySheet = () => {
+const WhyBody = () => {
   const { state, itinerary: it } = useApp()
-  const terms = [
-    `${state.plan.readyTime} 출발`,
-    `${it.outbound}분 이동`,
-    `${it.localMin}분 체류`,
-    `${it.returnMin}분 복귀`,
-    `${it.trafficReserve}분 여유`,
-  ]
   return (
     <>
-      <Intro>입력한 조건과 결정 엔진의 계산 근거예요.</Intro>
-      <div className="flex flex-wrap items-center gap-1.5 rounded-2xl bg-secondary p-3 text-xs font-semibold">
-        {terms.map((t, i) => (
-          <span key={t} className="flex items-center gap-1.5">
-            {i > 0 && <span className="text-harbor">＋</span>}
-            <span className="rounded-full bg-card px-2 py-1">{t}</span>
-          </span>
-        ))}
-        <span className="text-harbor">＝</span>
-        <strong className="rounded-full bg-primary px-2 py-1 text-primary-foreground">
-          {it.planningArrival !== null
-            ? clock(it.planningArrival)
-            : '계산 중단'}
-        </strong>
+      <div className="flex flex-col gap-2">
+        <Row label="출발 준비" value={state.plan.readyTime} />
+        <Row label="구룡포까지" value={`${it.outbound}분`} />
+        <Row label="구룡포 체류" value={`${it.localMin}분`} />
+        <Row label="포항역까지" value={`${it.returnMin}분`} />
+        <Row label="교통 여유" value={`${it.trafficReserve}분`} />
+        <Separator />
+        <Row
+          label="계획상 역 도착"
+          value={it.planningArrival !== null ? clock(it.planningArrival) : '계산 중단'}
+        />
+        <Row label="역 도착 목표" value={clock(it.stationTarget)} />
       </div>
-      <ul className="list-disc space-y-1 pl-5 text-sm">
-        {it.reasons.map((r) => (
-          <li key={r}>{r}</li>
-        ))}
-      </ul>
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        역 도착 예상 {it.stationEta !== null ? clock(it.stationEta) : '—'}와
-        교통 여유를 반영한 계획상 도착을 구분해요. 관측 임계값은 시연 정책이며
-        공인 기준이 아니에요. 선택된 코스 변형: {it.variant ?? '—'}
+      <Alert>
+        <AlertTitle>판단 이유</AlertTitle>
+        <AlertDescription>
+          <ul className="list-disc pl-4">
+            {it.reasons.map((r) => (
+              <li key={r}>{r}</li>
+            ))}
+          </ul>
+        </AlertDescription>
+      </Alert>
+      <p className="text-xs text-muted-foreground">
+        관측 임계값은 시연 정책이며 공인 기준이 아니에요. 코스 변형: {it.variant ?? '—'}
       </p>
     </>
   )
 }
 
-const PlaceSheet = ({ id }: { id: string }) => {
+const PlaceBody = ({ id }: { id: string }) => {
   const { config, itinerary, map } = useApp()
   const place = config.places.find((p) => p.id === id)
   if (!place) return null
-  const dwell =
-    itinerary.stops.find((s) => s.id === id)?.dwell ?? place.attrs.defaultDwell
+  const dwell = itinerary.stops.find((s) => s.id === id)?.dwell ?? place.attrs.defaultDwell
   return (
     <>
-      <img
-        src={place.attrs.image}
-        alt=""
-        className="aspect-video w-full rounded-2xl object-cover"
-      />
-      <Eyebrow>{place.attrs.category}</Eyebrow>
-      <h3 className="flex items-center gap-2 text-xl font-extrabold text-primary">
-        <PlaceIcon name={place.attrs.icon} className="size-5" />{' '}
-        {place.attrs.title}
-      </h3>
-      <Intro>{place.attrs.desc}</Intro>
-      <p className="text-sm leading-relaxed">{place.attrs.detail}</p>
-      <div className="flex flex-wrap gap-2 text-xs">
-        <Badge variant="secondary" className="gap-1">
-          <Clock3 className="size-3.5" /> 예상 체류 {dwell}분
-        </Badge>
-        <Badge variant="secondary" className="gap-1">
-          <CircleHelp className="size-3.5" /> 영업·접근 정보 확인 필요
-        </Badge>
-        {place.meta.verified === false && (
-          <Badge variant="outline">미검증 후보</Badge>
-        )}
+      <img src={place.attrs.image} alt="" className="aspect-video w-full rounded-lg object-cover" />
+      <p className="text-sm">{place.attrs.desc}</p>
+      <p className="text-sm text-muted-foreground">{place.attrs.detail}</p>
+      <div className="flex flex-wrap gap-2">
+        <Badge variant="secondary">예상 체류 {dwell}분</Badge>
+        {place.meta.verified === false && <Badge variant="outline">미검증 후보</Badge>}
       </div>
-      <Button asChild className="w-full">
+      <Button variant="outline" asChild>
         <a href={map(place.id, 'walk')} target="_blank" rel="noreferrer">
           위치 보기 <ArrowUpRight />
         </a>

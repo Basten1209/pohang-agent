@@ -1,18 +1,21 @@
 "use client";
 
-import { Button } from "#/components/ui/button.tsx";
+import { Button } from "@/components/ui/button";
 import {
   ButtonGroup,
   ButtonGroupText,
-} from "#/components/ui/button-group.tsx";
+} from "@/components/ui/button-group";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "#/components/ui/tooltip.tsx";
-import { cn } from "#/lib/utils.ts";
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 import { cjk } from "@streamdown/cjk";
+import { code } from "@streamdown/code";
+import { math } from "@streamdown/math";
+import { mermaid } from "@streamdown/mermaid";
 import type { UIMessage } from "ai";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
@@ -318,8 +321,7 @@ export const MessageBranchPage = ({
 
 export type MessageResponseProps = ComponentProps<typeof Streamdown>;
 
-// Trimmed for a mobile PWA: Korean text only, no code/math/mermaid renderers.
-const streamdownPlugins = { cjk };
+const streamdownPlugins = { cjk, code, math, mermaid };
 
 export const MessageResponse = memo(
   ({ className, ...props }: MessageResponseProps) => (

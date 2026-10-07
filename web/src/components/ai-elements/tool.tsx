@@ -1,12 +1,12 @@
 "use client";
 
-import { Badge } from "#/components/ui/badge.tsx";
+import { Badge } from "@/components/ui/badge";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "#/components/ui/collapsible.tsx";
-import { cn } from "#/lib/utils.ts";
+} from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 import type { DynamicToolUIPart, ToolUIPart } from "ai";
 import {
   CheckCircleIcon,
@@ -19,12 +19,7 @@ import {
 import type { ComponentProps, ReactNode } from "react";
 import { isValidElement } from "react";
 
-// Lightweight JSON view instead of the shiki-based CodeBlock (smaller mobile bundle).
-const CodeBlock = ({ code }: { code: string; language?: string }) => (
-  <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all p-3 font-mono text-[11px] leading-relaxed">
-    {code}
-  </pre>
-);
+import { CodeBlock } from "./code-block";
 
 export type ToolProps = ComponentProps<typeof Collapsible>;
 
@@ -50,13 +45,13 @@ export type ToolHeaderProps = {
 );
 
 const statusLabels: Record<ToolPart["state"], string> = {
-  "approval-requested": "승인 대기",
-  "approval-responded": "응답됨",
-  "input-available": "실행 중",
-  "input-streaming": "준비 중",
-  "output-available": "완료",
-  "output-denied": "거부됨",
-  "output-error": "오류",
+  "approval-requested": "Awaiting Approval",
+  "approval-responded": "Responded",
+  "input-available": "Running",
+  "input-streaming": "Pending",
+  "output-available": "Completed",
+  "output-denied": "Denied",
+  "output-error": "Error",
 };
 
 const statusIcons: Record<ToolPart["state"], ReactNode> = {
@@ -124,7 +119,7 @@ export type ToolInputProps = ComponentProps<"div"> & {
 export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
   <div className={cn("space-y-2 overflow-hidden", className)} {...props}>
     <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-      입력
+      Parameters
     </h4>
     <div className="rounded-md bg-muted/50">
       <CodeBlock code={JSON.stringify(input, null, 2)} language="json" />
@@ -160,7 +155,7 @@ export const ToolOutput = ({
   return (
     <div className={cn("space-y-2", className)} {...props}>
       <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-        {errorText ? "오류" : "결과"}
+        {errorText ? "Error" : "Result"}
       </h4>
       <div
         className={cn(

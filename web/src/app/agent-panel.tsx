@@ -1,37 +1,51 @@
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
-import { Check, RotateCcw, Sparkles, TriangleAlert } from 'lucide-react'
+import { CircleAlert, RotateCcw } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
-} from '#/components/ai-elements/conversation'
+} from '@/components/ai-elements/conversation'
 import {
   Message,
   MessageContent,
   MessageResponse,
-} from '#/components/ai-elements/message'
+} from '@/components/ai-elements/message'
 import {
   PromptInput,
   PromptInputBody,
   PromptInputFooter,
   PromptInputSubmit,
   PromptInputTextarea,
-} from '#/components/ai-elements/prompt-input'
-import { Shimmer } from '#/components/ai-elements/shimmer'
-import { Suggestion, Suggestions } from '#/components/ai-elements/suggestion'
+} from '@/components/ai-elements/prompt-input'
+import { Shimmer } from '@/components/ai-elements/shimmer'
+import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion'
 import {
   Tool,
   ToolContent,
   ToolHeader,
   ToolInput,
   ToolOutput,
-} from '#/components/ai-elements/tool'
-import { Alert, AlertDescription } from '#/components/ui/alert'
-import { Badge } from '#/components/ui/badge'
-import { Button } from '#/components/ui/button'
-import { Card, CardContent } from '#/components/ui/card'
+} from '@/components/ai-elements/tool'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
+} from '@/components/ui/item'
 import type { Preview } from '#/core/preview'
 import { clock } from '#/core/time'
 import { applyPreview } from '#/core/trip'
@@ -39,23 +53,23 @@ import type { AgentMetadata, AgentUIMessage } from '#/server/agent/agent'
 import { useApp } from './context'
 
 const toolTitles: Record<string, string> = {
-  get_plan_context: '현재 일정과 이유 조회',
+  get_plan_context: '현재 일정 조회',
   refresh_trip_context: '디지털 트윈 연결 확인',
-  compare_transport: '역 복귀 이동수단 비교',
-  preview_itinerary: '변경 일정 미리보기',
+  compare_transport: '이동수단 비교',
+  preview_itinerary: '변경 일정 계산',
 }
 
 const modeLabel = (meta?: AgentMetadata) =>
   !meta
     ? null
     : meta.mode === 'OPENAI'
-      ? `OpenAI · ${meta.model ?? ''} · 도구 실행`
+      ? `OpenAI · ${meta.model ?? ''}`
       : meta.mode === 'DEMO'
-        ? '시연 응답 · 정해진 요청 해석'
+        ? '시연 응답'
         : 'AI 연결 실패 · 정형 응답'
 
-/** The plan-change preview the agent produced, with an explicit apply step. */
-const PreviewCard = ({ preview }: { preview: Preview }) => {
+/** The plan-change preview the agent produced, applied only on explicit confirmation. */
+const PreviewItem = ({ preview }: { preview: Preview }) => {
   const { state, run, config } = useApp()
   const stale = preview.revision !== state.plan.revision
   const it = preview.itinerary
@@ -63,34 +77,21 @@ const PreviewCard = ({ preview }: { preview: Preview }) => {
     .map((s) => config.places.find((p) => p.id === s.id)?.attrs.short ?? s.id)
     .join(' → ')
   return (
-    <Card className="gap-2 border-harbor/40 bg-harbor/5 py-3">
-      <CardContent className="space-y-2 px-3">
-        <Badge variant="outline" className="border-harbor/50 text-harbor">
-          변경 미리보기 · 아직 적용 전
-        </Badge>
-        <p className="text-sm font-bold text-primary">
-          {names || '관광 없이 귀가'}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          계획상 역 도착{' '}
-          <strong className="text-primary">
-            {it.planningArrival !== null
-              ? clock(it.planningArrival)
-              : '확인 필요'}
-          </strong>{' '}
-          · 목표 {clock(it.stationTarget)}
-        </p>
-        <Button
-          size="sm"
-          className="w-full"
-          disabled={stale}
-          onClick={() => run(applyPreview(state, preview))}
-        >
-          {stale ? '조건이 바뀌어 다시 요청이 필요해요' : '이 변경 적용하기'}{' '}
-          <Check />
+    <Item variant="outline" size="sm">
+      <ItemContent>
+        <ItemTitle>{names || '관광 없이 귀가'}</ItemTitle>
+        <ItemDescription>
+          미리보기 · 역 도착{' '}
+          {it.planningArrival !== null ? clock(it.planningArrival) : '확인 필요'} (목표{' '}
+          {clock(it.stationTarget)})
+        </ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        <Button size="sm" disabled={stale} onClick={() => run(applyPreview(state, preview))}>
+          {stale ? '만료됨' : '적용'}
         </Button>
-      </CardContent>
-    </Card>
+      </ItemActions>
+    </Item>
   )
 }
 
@@ -107,33 +108,23 @@ const Parts = ({ message }: { message: AgentUIMessage }) => {
       {message.parts.map((part, i) => {
         const key = `${message.id}-${i}`
         if (part.type === 'text')
-          return noticed ? null : (
-            <MessageResponse key={key}>{part.text}</MessageResponse>
-          )
+          return noticed ? null : <MessageResponse key={key}>{part.text}</MessageResponse>
         if (part.type === 'data-notice')
           return (
-            <Alert
-              key={key}
-              variant={part.data.kind === 'medical' ? 'destructive' : 'default'}
-            >
-              <TriangleAlert />
+            <Alert key={key} variant={part.data.kind === 'medical' ? 'destructive' : 'default'}>
+              <CircleAlert />
               <AlertDescription>{part.data.message}</AlertDescription>
             </Alert>
           )
         if (isToolPart(part)) {
           const name = part.type.slice(5)
           return (
-            <div key={key} className="space-y-2">
-              {part.type === 'tool-preview_itinerary' &&
-                part.state === 'output-available' && (
-                  <PreviewCard preview={part.output as Preview} />
-                )}
-              <Tool className="mb-0 bg-card">
-                <ToolHeader
-                  type={part.type}
-                  state={part.state}
-                  title={toolTitles[name] ?? name}
-                />
+            <div key={key} className="flex flex-col gap-2">
+              {part.type === 'tool-preview_itinerary' && part.state === 'output-available' && (
+                <PreviewItem preview={part.output as Preview} />
+              )}
+              <Tool>
+                <ToolHeader type={part.type} state={part.state} title={toolTitles[name] ?? name} />
                 <ToolContent>
                   <ToolInput input={part.input} />
                   <ToolOutput output={part.output} errorText={part.errorText} />
@@ -150,8 +141,8 @@ const Parts = ({ message }: { message: AgentUIMessage }) => {
 
 /**
  * The trip assistant: AI Elements on top of `useChat`. Every request carries
- * the current plan and observations; the reply's previews are applied only
- * through `applyPreview`, which rejects stale revisions.
+ * the current plan and observations; previews apply only through
+ * `applyPreview`, which rejects stale revisions.
  */
 export const AgentPanel = () => {
   const { latest, run, open, config } = useApp()
@@ -170,113 +161,81 @@ export const AgentPanel = () => {
       }),
     [latest],
   )
-  const { messages, sendMessage, status, setMessages, stop } =
-    useChat<AgentUIMessage>({
-      transport,
-      onData: (part) => {
-        if (part.type === 'data-notice' && part.data.kind === 'medical')
-          run({
-            events: [
-              { type: 'plan.patched', patch: { condition: 'UNWELL' } },
-              { type: 'screen.changed', screen: 'finish' },
-            ],
-          })
-      },
-      onFinish: ({ message }) => {
-        const compared = message.parts.some(
-          (p) =>
-            p.type === 'tool-compare_transport' &&
-            p.state === 'output-available',
+  const { messages, sendMessage, status, setMessages, stop } = useChat<AgentUIMessage>({
+    transport,
+    onData: (part) => {
+      if (part.type === 'data-notice' && part.data.kind === 'medical')
+        run({
+          events: [
+            { type: 'plan.patched', patch: { condition: 'UNWELL' } },
+            { type: 'screen.changed', screen: 'finish' },
+          ],
+        })
+    },
+    onFinish: ({ message }) => {
+      if (
+        message.parts.some(
+          (p) => p.type === 'tool-compare_transport' && p.state === 'output-available',
         )
-        if (compared) open('taxi')
-      },
-    })
+      )
+        open('taxi')
+    },
+  })
   const busy = status === 'submitted' || status === 'streaming'
   const ask = (text: string) => {
     if (!text.trim() || busy) return
     sendMessage({ text: text.trim() })
     setInput('')
   }
-  const last = messages.at(-1)
 
   return (
-    <Card className="gap-3 py-4">
-      <CardContent className="space-y-3 px-4">
-        <div className="flex items-start gap-3">
-          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-lime text-lime-foreground">
-            <Sparkles className="size-4" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-primary">
-              여행도, 내 페이스대로
-            </p>
-            <p className="text-xs text-muted-foreground">
-              기차 시간이 바뀌었나요? 지금 계획에서 바로 조정해 드릴게요.
-            </p>
-          </div>
-          {messages.length > 0 && (
-            <Button
-              size="icon"
-              variant="ghost"
-              className="size-8"
-              aria-label="대화 지우기"
-              onClick={() => setMessages([])}
-            >
-              <RotateCcw className="size-4" />
-            </Button>
-          )}
-        </div>
-
+    <Card>
+      <CardHeader>
+        <CardTitle>여행 도우미</CardTitle>
+        <CardDescription>열차 시각 변경, 걷기 조건, 코스 이유를 물어보세요.</CardDescription>
         {messages.length > 0 && (
-          <Conversation className="max-h-[420px] rounded-xl border bg-secondary/40">
-            <ConversationContent className="gap-4 p-3">
+          <CardAction>
+            <Button size="icon" variant="ghost" aria-label="대화 지우기" onClick={() => setMessages([])}>
+              <RotateCcw />
+            </Button>
+          </CardAction>
+        )}
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {messages.length > 0 && (
+          <Conversation className="max-h-[420px] rounded-lg border">
+            <ConversationContent>
               {messages.map((m) => (
                 <Message from={m.role} key={m.id}>
-                  <MessageContent className="text-sm">
+                  <MessageContent>
                     {m.role === 'assistant' && modeLabel(m.metadata) && (
-                      <Badge
-                        variant="secondary"
-                        className="mb-1 text-[10px] font-medium"
-                      >
-                        {modeLabel(m.metadata)}
-                      </Badge>
+                      <Badge variant="secondary">{modeLabel(m.metadata)}</Badge>
                     )}
                     <Parts message={m} />
                   </MessageContent>
                 </Message>
               ))}
-              {busy && last?.role === 'user' && (
-                <Shimmer className="text-sm">
-                  현재 조건을 확인하고 있어요…
-                </Shimmer>
-              )}
+              {busy && messages.at(-1)?.role === 'user' && <Shimmer>확인하고 있어요…</Shimmer>}
             </ConversationContent>
             <ConversationScrollButton />
           </Conversation>
         )}
-
         <Suggestions>
           {config.agent.suggestions.map((s) => (
             <Suggestion key={s} suggestion={s} onClick={ask} disabled={busy} />
           ))}
         </Suggestions>
-
-        <PromptInput onSubmit={({ text }) => ask(text)} className="rounded-xl">
+        <PromptInput onSubmit={({ text }) => ask(text)}>
           <PromptInputBody>
             <PromptInputTextarea
               value={input}
               onChange={(e) => setInput(e.currentTarget.value)}
               placeholder="이 여행에 대해 물어보세요"
               maxLength={1000}
-              className="min-h-11 text-base sm:text-sm"
             />
           </PromptInputBody>
           <PromptInputFooter className="justify-end">
-            <PromptInputSubmit
-              status={status}
-              onStop={stop}
-              disabled={!busy && !input.trim()}
-            />
+            <PromptInputSubmit status={status} onStop={stop} disabled={!busy && !input.trim()} />
           </PromptInputFooter>
         </PromptInput>
       </CardContent>

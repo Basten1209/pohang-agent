@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | ![](docs/screenshots/1-내하루만들기.png) | ![](docs/screenshots/3-구룡포코스.png) | ![](docs/screenshots/4-에이전트-미리보기.png) | ![](docs/screenshots/6-다음행동.png) |
 
-나머지: [데모 컨트롤](docs/screenshots/2-데모컨트롤.png) · [변경 적용 후](docs/screenshots/5-변경적용후.png). 키 없이 실행한 화면이라 에이전트 응답에 "시연 응답" 배지가 붙어 있습니다.
+나머지: [데모 시나리오](docs/screenshots/2-데모컨트롤.png) · [변경 적용 후](docs/screenshots/5-변경적용후.png).
 
 ## 실행
 
@@ -30,7 +30,7 @@ npm run build && npm start   # 프로덕션(Nitro node 서버)
 | 영역 | 선택 |
 | --- | --- |
 | 프레임워크 | TanStack Start (Vite, file routes, server routes·server functions) + Nitro |
-| UI | Tailwind v4 + shadcn/ui (Drawer·Card·Button 등), RUN2 팔레트를 shadcn 토큰에 매핑 |
+| UI | shadcn/ui **Nova 프리셋 기본값 그대로**(radix, neutral 흑백, Geist). 컴포넌트는 레지스트리 원본을 수정 없이 사용하고 화면에서는 레이아웃용 className만 씀 |
 | Agent | Vercel AI SDK v7 `streamText` + 도구 4종 → `useChat` + AI Elements(Conversation·Message·PromptInput·Tool·Suggestion) |
 | 모델 | `@ai-sdk/openai`, 기본 `gpt-6-luna`(설정값). `OPENAI_MODEL`로 덮어씀 |
 | 저장소 | Drizzle ORM + PostgreSQL(`DATABASE_URL`) 또는 PGlite(내장 Postgres/WASM) |
@@ -115,6 +115,6 @@ src/core/        순수 함수: schema · defaults(시드 설정) · planner · 
 src/server/      DB(drizzle 스키마·PGlite/pg·repo) · config(시드⊕jsonb⊕env) · agent(tools·agent·model) · sources(E-UM)
 src/routes/      / (앱, client-only) · /api/chat · /api/config · /api/evidence · /api/status · /api/trips/$tripId/events
 src/app/         화면: use-trip(이벤트 저장소) · screens · cards · sheets · agent-panel
-src/components/  shadcn/ui · ai-elements (모바일용으로 shiki·mermaid 렌더러 제거)
+src/components/  shadcn/ui · ai-elements (레지스트리 원본, 수정 없음)
 tests/           planner(D01–D08) · trip · agent(Mock LanguageModelV4) · db(PGlite jsonb) · evidence
 ```
