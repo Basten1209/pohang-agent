@@ -5,7 +5,7 @@ import {
   lastAssistantMessageIsCompleteWithApprovalResponses,
   lastAssistantMessageIsCompleteWithToolCalls,
 } from 'ai'
-import { Ellipsis } from 'lucide-react'
+import { Activity, Ellipsis, Info, MessageCircle } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import {
   Conversation,
@@ -40,6 +40,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cacheView, newTripId } from '#/app/trip-client'
 import type { TripConfig } from '#/core/schema'
 import type { Stage } from '#/core/stage'
@@ -48,6 +49,8 @@ import { clock } from '#/core/time'
 import type { TripView } from '#/core/view'
 import type { AgentMode, AgentUIMessage } from '#/server/agent/harness'
 import { askTools } from '#/server/agent/ask-tools'
+import { RaceLive } from '#/race/live'
+import { RaceOverview } from '#/race/overview'
 import { Choices, ToolCard } from './cards'
 import type { AgentPart, ToolPart } from './context'
 import { ChatProvider } from './context'
@@ -78,6 +81,8 @@ const modeLabel: Record<AgentMode, string> = {
   FALLBACK: '규칙 모델(대체)',
 }
 
+type Tab = 'chat' | 'overview' | 'race'
+
 const isTool = (p: AgentPart): p is ToolPart => p.type.startsWith('tool-')
 
 const lastStep = (m: AgentUIMessage) => {
@@ -106,12 +111,14 @@ const Header = ({
   mode,
   send,
   busy,
+  tab,
 }: {
   config: TripConfig
   view: TripView
   mode: AgentMode | undefined
   send: (text: string) => void
   busy: boolean
+  tab: Tab
 }) => {
   const { plan } = view.state
   const it = view.itinerary
@@ -168,7 +175,23 @@ const Header = ({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      {view.state.created && (
+      <div className="mx-auto max-w-2xl px-4 pb-2">
+        <TabsList className="w-full">
+          <TabsTrigger value="chat">
+            <MessageCircle />
+            채팅
+          </TabsTrigger>
+          <TabsTrigger value="overview">
+            <Info />
+            대회 개요
+          </TabsTrigger>
+          <TabsTrigger value="race">
+            <Activity />
+            레이스
+          </TabsTrigger>
+        </TabsList>
+      </div>
+      {tab === 'chat' && view.state.created && (
         <p className="mx-auto max-w-2xl px-4 pb-2 text-xs text-muted-foreground tabular-nums">
           {plan.trainTime} 열차
           {it.planningArrival !== null &&
@@ -191,6 +214,7 @@ export const Chat = ({
 }) => {
   const [view, setView] = useState(initial.trip)
   const [input, setInput] = useState('')
+  const [tab, setTab] = useState<Tab>('chat')
   const transport = useMemo(
     () =>
       new DefaultChatTransport<AgentUIMessage>({
@@ -259,93 +283,118 @@ export const Chat = ({
         },
       }}
     >
-      <div className="flex h-dvh flex-col">
+      <Tabs
+        value={tab}
+        onValueChange={(v) => setTab(v as Tab)}
+        className="h-dvh gap-0"
+      >
         <Header
           config={config}
           view={view}
           mode={mode}
           send={send}
           busy={busy}
+          tab={tab}
         />
-        <Conversation className="min-h-0 flex-1">
-          <ConversationContent className="mx-auto w-full max-w-2xl">
-            {messages.map((m) => (
-              <Message from={m.role} key={m.id}>
-                <MessageContent className="w-full max-w-full">
-                  {m.parts.map((p, i) => {
-                    const key = `${m.id}-${i}`
-                    if (p.type === 'text')
-                      return (
-                        <MessageResponse key={key}>{p.text}</MessageResponse>
-                      )
-                    if (p.type === 'data-choices')
-                      return (
-                        <Choices
-                          key={key}
-                          prompt={p.data}
-                          interactive={m === last && !busy}
-                        />
-                      )
-                    if (isTool(p))
-                      return (
-                        <ToolCard
-                          key={key}
-                          part={p}
-                          interactive={
-                            m === last && m.role === 'assistant' && !busy
-                          }
-                        />
-                      )
-                    return null
-                  })}
-                </MessageContent>
-              </Message>
-            ))}
-            {status === 'submitted' && <Shimmer>생각하고 있어요…</Shimmer>}
-            {error && (
-              <p role="alert" className="text-sm text-destructive">
-                연결이 끊겼어요. 다시 보내 주세요.
-              </p>
-            )}
-          </ConversationContent>
-          <ConversationScrollButton />
-        </Conversation>
-        <div className="border-t bg-background pb-safe">
-          <div className="mx-auto flex w-full max-w-2xl flex-col gap-2 p-3">
-            {!open && suggestionsFor[view.stage].length > 0 && (
-              <div className="grid min-w-0 grid-cols-1">
-                <Suggestions>
-                  {suggestionsFor[view.stage].map((s) => (
-                    <Suggestion
-                      key={s}
-                      suggestion={s}
-                      onClick={send}
-                      disabled={busy}
-                    />
-                  ))}
-                </Suggestions>
-              </div>
-            )}
-            <PromptInput onSubmit={({ text }) => send(text)}>
-              <PromptInputBody>
-                <PromptInputTextarea
-                  value={input}
-                  onChange={(e) => setInput(e.currentTarget.value)}
-                  placeholder={open?.hint ?? '무엇이든 말해 주세요'}
-                  maxLength={1000}
-                />
-              </PromptInputBody>
-              <PromptInputFooter className="justify-end">
-                <PromptInputSubmit
-                  status={status}
-                  onStop={stop}
-                  disabled={!busy && !input.trim()}
-                />
-              </PromptInputFooter>
-            </PromptInput>
+        {/* Kept mounted so a streaming reply and the scroll position survive a tab switch. */}
+        <TabsContent
+          value="chat"
+          forceMount
+          className="flex min-h-0 flex-col data-[state=inactive]:hidden"
+        >
+          <Conversation className="min-h-0 flex-1">
+            <ConversationContent className="mx-auto w-full max-w-2xl">
+              {messages.map((m) => (
+                <Message from={m.role} key={m.id}>
+                  <MessageContent className="w-full max-w-full">
+                    {m.parts.map((p, i) => {
+                      const key = `${m.id}-${i}`
+                      if (p.type === 'text')
+                        return (
+                          <MessageResponse key={key}>{p.text}</MessageResponse>
+                        )
+                      if (p.type === 'data-choices')
+                        return (
+                          <Choices
+                            key={key}
+                            prompt={p.data}
+                            interactive={m === last && !busy}
+                          />
+                        )
+                      if (isTool(p))
+                        return (
+                          <ToolCard
+                            key={key}
+                            part={p}
+                            interactive={
+                              m === last && m.role === 'assistant' && !busy
+                            }
+                          />
+                        )
+                      return null
+                    })}
+                  </MessageContent>
+                </Message>
+              ))}
+              {status === 'submitted' && <Shimmer>생각하고 있어요…</Shimmer>}
+              {error && (
+                <p role="alert" className="text-sm text-destructive">
+                  연결이 끊겼어요. 다시 보내 주세요.
+                </p>
+              )}
+            </ConversationContent>
+            <ConversationScrollButton />
+          </Conversation>
+          <div className="border-t bg-background pb-safe">
+            <div className="mx-auto flex w-full max-w-2xl flex-col gap-2 p-3">
+              {!open && suggestionsFor[view.stage].length > 0 && (
+                <div className="grid min-w-0 grid-cols-1">
+                  <Suggestions>
+                    {suggestionsFor[view.stage].map((s) => (
+                      <Suggestion
+                        key={s}
+                        suggestion={s}
+                        onClick={send}
+                        disabled={busy}
+                      />
+                    ))}
+                  </Suggestions>
+                </div>
+              )}
+              <PromptInput onSubmit={({ text }) => send(text)}>
+                <PromptInputBody>
+                  <PromptInputTextarea
+                    value={input}
+                    onChange={(e) => setInput(e.currentTarget.value)}
+                    placeholder={open?.hint ?? '무엇이든 말해 주세요'}
+                    maxLength={1000}
+                  />
+                </PromptInputBody>
+                <PromptInputFooter className="justify-end">
+                  <PromptInputSubmit
+                    status={status}
+                    onStop={stop}
+                    disabled={!busy && !input.trim()}
+                  />
+                </PromptInputFooter>
+              </PromptInput>
+            </div>
           </div>
-        </div>
-      </div>
+        </TabsContent>
+        <TabsContent
+          value="overview"
+          className="min-h-0 overflow-y-auto pb-safe"
+        >
+          <RaceOverview />
+        </TabsContent>
+        <TabsContent
+          value="race"
+          forceMount
+          className="min-h-0 overflow-y-auto pb-safe data-[state=inactive]:hidden"
+        >
+          <RaceLive />
+        </TabsContent>
+      </Tabs>
     </ChatProvider>
   )
 }
