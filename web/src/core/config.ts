@@ -8,6 +8,7 @@ export const configKeys = [
   'anchors',
   'sources',
   'agent',
+  'conversation',
   'scenarios',
   'defaults',
 ] as const

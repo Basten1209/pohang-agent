@@ -1,16 +1,13 @@
 import type { UIMessage } from 'ai'
+import { z } from 'zod'
+import { slotIdSchema } from '#/core/schema'
 import { planner } from '#/core/planner'
 import { progressOptions } from '#/core/stage'
 import type { TripConfig } from '#/core/schema'
 import type { TripEvent, TripState } from '#/core/trip'
 import { advance, restMore, skipStop, startReturn } from '#/core/trip'
 import type { AskTool } from './tools'
-import {
-  askTools,
-  conditionAnswerSchema,
-  progressAnswerSchema,
-  tripBasicsSchema,
-} from './tools'
+import { askTools, progressAnswerSchema } from './tools'
 
 /**
  * Card answers → trip events, deterministically.
@@ -61,42 +58,6 @@ export const answerToEvents = (
   state: TripState,
   answer: Answer,
 ): TripEvent[] => {
-  if (answer.tool === 'ask_trip_basics') {
-    const basics = tripBasicsSchema.safeParse(answer.output)
-    if (!basics.success) return []
-    const active = config.places.filter((p) => p.active).map((p) => p.id)
-    return [
-      {
-        type: 'plan.patched',
-        patch: {
-          arrivalAt: basics.data.arrivalAt,
-          trainTime: basics.data.trainTime,
-          interests: basics.data.interests,
-          origin: basics.data.origin,
-          currentPlace: basics.data.origin,
-          excluded: active.filter((id) => !basics.data.interests.includes(id)),
-        },
-      },
-      { type: 'trip.created' },
-    ]
-  }
-  if (answer.tool === 'ask_condition') {
-    const a = conditionAnswerSchema.safeParse(answer.output)
-    if (!a.success) return []
-    return [
-      { type: 'day.advanced', phase: 3 },
-      {
-        type: 'plan.patched',
-        patch: {
-          condition: a.data.condition,
-          walkingLimit: a.data.walkingLimit,
-          readyTime: a.data.readyTime,
-          currentTime: a.data.readyTime,
-          baggageCollected: a.data.baggageCollected,
-        },
-      },
-    ]
-  }
   if (answer.tool === 'await_progress') {
     const a = progressAnswerSchema.safeParse(answer.output)
     if (!a.success) return []
@@ -159,10 +120,26 @@ const userText = (message: UIMessage, maxChars: number) =>
     .trim()
     .slice(0, maxChars)
 
+const chipValueSchema = z.union([
+  z.string().max(40),
+  z.number(),
+  z.boolean(),
+  z.null(),
+  z.array(z.string().max(40)).max(10),
+])
+const chipSchema = z.object({ slot: slotIdSchema, value: chipValueSchema })
+
+/** A reply chip's answer, if the message carries a well-formed one. */
+const chipAnswer = (metadata: unknown) => {
+  const parsed = z.object({ choice: chipSchema }).safeParse(metadata)
+  return parsed.success ? parsed.data.choice : undefined
+}
+
 /**
  * Merge what the client sent into the stored conversation.
  *
- * The client may only (a) add a user message made of text, or (b) answer
+ * The client may only (a) add a user message made of text (optionally with
+ * the value of the reply chip it came from), or (b) answer
  * the open cards and approvals of the latest assistant message. Everything
  * else in an incoming assistant message is ignored, so a client cannot
  * rewrite tool results or history.
@@ -175,9 +152,15 @@ export const mergeIncoming = (
   if (incoming.role === 'user') {
     const text = userText(incoming, maxChars)
     if (!text || stored.some((m) => m.id === incoming.id)) return stored
+    const choice = chipAnswer(incoming.metadata)
     return [
       ...stored,
-      { id: incoming.id, role: 'user', parts: [{ type: 'text', text }] },
+      {
+        id: incoming.id,
+        role: 'user',
+        parts: [{ type: 'text', text }],
+        ...(choice && { metadata: { choice } }),
+      },
     ]
   }
   const last = stored.at(-1)

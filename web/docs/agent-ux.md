@@ -62,9 +62,9 @@ ONBOARDING ──save_trip_basics──▶ PRE_RACE ──record_progress(FINISH
 
 | 단계 | activeTools | toolChoice 강제 | 단계 지시(요약) |
 | --- | --- | --- | --- |
-| ONBOARDING | `ask_trip_basics`, `save_trip_basics` | 첫 턴: `ask_trip_basics` | 사용자 문장에서 열차·관심사를 추출해 카드를 미리 채워라 |
+| ONBOARDING | `update_trip_details` | 자유 입력이면 첫 스텝 `update_trip_details` | 들은 값만 저장하고 한 문장으로 확인. 다음 질문은 앱이 붙인다 (§10) |
 | PRE_RACE | `record_progress`, `get_trip`, `ask_quick_reply` | — | 대회 전 준비만 다뤄라. 관광 계산 금지 |
-| CHECK_IN | `ask_condition` | 진입 시 `ask_condition` | 컨디션을 묻는 카드 하나만 |
+| CHECK_IN | `update_trip_details` | 자유 입력이면 첫 스텝 `update_trip_details` | 출발 가능 시각·몸 상태를 대화로 (§10) |
 | PLANNING | `plan_course`, `apply_plan_change`, `explain_plan`, `check_live_conditions`, `compare_transport`, `start_journey`, `ask_quick_reply` | 진입 직후 `plan_course`(변경 없음) | 변경 요청이면 미리보기→승인. 질문이면 읽기 도구만 |
 | OUTBOUND/LOCAL/RETURN | `await_progress`, `record_progress`, `plan_course`, `apply_plan_change`, `explain_plan`, `compare_transport` | 매 턴 마지막 `await_progress` | 다음 행동 하나만 제시 |
 | SAFETY | `show_safety_help` | `show_safety_help` | 관광 언급 금지 |
@@ -78,7 +78,7 @@ ONBOARDING ──save_trip_basics──▶ PRE_RACE ──record_progress(FINISH
 
 | 종류 | 실행 위치 | 승인 | 예 |
 | --- | --- | --- | --- |
-| **Ask** — 사용자 입력이 필요한 카드 | 클라이언트 (execute 없음) | — | `ask_trip_basics`, `ask_condition`, `ask_quick_reply`, `await_progress` |
+| **Ask** — 사용자 입력이 필요한 카드 | 클라이언트 (execute 없음) | — | `ask_quick_reply`, `await_progress` (일정·컨디션은 카드 대신 대화, §10) |
 | **Read** — 계산·조회, 상태 불변 | 서버, 자동 | 불필요 | `get_trip`, `plan_course`(미리보기), `explain_plan`, `check_live_conditions`, `compare_transport` |
 | **Commit** — 상태 변경 | 서버 | 모델이 제안한 변경은 `user-approval`, 사용자가 카드로 직접 입력한 값은 자동 | `save_trip_basics`, `apply_plan_change`, `start_journey`, `record_progress` |
 
@@ -86,9 +86,7 @@ ONBOARDING ──save_trip_basics──▶ PRE_RACE ──record_progress(FINISH
 
 | 도구 | 입력 (zod, strict, 미언급 필드 null) | 출력 → UI 카드 | `toModelOutput` (모델에 보이는 것) |
 | --- | --- | --- | --- |
-| `ask_trip_basics` | `prefill: { arrivalAt?, trainTime?, interests?[] }` | **TripBasicsCard**: 도착 일시·열차 시각·관심 장소 ToggleGroup, [저장] | 사용자가 확정한 값 |
-| `save_trip_basics` | `{ arrivalAt, trainTime, interests[], origin }` | 한 줄 요약 | `ok` + 저장된 값 |
-| `ask_condition` | `{}` | **ConditionCard**: 컨디션 RadioGroup, 걷기 15/30, 준비 시각, 짐 체크 | 선택값 |
+| `update_trip_details` | `{ trainTime, interests[], origin, arrivalAt, readyTime, condition, walkingLimit, baggageCollected }` 모두 nullable | 화면에 그리지 않음(대화 문장이 확인) | `saved[]`, `nextQuestion` |
 | `plan_course` | `changes: { trainTime, walkingLimit, extraRestMin, excludePlaces[] } \| null` | **CourseCard**: 장소 Item 목록, 역 도착·목표·여유 Badge, 제외 이유 | `{ previewId, decision, stops[], planningArrival, slack, reasons[] }` |
 | `apply_plan_change` | `{ previewId }` | 미리보기 카드에 [적용]/[유지] (approval part) | `applied` 또는 `denied` |
 | `explain_plan` | `{ topic: 'why_course' \| 'excluded' \| 'timing' }` | **WhyCard**: 계산식·이유 목록 | 이유 텍스트 |
@@ -194,10 +192,10 @@ const agent = new ToolLoopAgent({
 
 | # | 사용자 | 에이전트(1–2문장) | 카드 / 도구 |
 | --- | --- | --- | --- |
-| 1 | (앱 첫 실행) | 포항 일정부터 맞춰볼게요. | `ask_trip_basics` → TripBasicsCard(기본값 채움) |
-| 2 | “18시 반 기차고 점심이랑 카페 가고 싶어” | 그렇게 채웠어요. 확인해 주세요. | `ask_trip_basics(prefill)` → [저장] → `save_trip_basics` |
-| 3 | [완주했어요] 칩 | 완주 축하해요! 지금 상태만 알려주세요. | `record_progress(FINISHED)` → `ask_condition` |
-| 4 | ConditionCard: 조금 지쳤어요 · 30분 · 10:40 | 세 곳 다 들러도 열차 30분 전에 도착해요. | `plan_course(null)` → CourseCard (16:20, 여유 1h40) |
+| 1 | (앱 첫 실행) | 서울 가는 열차는 몇 시예요? | 앱 질문 + 답 버튼 |
+| 2 | “18시 반 기차고 점심이랑 카페 가고 싶어” | 18:30 열차, 점심·카페로 저장했어요. → 앱: 출발 장소 질문 | `update_trip_details` |
+| 3 | [완주했어요] 칩 | 완주 축하해요! → 앱: 언제 출발할 수 있어요? | `record_race_progress(FINISHED)` |
+| 4 | “30분 쉬고 갈게요. 조금 지쳤어요” | 세 곳 다 들러도 열차 30분 전에 도착해요. | `update_trip_details` → `plan_course(null)` → CourseCard |
 | 5 | “16시 기차로 바뀌었어” | 카페를 빼고 골목은 5분만 둘러보면 15:15 도착이에요. | `plan_course({trainTime:"16:00"})` → 미리보기 + `apply_plan_change` 승인 버튼 |
 | 6 | [적용] | 바꿨어요. | approval → 커밋 → 요약 바 갱신 |
 | 7 | `/시연 혼잡 82` | 구룡포가 붐벼서 교통 여유 20분을 더하고 점심만 남겼어요. | `set_demo_observation` → `plan_course` → CourseCard |
@@ -222,6 +220,7 @@ const agent = new ToolLoopAgent({
 
 ## 9. 구현 노트
 
+- **일정·컨디션 입력 카드는 없앴다.** 이제 대화로 받는다 — [10. 대화로 정보 받기](#10-대화로-정보-받기).
 - **카드 답은 하네스가 적용한다.** Ask 도구의 출력(카드 답)은 모델에 넘기기 전에 `ingest.ts`가 zod로 검증해 이벤트로 바꾼다. 모델은 폼 값을 옮겨 적지 않으므로 바꿀 수도 없다. 적용한 tool call id는 `trips.meta.ingested`에 남겨 두 번 적용하지 않는다.
 - **클라이언트는 마지막 메시지만 보낸다.** 서버는 저장된 대화에 병합하되, 새 사용자 문장과 열린 카드의 답·승인만 받아들인다(`mergeIncoming`). 실행된 도구 결과나 과거 기록은 바꿀 수 없고, 승인은 `experimental_toolApprovalSecret` 서명으로 검증된다.
 - **카드를 두고 다른 말을 하면** 열린 카드는 `{skipped: true}`, 대기 중인 승인은 거절로 정리한다(`settleOpenCards`). 대화가 항상 유효한 tool call/result 순서를 유지한다.
@@ -230,3 +229,45 @@ const agent = new ToolLoopAgent({
 - **라우트**는 `createAgentUIStreamResponse` 대신 `createUIMessageStream`으로 감싼다. 단계 진입 문장, 하네스가 붙이는 카드, `data-trip`(요약 바)을 에이전트 스트림 앞뒤에 써야 하기 때문이다.
 - **영속화**는 별도 `trip_messages` 테이블 대신 `trips.messages` jsonb 열 하나로 했다.
 - **검증**: `tests/harness.test.ts`가 PGlite와 규칙 모델로 대화 전체(일정 → 완주 → 컨디션 → 코스 → 변경 승인/거절 → 출발 → 도착), 안전 게이트, 위조 거부, 단계별 도구 노출, 강제 제안, 대체 모델을 확인한다. 같은 흐름을 실제 모델로 모바일 브라우저에서 돌려 README 스크린샷을 만들었다.
+
+## 10. 대화로 정보 받기
+
+> "챗이 기본 UI"를 끝까지 적용한다. 일정 입력 카드와 컨디션 카드를 없애고, 앱이 한 번에 한 가지만 묻는다.
+
+### 10.1 원칙
+
+| 원칙 | 의미 |
+| --- | --- |
+| 한 번에 한 질문 | 질문은 문장 하나다. 사용자는 몇 개를 한꺼번에 말해도 되고, 말한 것은 모두 저장된다. |
+| 버튼은 대신 말해 주는 것 | 답 버튼을 누르면 그 문장("18시 30분 기차예요")이 사용자 말풍선으로 남는다. 대화 기록이 곧 입력 기록이 된다. |
+| 질문은 앱이, 확인은 모델이 | 다음 질문과 답 버튼은 하네스가 결정적으로 붙인다. 모델은 "18:30 열차로 저장했어요"처럼 들은 것을 한 문장으로 확인하거나 사용자 질문에 답한다. 질문 누락·중복·순서 오류가 없다. |
+| 모르면 기본값, 나중에 말로 고침 | "아직 몰라요"도 답이다. 기본값으로 진행하고 그렇다고 말해 준다. 언제든 "열차 16시로 바뀌었어"라고 하면 된다. |
+| 묻는 건 최소한 | 일정은 3개(열차, 하고 싶은 일, 출발 장소), 완주 후에는 2개(출발 가능 시각, 몸 상태)만 묻는다. 걷기·짐 같은 나머지는 기본값으로 계산하고, 말하면 반영한다. |
+
+### 10.2 흐름
+
+```
+앱   서울 가는 열차는 몇 시예요?        [16:00] [17:30] [18:30] [아직 몰라요]
+나   저녁 6시 반 기차예요                 ← 자유 입력 → update_trip_details(trainTime 18:30)
+AI   18:30 열차로 저장했어요.
+앱   완주하고 구룡포에서 뭐 하고 싶어요?  [맛있는 점심] [짧은 구경] [카페 휴식] (여러 개) [이걸로 할게요]
+나   맛있는 점심, 카페 휴식 할래요         ← 버튼 → 값 [food, cafe]가 함께 감, 모델 호출 없음
+앱   대회장에서 바로 출발해요, 숙소에 들렀다 가요?  [대회장에서 바로] [숙소 들렀다가]
+나   숙소에 들렀다 갈게요
+앱   일정을 저장했어요. 대회가 끝나면 "완주했어요"라고 알려주세요.
+ …
+나   완주했어요                            ← record_race_progress
+AI   10km 완주 축하해요!
+앱   언제 출발할 수 있어요?               [지금 바로 (10:40)] [30분 쉬고 (11:10)] [1시간 쉬고 (11:40)]
+나   30분 쉬고 갈게요. 조금 지쳤어요       ← 한 문장에 두 답 → 둘 다 저장, 질문 건너뜀
+AI   (코스 카드) …
+```
+
+### 10.3 구현
+
+- **질문은 데이터**: `config.conversation`(jsonb) = `onboarding`/`checkIn` 질문 순서 + 슬롯별 `question`·`hint`(입력창 안내)·`multiple`·`choices[{label, say, value, reply?}]`. 장소 버튼과 시각 버튼처럼 여정에서 계산되는 선택지는 `slots.ts`가 만든다(장소를 추가하면 버튼도 생긴다).
+- **상태**: `TripState.answered`(답한 슬롯)와 이벤트 `slots.filled {patch, slots}`. `pendingSlot(config, state)`가 다음 질문을, `fillSlots`가 답을 이벤트로 바꾼다(순수 함수). 일정 질문을 다 답하면 `trip.created`, 몸 상태를 답하면 완주 단계로 넘어간다.
+- **버튼 답**: 사용자 메시지 `metadata.choice = {slot, value}`. 서버는 그 슬롯이 지금 묻는 질문일 때만 값을 받아들이고, 아니면 문장으로만 이해한다. 질문이 이어지는 단계(ONBOARDING·CHECK_IN·PRE_RACE)에서는 **모델을 부르지 않고** 앱이 바로 다음 질문을 붙인다.
+- **자유 입력**: ONBOARDING·CHECK_IN에서 사용자가 쓴 문장은 첫 스텝에 `update_trip_details`를 강제로 호출해 읽는다(분명한 값만, 나머지 null). "4시 기차"처럼 모호하면 저장하지 않고 같은 질문이 다시 뜬다. 규칙 모델은 `detailsFromText`로 같은 일을 한다.
+- **UI**: `data-choices` 데이터 파트 → 답 버튼(shadcn `Button`/`ToggleGroup`), 입력창 placeholder는 그 질문의 `hint`. 내부 기록용 도구(`update_trip_details`, `record_race_progress`)는 화면에 그리지 않는다 — 대화 문장이 이미 보여준다.
+- **검증**: `tests/slots.test.ts`(질문 순서, 설정 변경, 문장 읽기), `tests/harness.test.ts`(버튼만으로 / 한 문장으로 / 일부만 / 모호한 시각 / "아직 몰라요" / 지금 질문이 아닌 버튼 / 완주 후 한 문장 / 몸이 안 좋아요). 실제 모델로 "카페도 가고 싶어요"가 기존 선택에 더해지는지 확인했다.

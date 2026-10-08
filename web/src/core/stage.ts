@@ -26,7 +26,8 @@ export const stageOf = (s: TripState): Stage => {
 
 /** Quick replies shown above the composer, per stage. */
 export const suggestionsFor: Record<Stage, string[]> = {
-  ONBOARDING: ['18시 30분 기차예요', '점심이랑 카페 가고 싶어요'],
+  // While details are collected, the open question brings its own chips.
+  ONBOARDING: [],
   PRE_RACE: ['포항에 도착했어요', '완주했어요'],
   CHECK_IN: [],
   PLANNING: [

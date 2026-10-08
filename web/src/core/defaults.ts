@@ -235,6 +235,92 @@ export const seedConfig: TripConfig = {
     maxOutputTokens: 600,
     suggestions: ['16시 기차로 바꿨어', '왜 이 코스야?', '역까지 택시 타면?'],
   },
+  conversation: {
+    onboarding: ['trainTime', 'interests', 'origin'],
+    // Ready time first, so the stage moves on once the condition is known.
+    checkIn: ['readyTime', 'condition'],
+    slots: {
+      trainTime: {
+        question: '서울 가는 열차는 몇 시예요?',
+        hint: '예: 18시 30분 기차',
+        multiple: false,
+        choices: [
+          { label: '16:00', say: '16시 기차예요', value: '16:00' },
+          { label: '17:30', say: '17시 30분 기차예요', value: '17:30' },
+          { label: '18:30', say: '18시 30분 기차예요', value: '18:30' },
+          {
+            label: '아직 몰라요',
+            say: '아직 몰라요',
+            value: null,
+            reply: '그럼 18:30 열차로 가정해 둘게요. 정해지면 말해 주세요.',
+          },
+        ],
+      },
+      interests: {
+        question: '완주하고 구룡포에서 뭐 하고 싶어요? 여러 개 골라도 돼요.',
+        hint: '예: 점심이랑 카페',
+        multiple: true,
+        choices: [],
+      },
+      origin: {
+        question: '대회장에서 바로 출발해요, 숙소에 들렀다 가요?',
+        hint: '예: 숙소에서 짐 찾고 갈게요',
+        multiple: false,
+        choices: [
+          {
+            label: '대회장에서 바로',
+            say: '대회장에서 바로 갈게요',
+            value: 'RACE',
+          },
+          {
+            label: '숙소 들렀다가',
+            say: '숙소에 들렀다 갈게요',
+            value: 'HOTEL',
+          },
+        ],
+      },
+      arrivalAt: {
+        question: '포항에는 언제 도착해요?',
+        hint: '예: 전날 오후 5시',
+        multiple: false,
+        choices: [],
+      },
+      readyTime: {
+        question: '언제 출발할 수 있어요?',
+        hint: '예: 30분 쉬고 갈게요',
+        multiple: false,
+        choices: [],
+      },
+      condition: {
+        question: '몸은 어때요?',
+        hint: '예: 조금 지쳤어요',
+        multiple: false,
+        choices: [
+          { label: '괜찮아요', say: '괜찮아요', value: 'OK' },
+          { label: '조금 지쳤어요', say: '조금 지쳤어요', value: 'TIRED' },
+          { label: '몸이 안 좋아요', say: '몸이 안 좋아요', value: 'UNWELL' },
+        ],
+      },
+      walkingLimit: {
+        question: '걷는 건 얼마나 괜찮아요?',
+        hint: '예: 15분만 걸을래요',
+        multiple: false,
+        choices: [
+          { label: '15분 이내', say: '15분만 걸을래요', value: 15 },
+          { label: '30분 이내', say: '30분 정도는 걸어도 돼요', value: 30 },
+        ],
+      },
+      baggageCollected: {
+        question: '짐은 챙겼어요?',
+        hint: '예: 짐 다 챙겼어요',
+        multiple: false,
+        choices: [
+          { label: '챙겼어요', say: '짐 다 챙겼어요', value: true },
+          { label: '아직이요', say: '짐은 아직이에요', value: false },
+        ],
+      },
+    },
+  },
   scenarios: [
     {
       id: 'base',

@@ -1,7 +1,8 @@
 import { createContext, useContext } from 'react'
 import type { TripConfig } from '#/core/schema'
 import type { TripView } from '#/core/view'
-import type { AgentUIMessage } from '#/server/agent/harness'
+import type { SlotId } from '#/core/schema'
+import type { AgentUIMessage, ChipAnswer } from '#/server/agent/harness'
 
 export type AgentPart = AgentUIMessage['parts'][number]
 export type ToolPart = Extract<AgentPart, { type: `tool-${string}` }>
@@ -19,6 +20,8 @@ export type ChatContext = {
   /** Approve or decline a proposed change. */
   approve: (approvalId: string, approved: boolean) => void
   send: (text: string) => void
+  /** Reply with a chip: its sentence as the user's message, plus its value. */
+  choose: (slot: SlotId, value: ChipAnswer['value'], say: string) => void
 }
 
 const Context = createContext<ChatContext | null>(null)

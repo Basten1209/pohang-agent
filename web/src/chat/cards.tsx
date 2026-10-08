@@ -20,16 +20,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
 import {
   Item,
   ItemContent,
@@ -38,15 +28,14 @@ import {
   ItemMedia,
   ItemTitle,
 } from '@/components/ui/item'
-import { RadioGroup } from '@/components/ui/radio-group'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { Choice, PlaceIcon } from '#/app/bits'
+import { PlaceIcon } from '#/app/bits'
 import { mapUrl } from '#/core/links'
 import type { Decision, Itinerary } from '#/core/planner'
-import type { Plan } from '#/core/schema'
+import type { ChoicePrompt } from '#/core/slots'
 import type { Progress } from '#/core/stage'
 import { progressOptions } from '#/core/stage'
-import { clock, minutes } from '#/core/time'
+import { clock } from '#/core/time'
 import type { PartOf, ToolPart } from './context'
 import { useChatContext } from './context'
 
@@ -57,6 +46,79 @@ import { useChatContext } from './context'
  */
 
 type CardProps<P> = { part: P; interactive: boolean }
+
+// ── The app's question: reply chips ────────────────────────────────────
+
+/**
+ * Chips under the open question. A chip is a shortcut for typing: it sends
+ * its sentence as the user's message, with the value attached. Typing a
+ * free answer instead works just as well.
+ */
+export const Choices = ({
+  prompt,
+  interactive,
+}: {
+  prompt: ChoicePrompt
+  interactive: boolean
+}) => {
+  const { config, choose } = useChatContext()
+  const [picked, setPicked] = useState<string[]>([])
+  if (!interactive) return null
+  const icon = (value: unknown) => {
+    const place = config.places.find((p) => p.id === value)
+    return place ? <PlaceIcon name={place.attrs.icon} /> : null
+  }
+
+  if (prompt.multiple) {
+    const labels = prompt.choices
+      .filter((c) => picked.includes(String(c.value)))
+      .map((c) => c.label)
+    return (
+      <div className="flex flex-col items-start gap-2">
+        <ToggleGroup
+          type="multiple"
+          variant="outline"
+          size="sm"
+          className="flex-wrap"
+          value={picked}
+          onValueChange={setPicked}
+        >
+          {prompt.choices.map((c) => (
+            <ToggleGroupItem key={String(c.value)} value={String(c.value)}>
+              {icon(c.value)}
+              {c.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+        <Button
+          size="sm"
+          disabled={!picked.length}
+          onClick={() =>
+            choose(prompt.slot, picked, `${labels.join(', ')} 할래요`)
+          }
+        >
+          이걸로 할게요
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {prompt.choices.map((c) => (
+        <Button
+          key={c.label}
+          size="sm"
+          variant="outline"
+          onClick={() => choose(prompt.slot, c.value, c.say)}
+        >
+          {icon(c.value)}
+          {c.label}
+        </Button>
+      ))}
+    </div>
+  )
+}
 
 const Answered = ({ children }: { children: ReactNode }) => (
   <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -72,262 +134,6 @@ const Unanswered = () => (
     <CircleSlash className="size-4" /> 답하지 않고 넘어갔어요
   </p>
 )
-
-// ── Ask: trip basics ───────────────────────────────────────────────────
-
-const dateLabel = (iso: string) => {
-  const [, m, d] = iso.slice(0, 10).split('-')
-  return `${Number(m)}월 ${Number(d)}일 ${iso.slice(11, 16)}`
-}
-
-const BasicsCard = ({
-  part,
-  interactive,
-}: CardProps<PartOf<'ask_trip_basics'>>) => {
-  const { config, view, answer } = useChatContext()
-  const places = config.places.filter((p) => p.active)
-  const prefill = part.input?.prefill
-  const plan = view.state.plan
-  const [arrivalAt, setArrivalAt] = useState(
-    prefill?.arrivalAt ?? plan.arrivalAt,
-  )
-  const [trainTime, setTrainTime] = useState(
-    prefill?.trainTime ?? plan.trainTime,
-  )
-  const [interests, setInterests] = useState<string[]>(
-    (prefill?.interests ?? plan.interests).filter(
-      (id): id is string => typeof id === 'string',
-    ),
-  )
-  const [origin, setOrigin] = useState<Plan['origin']>(plan.origin)
-  const name = (id: string) =>
-    places.find((p) => p.id === id)?.attrs.interestLabel ?? id
-
-  if (part.state === 'output-available')
-    return skipped(part.output) || !('arrivalAt' in part.output) ? (
-      <Unanswered />
-    ) : (
-      <Answered>
-        {dateLabel(part.output.arrivalAt)} 도착 · {part.output.trainTime} 열차 ·{' '}
-        {part.output.interests.map(name).join(', ') || '바로 귀가'}
-      </Answered>
-    )
-  if (!interactive)
-    return part.state === 'input-available' ? <Unanswered /> : null
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>포항 일정</CardTitle>
-        <CardDescription>
-          다 몰라도 괜찮아요. 나중에 채팅으로 바꿀 수 있어요.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="basics-arrival">포항 도착</FieldLabel>
-            <Input
-              id="basics-arrival"
-              type="datetime-local"
-              value={arrivalAt}
-              onChange={(e) => e.target.value && setArrivalAt(e.target.value)}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="basics-train">서울행 열차 출발</FieldLabel>
-            <Input
-              id="basics-train"
-              type="time"
-              value={trainTime}
-              onChange={(e) => e.target.value && setTrainTime(e.target.value)}
-            />
-            <FieldDescription>대회 다음 날 · 포항역</FieldDescription>
-          </Field>
-          <FieldSet>
-            <FieldLegend variant="label">완주 후 하고 싶은 일</FieldLegend>
-            <ToggleGroup
-              type="multiple"
-              variant="outline"
-              className="flex-wrap"
-              value={interests}
-              onValueChange={setInterests}
-            >
-              {places.map((p) => (
-                <ToggleGroupItem key={p.id} value={p.id}>
-                  <PlaceIcon name={p.attrs.icon} />
-                  {p.attrs.interestLabel}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          </FieldSet>
-          <FieldSet>
-            <FieldLegend variant="label">관광 출발 장소</FieldLegend>
-            <RadioGroup
-              value={origin}
-              onValueChange={(v) => setOrigin(v as Plan['origin'])}
-            >
-              <Choice
-                id="basics-race"
-                value="RACE"
-                title="대회장"
-                description="짐을 가지고 바로 이동"
-              />
-              <Choice
-                id="basics-hotel"
-                value="HOTEL"
-                title="숙소"
-                description="짐을 찾은 뒤 출발"
-              />
-            </RadioGroup>
-          </FieldSet>
-        </FieldGroup>
-      </CardContent>
-      <CardFooter>
-        <Button
-          className="w-full"
-          onClick={() =>
-            answer('ask_trip_basics', part.toolCallId, {
-              arrivalAt,
-              trainTime,
-              interests,
-              origin,
-            })
-          }
-        >
-          이렇게 저장할게요
-        </Button>
-      </CardFooter>
-    </Card>
-  )
-}
-
-// ── Ask: condition after the race ──────────────────────────────────────
-
-const conditionLabel = {
-  OK: '괜찮아요',
-  TIRED: '조금 지쳤어요',
-  UNWELL: '몸이 안 좋아요',
-}
-
-const ConditionCard = ({
-  part,
-  interactive,
-}: CardProps<PartOf<'ask_condition'>>) => {
-  const { view, answer } = useChatContext()
-  const plan = view.state.plan
-  const [condition, setCondition] = useState<'OK' | 'TIRED' | 'UNWELL' | ''>('')
-  const [walkingLimit, setWalkingLimit] = useState<15 | 30>(
-    plan.walkingLimit === 15 ? 15 : 30,
-  )
-  const [readyTime, setReadyTime] = useState(plan.readyTime)
-  const [baggageCollected, setBaggage] = useState(plan.baggageCollected)
-
-  if (part.state === 'output-available')
-    return skipped(part.output) || !('condition' in part.output) ? (
-      <Unanswered />
-    ) : (
-      <Answered>
-        {conditionLabel[part.output.condition]} · 걷기{' '}
-        {part.output.walkingLimit}분 · {part.output.readyTime} 출발
-      </Answered>
-    )
-  if (!interactive)
-    return part.state === 'input-available' ? <Unanswered /> : null
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>지금 상태</CardTitle>
-        <CardDescription>이 값으로 코스를 계산해요.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <FieldGroup>
-          <FieldSet>
-            <FieldLegend variant="label">컨디션</FieldLegend>
-            <RadioGroup
-              value={condition}
-              onValueChange={(v) => setCondition(v as typeof condition)}
-            >
-              <Choice id="cond-ok" value="OK" title="괜찮아요" />
-              <Choice id="cond-tired" value="TIRED" title="조금 지쳤어요" />
-              <Choice
-                id="cond-unwell"
-                value="UNWELL"
-                title="몸이 안 좋아요"
-                description="관광 계산을 멈추고 도움을 안내해요."
-              />
-            </RadioGroup>
-          </FieldSet>
-          {condition !== 'UNWELL' && (
-            <>
-              <FieldSet>
-                <FieldLegend variant="label">걷기</FieldLegend>
-                <ToggleGroup
-                  type="single"
-                  variant="outline"
-                  value={String(walkingLimit)}
-                  onValueChange={(v) =>
-                    v && setWalkingLimit(v === '15' ? 15 : 30)
-                  }
-                >
-                  <ToggleGroupItem value="15">15분 이내</ToggleGroupItem>
-                  <ToggleGroupItem value="30">30분 이내</ToggleGroupItem>
-                </ToggleGroup>
-              </FieldSet>
-              <Field>
-                <FieldLabel htmlFor="cond-ready">출발 준비 완료</FieldLabel>
-                <div className="flex gap-2">
-                  <Input
-                    id="cond-ready"
-                    type="time"
-                    value={readyTime}
-                    onChange={(e) =>
-                      e.target.value && setReadyTime(e.target.value)
-                    }
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => setReadyTime(clock(minutes(readyTime) + 30))}
-                  >
-                    +30분
-                  </Button>
-                </div>
-              </Field>
-              <Field orientation="horizontal">
-                <Checkbox
-                  id="cond-baggage"
-                  checked={baggageCollected}
-                  onCheckedChange={(v) => setBaggage(v === true)}
-                />
-                <FieldLabel htmlFor="cond-baggage" className="font-normal">
-                  출발 전에 짐을 모두 챙길 수 있어요
-                </FieldLabel>
-              </Field>
-            </>
-          )}
-        </FieldGroup>
-      </CardContent>
-      <CardFooter>
-        <Button
-          className="w-full"
-          disabled={!condition}
-          onClick={() =>
-            condition &&
-            answer('ask_condition', part.toolCallId, {
-              condition,
-              walkingLimit,
-              readyTime,
-              baggageCollected,
-            })
-          }
-        >
-          {condition === 'UNWELL' ? '도움 안내 받기' : '코스 계산하기'}
-        </Button>
-      </CardFooter>
-    </Card>
-  )
-}
 
 // ── Ask: quick reply ───────────────────────────────────────────────────
 
@@ -633,7 +439,6 @@ const toolTitle: Record<string, string> = {
   explain_plan: '코스 근거 확인',
   check_live_conditions: '디지털 트윈 확인',
   compare_transport: '이동수단 비교',
-  record_race_progress: '진행 기록',
   set_demo_observation: '시연 조건 적용',
 }
 
@@ -654,10 +459,13 @@ const GenericTool = ({ part }: CardProps<ToolPart>) => (
   </Tool>
 )
 
+/** Bookkeeping the conversation already shows in words. */
+const Hidden = () => null
+
 /** Data-directed dispatch: tool name → card. */
 const cards: Record<string, (props: CardProps<never>) => ReactNode> = {
-  ask_trip_basics: BasicsCard,
-  ask_condition: ConditionCard,
+  update_trip_details: Hidden,
+  record_race_progress: Hidden,
   ask_quick_reply: QuickReplyCard,
   await_progress: ProgressCard,
   plan_course: PlanCourseCard,

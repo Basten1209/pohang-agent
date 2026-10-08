@@ -186,6 +186,54 @@ export const agentConfigSchema = z.object({
 })
 export type AgentConfig = z.infer<typeof agentConfigSchema>
 
+// ── Conversation: what the agent asks, as data ──────────────────────────
+/** Trip details the chat collects, one question at a time. */
+export const slotIdSchema = z.enum([
+  'trainTime',
+  'interests',
+  'origin',
+  'arrivalAt',
+  'readyTime',
+  'condition',
+  'walkingLimit',
+  'baggageCollected',
+])
+export type SlotId = z.infer<typeof slotIdSchema>
+
+/**
+ * A reply chip. Tapping it sends `say` as the user's own message, with
+ * `value` attached so the server can apply it without guessing.
+ * `value: null` means "I don't know" — the slot is answered and keeps its default.
+ */
+export const choiceSchema = z.object({
+  label: z.string(),
+  say: z.string(),
+  value: z.union([z.string(), z.number(), z.boolean(), z.null()]),
+  /** One line the app answers with when this chip is tapped. */
+  reply: z.string().optional(),
+})
+export type Choice = z.infer<typeof choiceSchema>
+
+export const slotSpecSchema = z.object({
+  question: z.string(),
+  /** Composer placeholder while this question is open. */
+  hint: z.string(),
+  /** Several chips may be picked, then sent together. */
+  multiple: z.boolean().default(false),
+  /** Fixed chips. Some slots add chips computed from the trip (places, times). */
+  choices: z.array(choiceSchema).default([]),
+})
+export type SlotSpec = z.infer<typeof slotSpecSchema>
+
+export const conversationSchema = z.object({
+  /** Asked, in order, until the trip exists. */
+  onboarding: z.array(slotIdSchema),
+  /** Asked, in order, right after the race. */
+  checkIn: z.array(slotIdSchema),
+  slots: z.partialRecord(slotIdSchema, slotSpecSchema),
+})
+export type ConversationConfig = z.infer<typeof conversationSchema>
+
 export const screenSchema = z.enum(['plan', 'day', 'finish', 'course', 'next'])
 export type Screen = z.infer<typeof screenSchema>
 
@@ -212,6 +260,7 @@ export const configSchema = z.object({
   anchors: z.array(anchorSchema),
   sources: z.array(sourceSchema),
   agent: agentConfigSchema,
+  conversation: conversationSchema,
   scenarios: z.array(scenarioSchema),
   defaults: z.object({ plan: planSchema, observations: observationsSchema }),
 })

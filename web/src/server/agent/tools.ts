@@ -5,10 +5,17 @@ import type { Changes } from '#/core/intents'
 import { canTravel, planner } from '#/core/planner'
 import { planContext, preview } from '#/core/preview'
 import type { TripConfig } from '#/core/schema'
-import { placeIdSchema, timeSchema } from '#/core/schema'
+import { timeSchema } from '#/core/schema'
 import { clock } from '#/core/time'
 import type { TripEvent } from '#/core/trip'
 import { accept, runScenario } from '#/core/trip'
+import {
+  describeDetails,
+  detailsSchema,
+  fillSlots,
+  noDetails,
+  promptFor,
+} from '#/core/slots'
 import type { StoredPreview, TripRecord } from '../trips'
 
 /**
@@ -36,22 +43,6 @@ export type TurnContext = {
 }
 
 // ── Answer schemas for Ask tools (what the cards send back) ─────────────
-
-export const tripBasicsSchema = z.object({
-  arrivalAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/),
-  trainTime: timeSchema,
-  interests: z.array(placeIdSchema),
-  origin: z.enum(['RACE', 'HOTEL']),
-})
-export type TripBasics = z.infer<typeof tripBasicsSchema>
-
-export const conditionAnswerSchema = z.object({
-  condition: z.enum(['OK', 'TIRED', 'UNWELL']),
-  walkingLimit: z.union([z.literal(15), z.literal(30)]),
-  readyTime: timeSchema,
-  baggageCollected: z.boolean(),
-})
-export type ConditionAnswer = z.infer<typeof conditionAnswerSchema>
 
 export const progressEventSchema = z.enum([
   'ARRIVED',
@@ -119,45 +110,6 @@ export const makeTools = (ctx: TurnContext) => {
 
   return {
     // ── Ask ───────────────────────────────────────────────────────────
-    ask_trip_basics: tool({
-      description:
-        '포항 도착 일시, 서울행 열차 시각, 완주 후 하고 싶은 일을 입력받는 카드를 띄운다. 여정을 처음 만들 때 쓴다. 이미 저장된 여정을 바꿀 때는 쓰지 않는다. 사용자 문장에서 확실히 알 수 있는 값만 prefill에 넣고 나머지는 null.',
-      inputSchema: z
-        .object({
-          prefill: z
-            .object({
-              arrivalAt: z
-                .string()
-                .nullable()
-                .describe('YYYY-MM-DDTHH:mm, 모르면 null'),
-              trainTime: timeSchema.nullable().describe('HH:mm, 모르면 null'),
-              interests: z
-                .array(z.enum(placeIds))
-                .nullable()
-                .describe('하고 싶다고 한 장소 id, 모르면 null'),
-            })
-            .strict(),
-        })
-        .strict(),
-      inputExamples: [
-        {
-          input: {
-            prefill: {
-              arrivalAt: null,
-              trainTime: '18:30',
-              interests: ['food', 'cafe'],
-            },
-          },
-        },
-      ],
-      outputSchema: z.union([tripBasicsSchema, skippedSchema]),
-    }),
-    ask_condition: tool({
-      description:
-        '완주 직후 컨디션, 걷기 상한, 출발 준비 시각, 짐 회수 여부를 입력받는 카드를 띄운다. 사용자가 완주했다고 한 뒤 코스를 계산하기 전에 쓴다. 이미 답을 받았으면 다시 쓰지 않는다. 입력은 없다.',
-      inputSchema: z.object({}).strict(),
-      outputSchema: z.union([conditionAnswerSchema, skippedSchema]),
-    }),
     ask_quick_reply: tool({
       description:
         '짧은 선택지 버튼으로 되묻는다. "4시"처럼 오전/오후가 모호하거나 장소가 불분명할 때 쓴다. 자유 대답이 필요한 질문이나 이미 확실한 내용에는 쓰지 않는다. 선택지는 2–4개, 라벨은 12자 이내.',
@@ -324,6 +276,36 @@ export const makeTools = (ctx: TurnContext) => {
     }),
 
     // ── Commit ────────────────────────────────────────────────────────
+    update_trip_details: tool({
+      description:
+        '사용자가 대화에서 말한 여정 정보(열차 시각, 하고 싶은 일, 출발 장소, 도착 일시, 출발 준비 시각, 컨디션, 걷기, 짐)를 저장한다. 사용자가 이런 사실을 말할 때마다 쓴다. 코스가 정해진 뒤의 변경은 plan_course로 하고, 질문에는 쓰지 않는다. 사용자가 분명히 말한 값만 넣고 나머지는 null — 추측하지 않는다. interests는 저장 후의 전체 목록이다: "카페도"처럼 추가하면 여정 요약의 기존 목록에 더해서 넣는다.',
+      inputSchema: detailsSchema,
+      inputExamples: [
+        {
+          input: {
+            ...noDetails,
+            trainTime: '18:30',
+            interests: ['food', 'cafe'],
+          },
+        },
+        { input: { ...noDetails, origin: 'HOTEL' } },
+        { input: { ...noDetails, condition: 'TIRED', readyTime: '11:10' } },
+      ],
+      execute: async (details) => {
+        const before = ctx.trip().state
+        const next = await ctx.commit(
+          fillSlots(config, before, details),
+          'update_trip_details',
+        )
+        const prompt = promptFor(config, next.state)
+        return {
+          saved: describeDetails(config, details),
+          tripCreated: !before.created && next.state.created,
+          /** The question the app will ask next (the agent does not ask it). */
+          nextQuestion: prompt?.question ?? null,
+        }
+      },
+    }),
     record_race_progress: tool({
       description:
         '대회 전후 진행(포항 도착, 출발 준비, 완주)을 기록한다. 사용자가 그 일이 일어났다고 직접 말했을 때만 쓴다. 예정이나 질문에는 쓰지 않는다. milestone 하나를 고른다.',

@@ -5,6 +5,7 @@ import type {
   LanguageModelV4StreamPart,
 } from '@ai-sdk/provider'
 import { interpret } from '#/core/intents'
+import { detailsFromText } from '#/core/slots'
 
 /**
  * A rule-based language model.
@@ -110,25 +111,26 @@ const trailingResults = (prompt: LanguageModelV4Prompt): ToolResult[] => {
 
 // ── Deciding ────────────────────────────────────────────────────────────
 
-const interestsIn = (text: string) =>
-  [
-    [/점심|식사|밥|먹/, 'food'],
-    [/구경|골목|가옥/, 'street'],
-    [/카페|커피/, 'cafe'],
-  ].flatMap(([re, id]) => ((re as RegExp).test(text) ? [id as string] : []))
+/** What the user said about the trip, read with the shared rule-based reader. */
+const detailsIn = (text: string, prompt: LanguageModelV4Prompt): Json => {
+  const system = systemText(prompt)
+  const readyTime = system.match(/준비 시각: (\d{2}:\d{2})/)?.[1] ?? '10:40'
+  const d = detailsFromText(text, { stage: stageIn(prompt), readyTime })
+  // "카페도" adds to what was already chosen.
+  const before =
+    system.match(/하고 싶은 일: ([a-z, ]+) ·/)?.[1]?.split(', ') ?? []
+  if (Array.isArray(d.interests) && d.interests.length && /도\s|도$/.test(text))
+    d.interests = [...new Set([...before, ...d.interests])]
+  return d
+}
+const saysSomething = (d: Json) => Object.values(d).some((v) => v !== null)
 
-const defaultInput = (name: string, text: string): Json => {
-  if (name === 'ask_trip_basics') {
-    const intent = interpret(text)
-    const interests = interestsIn(text)
-    return {
-      prefill: {
-        arrivalAt: null,
-        trainTime: intent.kind === 'CHANGE' ? intent.changes.trainTime : null,
-        interests: interests.length ? interests : null,
-      },
-    }
-  }
+const defaultInput = (
+  name: string,
+  text: string,
+  prompt: LanguageModelV4Prompt,
+): Json => {
+  if (name === 'update_trip_details') return detailsIn(text, prompt)
   if (name === 'plan_course') return { changes: null }
   if (name === 'explain_plan') return { topic: 'why_course' }
   return {}
@@ -159,6 +161,7 @@ const decideFromText = (
   text: string,
   stage: string,
   has: (n: string) => boolean,
+  details: Json,
 ): Reply => {
   if (text.startsWith('/시연')) {
     const scenario = demoScenario(text)
@@ -187,8 +190,14 @@ const decideFromText = (
       return {
         call: { name: 'record_race_progress', input: { milestone: 'READY' } },
       }
+    if (has('update_trip_details') && saysSomething(details))
+      return { call: { name: 'update_trip_details', input: details } }
     return { text: '대회 전이에요. 포항에 도착하거나 완주하면 알려주세요.' }
   }
+  if (stage === 'ONBOARDING' || stage === 'CHECK_IN')
+    return has('update_trip_details') && saysSomething(details)
+      ? { call: { name: 'update_trip_details', input: details } }
+      : { text: '알겠어요.' }
   if (stage === 'PLANNING' || stage === 'JOURNEY') {
     if (/이 코스로|갈게|출발할게/.test(text) && has('start_journey'))
       return { call: { name: 'start_journey', input: {} } }
@@ -229,7 +238,7 @@ const decideFromText = (
       text: '바꿀 조건을 알려주세요. 예: "16시 기차로 바뀌었어", "15분만 걷고 싶어", "30분 더 쉴래".',
     }
   }
-  return { text: '카드에서 골라 주세요.' }
+  return { text: '알겠어요.' }
 }
 
 const decideFromResult = (
@@ -272,11 +281,7 @@ const decideFromResult = (
         text: '디지털 트윈 연결 상태를 확인했어요. 일정 계산은 화면의 관측 입력 기준이에요.',
       }
     case 'record_race_progress':
-      if (v.milestone === 'FINISHED' && has('ask_condition'))
-        return {
-          text: '완주 축하해요!',
-          call: { name: 'ask_condition', input: {} },
-        }
+      if (v.milestone === 'FINISHED') return { text: '완주 축하해요!' }
       return {
         text:
           v.milestone === 'ARRIVED_POHANG'
@@ -302,21 +307,20 @@ const decideFromResult = (
       }
     case 'show_safety_help':
       return { text: String(v.message ?? '') }
-    case 'ask_trip_basics':
+    case 'update_trip_details': {
+      const saved = Array.isArray(v.saved) ? (v.saved as string[]) : []
+      if (v.tripCreated)
+        return {
+          text: '일정을 저장했어요. 대회가 끝나면 "완주했어요"라고 알려주세요.',
+        }
       return {
-        text: '여정을 저장했어요. 포항에 도착하거나 완주하면 알려주세요.',
+        text: saved.length
+          ? `${saved.join(', ')}(으)로 적어 둘게요.`
+          : '알겠어요.',
       }
-    case 'ask_condition':
-      if (has('show_safety_help'))
-        return { call: { name: 'show_safety_help', input: {} } }
-      return has('plan_course')
-        ? {
-            text: '지금 조건으로 코스를 계산했어요.',
-            call: { name: 'plan_course', input: { changes: null } },
-          }
-        : { text: '확인했어요.' }
+    }
     case 'ask_quick_reply':
-      return decideFromText(String(v.id ?? v.label ?? ''), stage, has)
+      return decideFromText(String(v.id ?? v.label ?? ''), stage, has, {})
     case 'await_progress':
       return {
         text:
@@ -352,10 +356,15 @@ export const decide = (options: LanguageModelV4CallOptions): Reply => {
     // Prefer the reply the last result implies when it calls the forced tool.
     return fromResult?.call?.name === forced
       ? fromResult
-      : { call: { name: forced, input: defaultInput(forced, text) } }
+      : {
+          call: {
+            name: forced,
+            input: defaultInput(forced, text, options.prompt),
+          },
+        }
   }
   if (fromResult) return fromResult
-  return decideFromText(text, stage, has)
+  return decideFromText(text, stage, has, detailsIn(text, options.prompt))
 }
 
 export const scriptedModel = (): LanguageModelV4 => ({

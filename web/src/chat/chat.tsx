@@ -48,7 +48,7 @@ import { clock } from '#/core/time'
 import type { TripView } from '#/core/view'
 import type { AgentMode, AgentUIMessage } from '#/server/agent/harness'
 import { askTools } from '#/server/agent/ask-tools'
-import { ToolCard } from './cards'
+import { Choices, ToolCard } from './cards'
 import type { AgentPart, ToolPart } from './context'
 import { ChatProvider } from './context'
 
@@ -233,6 +233,11 @@ export const Chat = ({
   const last = messages.at(-1)
   const mode = [...messages].reverse().find((m) => m.metadata?.mode)
     ?.metadata?.mode
+  // The open question of the latest message, if the app asked one.
+  const open =
+    last?.role === 'assistant'
+      ? last.parts.find((p) => p.type === 'data-choices')?.data
+      : undefined
 
   return (
     <ChatProvider
@@ -247,6 +252,11 @@ export const Chat = ({
             output: output as never,
           }),
         approve: (id, approved) => addToolApprovalResponse({ id, approved }),
+        choose: (slot, value, say) => {
+          if (busy) return
+          sendMessage({ text: say, metadata: { choice: { slot, value } } })
+          setInput('')
+        },
       }}
     >
       <div className="flex h-dvh flex-col">
@@ -267,6 +277,14 @@ export const Chat = ({
                     if (p.type === 'text')
                       return (
                         <MessageResponse key={key}>{p.text}</MessageResponse>
+                      )
+                    if (p.type === 'data-choices')
+                      return (
+                        <Choices
+                          key={key}
+                          prompt={p.data}
+                          interactive={m === last && !busy}
+                        />
                       )
                     if (isTool(p))
                       return (
@@ -294,7 +312,7 @@ export const Chat = ({
         </Conversation>
         <div className="border-t bg-background pb-safe">
           <div className="mx-auto flex w-full max-w-2xl flex-col gap-2 p-3">
-            {suggestionsFor[view.stage].length > 0 && (
+            {!open && suggestionsFor[view.stage].length > 0 && (
               <div className="grid min-w-0 grid-cols-1">
                 <Suggestions>
                   {suggestionsFor[view.stage].map((s) => (
@@ -313,7 +331,7 @@ export const Chat = ({
                 <PromptInputTextarea
                   value={input}
                   onChange={(e) => setInput(e.currentTarget.value)}
-                  placeholder="무엇이든 말해 주세요"
+                  placeholder={open?.hint ?? '무엇이든 말해 주세요'}
                   maxLength={1000}
                 />
               </PromptInputBody>

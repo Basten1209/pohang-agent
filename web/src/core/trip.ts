@@ -3,7 +3,12 @@ import { clamp, toggle, uniq } from './fp'
 import type { Itinerary } from './planner'
 import { canTravel } from './planner'
 import type { Observations, Plan, Screen, TripConfig } from './schema'
-import { observationsSchema, planSchema, screenSchema } from './schema'
+import {
+  observationsSchema,
+  planSchema,
+  screenSchema,
+  slotIdSchema,
+} from './schema'
 import { clock, minutes } from './time'
 
 /**
@@ -24,6 +29,8 @@ export const tripStateSchema = z.object({
   candidate: z.boolean(),
   checks: z.array(z.boolean()).length(3),
   created: z.boolean(),
+  /** Questions the user has answered in the chat (see slots.ts). */
+  answered: z.array(slotIdSchema).default([]),
 })
 export type TripState = z.infer<typeof tripStateSchema>
 
@@ -36,6 +43,7 @@ export const initialTrip = (config: TripConfig): TripState => ({
   candidate: false,
   checks: [false, false, false],
   created: false,
+  answered: [],
 })
 
 /** Events are validated at the server boundary, so they have a schema, not just a type. */
@@ -50,6 +58,11 @@ export const tripEventSchema = z.discriminatedUnion('type', [
     readings: z.record(z.string(), z.number().finite().nullable()),
   }),
   z.object({ type: z.literal('screen.changed'), screen: screenSchema }),
+  z.object({
+    type: z.literal('slots.filled'),
+    patch: planSchema.partial(),
+    slots: z.array(slotIdSchema),
+  }),
   z.object({ type: z.literal('trip.created') }),
   z.object({ type: z.literal('day.advanced'), phase: z.number().int() }),
   z.object({ type: z.literal('day.checkToggled'), index: z.number().int() }),
@@ -88,6 +101,10 @@ const handlers: Handlers = {
       },
     }),
   'screen.changed': (s, e) => ({ ...s, screen: e.screen }),
+  'slots.filled': (s, e) => ({
+    ...bump(s, e.patch),
+    answered: uniq([...s.answered, ...e.slots]),
+  }),
   'trip.created': (s) => ({ ...s, created: true }),
   'day.advanced': (s, e) => ({ ...s, phase: clamp(0, 3)(e.phase) }),
   'day.checkToggled': (s, e) => ({
@@ -102,6 +119,7 @@ const handlers: Handlers = {
     candidate: false,
     checks: [false, false, false],
     created: false,
+    answered: [],
     observations: e.observations,
     plan: { ...e.plan, revision: s.plan.revision + 1 },
   }),

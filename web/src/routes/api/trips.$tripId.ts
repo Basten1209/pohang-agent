@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 import { tripEventSchema } from '#/core/trip'
-import { openingMessages, tripView } from '#/server/agent/harness'
+import { openingFor, tripView } from '#/server/agent/harness'
 import { getConfig } from '#/server/config'
 import { getDb } from '#/server/db/client'
 import { json, parseBody } from '#/server/http'
@@ -21,7 +21,7 @@ const load = async (tripId: string) => {
   return {
     config,
     db,
-    record: await openTrip(db, config, tripId, openingMessages),
+    record: await openTrip(db, config, tripId, openingFor(config)),
   }
 }
 

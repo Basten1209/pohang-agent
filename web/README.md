@@ -4,7 +4,7 @@
 
 ## 화면 (iPhone 13 기준, 실제 모델로 진행)
 
-앱 전체가 하나의 대화입니다. 일정 입력·완주 체크인·코스 변경·이동 안내가 모두 에이전트의 도구 호출이고, 입력이 필요한 순간에는 대화 안에 카드가 뜹니다.
+앱 전체가 하나의 대화입니다. 폼이 없습니다. 열차 시각·하고 싶은 일·출발 장소·완주 후 상태를 앱이 한 번에 하나씩 묻고, 사용자는 말로 답하거나 답 버튼을 누릅니다(버튼은 그 문장을 대신 보내 줄 뿐입니다). 코스·변경 승인·다음 행동만 대화 안의 카드로 뜹니다.
 
 | 일정 만들기 | 완주 후 | 변경 승인 | 이동 중 | 도착 |
 | --- | --- | --- | --- | --- |
@@ -79,7 +79,7 @@ SELECT payload #>> '{patch,trainTime}' FROM trip_events WHERE payload -> 'patch'
           → 안전 게이트: 증상 언급 → SAFETY, 모델 호출 0
           → ToolLoopAgent (prepareStep마다)
                · 단계(stage)별 activeTools — 질문 문장이면 커밋 도구 제외
-               · 강제 도구 — 완주 → ask_condition, 계획 진입 → plan_course,
+               · 강제 도구 — 일정·완주 후 자유 입력 → update_trip_details, 계획 진입 → plan_course,
                  변경 미리보기 → apply_plan_change(승인 카드)
                · 지시문 = 기본 원칙 + 단계 지시 + 여정 요약
                · toolApproval: 계획 변경은 항상 사용자 승인(HMAC 서명), "이 코스로 갈게요"는 자동 승인
@@ -87,7 +87,9 @@ SELECT payload #>> '{patch,trainTime}' FROM trip_events WHERE payload -> 'patch'
           → data-trip(요약 바), 대화·meta 저장
 ```
 
-도구는 세 종류입니다. **Ask**(`ask_trip_basics`, `ask_condition`, `ask_quick_reply`, `await_progress`)는 `execute`가 없어 루프가 멈추고 카드가 뜹니다. **Read**(`plan_course`, `explain_plan`, `check_live_conditions`, `compare_transport`, `summarize_trip`, `show_safety_help`)는 여정을 바꾸지 않습니다. **Commit**(`record_race_progress`, `apply_plan_change`, `start_journey`, `set_demo_observation`)만 이벤트를 남깁니다.
+도구는 세 종류입니다. **Ask**(`ask_quick_reply`, `await_progress`)는 `execute`가 없어 루프가 멈추고 카드가 뜹니다. **Read**(`plan_course`, `explain_plan`, `check_live_conditions`, `compare_transport`, `summarize_trip`, `show_safety_help`)는 여정을 바꾸지 않습니다. **Commit**(`update_trip_details`, `record_race_progress`, `apply_plan_change`, `start_journey`, `set_demo_observation`)만 이벤트를 남깁니다.
+
+일정·완주 후 정보는 대화로 채웁니다([설계](docs/agent-ux.md#10-대화로-정보-받기)). 질문 순서·문구·답 버튼은 설정의 `conversation`(jsonb)에 있고, 다음 질문은 모델이 아니라 앱이 붙입니다. 답 버튼을 누르면 값이 함께 가서 모델 없이 저장되고, 자유롭게 쓴 문장은 모델이 `update_trip_details`로 읽어 저장합니다.
 
 키가 없거나 모델 호출이 실패하면 같은 하네스에서 규칙 기반 `LanguageModelV4`(`scripted-model.ts`)가 응답합니다. 도구·승인·카드·저장이 모두 같고 모델만 바뀝니다(헤더 배지: AI / 규칙 모델 / 규칙 모델(대체)).
 

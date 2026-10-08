@@ -8,15 +8,16 @@ import type { Db } from '#/server/db/client'
 import { memoryDb } from '#/server/db/client'
 import { seed } from '#/server/db/repo'
 import type { AgentUIMessage, HarnessDeps } from '#/server/agent/harness'
-import { openingMessages, runTurn } from '#/server/agent/harness'
+import { openingFor, runTurn } from '#/server/agent/harness'
 import { scriptedModel } from '#/server/agent/scripted-model'
 import { openTrip } from '#/server/trips'
 
 /**
  * The whole conversation, end to end, through the real harness and a real
  * (in-memory) Postgres, with the rule-based model. The test plays the client:
- * it only ever sends a user message or the latest assistant message with a
- * card answer / approval, and reads everything else back from the server.
+ * it only ever sends a user message (typed, or a reply chip with its value)
+ * or the latest assistant message with a card answer / approval, and reads
+ * everything else back from the server.
  */
 
 type Part = {
@@ -36,7 +37,7 @@ beforeEach(async () => {
   deps = { config: seedConfig, db, model: null, observe: async () => [] }
 })
 
-const load = () => openTrip(db, seedConfig, tripId, openingMessages)
+const load = () => openTrip(db, seedConfig, tripId, openingFor(seedConfig))
 
 const send = async (message: UIMessage) => {
   const stream = await runTurn(deps, {
@@ -97,53 +98,178 @@ const toolParts = (m: UIMessage) =>
   (m.parts as Part[]).filter((p) => p.type.startsWith('tool-'))
 const stage = async () => stageOf((await load()).state)
 
-const basics = {
-  arrivalAt: '2026-10-12T09:00',
-  trainTime: '18:30',
-  interests: ['food', 'cafe'],
-  origin: 'RACE',
-}
-const condition = {
-  condition: 'OK',
-  walkingLimit: 30,
-  readyTime: '10:40',
-  baggageCollected: true,
+/** Tap a reply chip: its sentence as the user's message, plus its value. */
+const choose = (slot: string, value: unknown, text: string) =>
+  send({
+    id: `u_${crypto.randomUUID()}`,
+    role: 'user',
+    parts: [{ type: 'text', text }],
+    metadata: { choice: { slot, value } },
+  } as UIMessage)
+
+const openQuestion = async () =>
+  ((await lastAssistant()).parts as Part[]).find(
+    (p) => p.type === 'data-choices',
+  )?.data as { slot: string; choices: { value: unknown }[] } | undefined
+
+const finishMode = (chunks: { type: string; [k: string]: unknown }[]) =>
+  (
+    chunks.find((c) => c.type === 'finish')?.messageMetadata as {
+      mode?: string
+    }
+  )?.mode
+
+const onboard = async () => {
+  await load()
+  await choose('trainTime', '18:30', '18시 30분 기차예요')
+  await choose('interests', ['food', 'cafe'], '점심, 카페 할래요')
+  await choose('origin', 'RACE', '대회장에서 바로 갈게요')
 }
 
 const finishRace = async () => {
-  await load()
-  await answer('ask_trip_basics', basics)
+  await onboard()
   await say('완주했어요')
 }
 
-describe('채팅 하네스 (규칙 모델 + PGlite)', () => {
-  it('새 여정은 인사와 기본 정보 카드로 시작', async () => {
+const checkIn = async () => {
+  await choose('readyTime', '10:40', '지금 바로 출발할 수 있어요')
+  return choose('condition', 'OK', '괜찮아요')
+}
+
+describe('대화로 여정 만들기', () => {
+  it('새 여정은 인사와 첫 질문(열차), 답 버튼으로 시작', async () => {
     const { messages, state } = await load()
     expect(stageOf(state)).toBe('ONBOARDING')
     const [first] = messages as UIMessage[]
-    expect(toolParts(first).map((p) => [p.type, p.state])).toEqual([
-      ['tool-ask_trip_basics', 'input-available'],
-    ])
+    expect(toolParts(first)).toEqual([])
+    expect(await openQuestion()).toMatchObject({ slot: 'trainTime' })
   })
 
-  it('카드 답은 모델 없이 그대로 여정에 반영', async () => {
+  it('버튼 답은 모델 없이 저장되고 다음 질문이 이어짐', async () => {
+    const broken: LanguageModelV4 = {
+      ...scriptedModel(),
+      doStream: async () => {
+        throw new Error('must not be called')
+      },
+    }
+    deps = { ...deps, model: broken }
     await load()
-    await answer('ask_trip_basics', basics)
+    const turn = await choose('trainTime', '18:30', '18시 30분 기차예요')
+    // Answered by the app itself: no model, so no model mode either.
+    expect(finishMode(turn)).toBeUndefined()
+    expect(await openQuestion()).toMatchObject({ slot: 'interests' })
+    await choose('interests', ['food', 'cafe'], '점심, 카페 할래요')
+    expect(await openQuestion()).toMatchObject({ slot: 'origin' })
+    await choose('origin', 'HOTEL', '숙소에 들렀다 갈게요')
+
     const { state } = await load()
     expect(state.created).toBe(true)
-    expect(state.plan.arrivalAt).toBe('2026-10-12T09:00')
-    expect(state.plan.excluded).toEqual(['street'])
+    expect(state.plan).toMatchObject({
+      trainTime: '18:30',
+      interests: ['food', 'cafe'],
+      excluded: ['street'],
+      origin: 'HOTEL',
+      currentPlace: 'HOTEL',
+    })
     expect(stageOf(state)).toBe('PRE_RACE')
+    expect(await openQuestion()).toBeUndefined()
   })
 
+  it('한 문장에 여러 정보를 말하면 한 번에 저장', async () => {
+    await load()
+    await say('18시 30분 기차고 점심이랑 카페 가고 싶어요. 숙소 들렀다 갈게요')
+    const { state } = await load()
+    expect(state.created).toBe(true)
+    expect(state.plan).toMatchObject({
+      trainTime: '18:30',
+      interests: ['food', 'cafe'],
+      origin: 'HOTEL',
+    })
+  })
+
+  it('일부만 말하면 남은 질문을 이어서 물음', async () => {
+    await load()
+    await say('저녁 6시 반 기차예요')
+    expect((await load()).state.plan.trainTime).toBe('18:30')
+    expect(await openQuestion()).toMatchObject({ slot: 'interests' })
+  })
+
+  it('"카페도"는 이미 고른 것에 더함', async () => {
+    await load()
+    await say('18시 30분 기차고 점심 먹고 싶어요')
+    await say('카페도 가고 싶어요')
+    expect((await load()).state.plan.interests).toEqual(['food', 'cafe'])
+  })
+
+  it('오전/오후가 모호하면 저장하지 않고 같은 질문을 다시', async () => {
+    await load()
+    await say('4시 기차예요')
+    const { state } = await load()
+    expect(state.answered).not.toContain('trainTime')
+    expect(await openQuestion()).toMatchObject({ slot: 'trainTime' })
+  })
+
+  it('"아직 몰라요"는 기본값으로 넘어가며 그렇게 말해 줌', async () => {
+    await load()
+    const turn = await choose('trainTime', null, '아직 몰라요')
+    const said = turn
+      .flatMap((c) => (c.type === 'text-delta' ? [c.delta] : []))
+      .join('')
+    expect(said).toContain('18:30')
+    expect((await load()).state.answered).toContain('trainTime')
+  })
+
+  it('지금 묻는 질문이 아닌 버튼은 값 대신 문장으로 이해', async () => {
+    await load()
+    // Value says HOTEL, the sentence says the race venue: the sentence wins.
+    const turn = await choose('origin', 'HOTEL', '대회장에서 바로 갈게요')
+    expect(
+      turn.some(
+        (c) =>
+          c.type === 'tool-input-available' &&
+          c.toolName === 'update_trip_details',
+      ),
+    ).toBe(true)
+    expect((await load()).state.plan.origin).toBe('RACE')
+    expect((await load()).state.answered).toEqual(['origin'])
+  })
+
+  it('완주 후에도 말로: 준비 시각과 컨디션을 한 문장에서', async () => {
+    await finishRace()
+    expect(await stage()).toBe('CHECK_IN')
+    expect(await openQuestion()).toMatchObject({ slot: 'readyTime' })
+    const turn = await say('30분 쉬고 갈게요. 조금 지쳤어요')
+    const { state } = await load()
+    expect(state.plan).toMatchObject({ readyTime: '11:10', condition: 'TIRED' })
+    expect(stageOf(state)).toBe('PLANNING')
+    expect(
+      turn.some(
+        (c) =>
+          c.type === 'tool-input-available' && c.toolName === 'plan_course',
+      ),
+    ).toBe(true)
+  })
+
+  it('"몸이 안 좋아요" 버튼은 안전 안내로', async () => {
+    await finishRace()
+    await choose('readyTime', '10:40', '지금 바로 출발할 수 있어요')
+    await choose('condition', 'UNWELL', '몸이 안 좋아요')
+    expect(await stage()).toBe('SAFETY')
+    expect(
+      toolParts(await lastAssistant()).some(
+        (p) => p.type === 'tool-show_safety_help',
+      ),
+    ).toBe(true)
+  })
+})
+
+describe('채팅 하네스 (규칙 모델 + PGlite)', () => {
   it('전체 흐름: 완주 → 컨디션 → 코스 → 변경 승인 → 출발 → 도착', async () => {
     await finishRace()
     expect(await stage()).toBe('CHECK_IN')
-    expect(toolParts(await lastAssistant()).map((p) => p.type)).toContain(
-      'tool-ask_condition',
-    )
 
-    const planned = await answer('ask_condition', condition)
+    expect(await openQuestion()).toMatchObject({ slot: 'readyTime' })
+    const planned = await checkIn()
     expect(await stage()).toBe('PLANNING')
     expect(
       planned.some(
@@ -197,7 +323,7 @@ describe('채팅 하네스 (규칙 모델 + PGlite)', () => {
 
   it('승인을 거절하면 계획이 그대로', async () => {
     await finishRace()
-    await answer('ask_condition', condition)
+    await checkIn()
     await say('16시 기차로 바뀌었어요')
     await approve(false)
     expect((await load()).state.plan.trainTime).toBe('18:30')
@@ -205,7 +331,7 @@ describe('채팅 하네스 (규칙 모델 + PGlite)', () => {
 
   it('승인 대기 중 다른 말을 하면 변경은 거절 처리', async () => {
     await finishRace()
-    await answer('ask_condition', condition)
+    await checkIn()
     await say('16시 기차로 바뀌었어요')
     await say('왜 이 코스야?')
     const { state, messages } = await load()
@@ -229,7 +355,7 @@ describe('채팅 하네스 (규칙 모델 + PGlite)', () => {
 
   it('클라이언트는 실행된 도구 결과를 바꿀 수 없음', async () => {
     await finishRace()
-    await answer('ask_condition', condition)
+    await checkIn()
     const m = await lastAssistant()
     const forged = (m.parts as Part[]).map((p) =>
       p.type === 'tool-plan_course' ? { ...p, output: { forged: true } } : p,
@@ -242,7 +368,7 @@ describe('채팅 하네스 (규칙 모델 + PGlite)', () => {
 
   it('/시연 명령으로 관측 시나리오 적용', async () => {
     await finishRace()
-    await answer('ask_condition', condition)
+    await checkIn()
     await say('/시연 혼잡')
     const { state } = await load()
     expect(state.observations.readings.congestion).toBeGreaterThan(42)
@@ -312,7 +438,7 @@ describe('하네스가 모델을 통제하는 방식', () => {
 
   const toPlanning = async () => {
     await finishRace()
-    await answer('ask_condition', condition)
+    await checkIn()
   }
 
   it('단계별로 쓸 수 있는 도구만 모델에 보임', async () => {
@@ -321,7 +447,7 @@ describe('하네스가 모델을 통제하는 방식', () => {
     deps = { ...deps, model }
     await say('역까지 택시 타면?')
     expect(calls[0].tools).not.toContain('record_race_progress')
-    expect(calls[0].tools).not.toContain('ask_trip_basics')
+    expect(calls[0].tools).not.toContain('update_trip_details')
     // A question cannot change the trip: commit tools are withheld.
     expect(calls[0].tools).not.toContain('apply_plan_change')
     expect(calls[0].tools).not.toContain('start_journey')

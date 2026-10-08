@@ -12,11 +12,14 @@ import {
 import { createHash } from 'node:crypto'
 import type { Evidence } from '#/core/evidence'
 import { isReadOnly, mentionsSymptom } from '#/core/intents'
-import type { TripConfig } from '#/core/schema'
+import type { SlotId, TripConfig } from '#/core/schema'
+import type { ChoicePrompt } from '#/core/slots'
+import { choiceValue, fillSlots, pendingSlot, promptFor } from '#/core/slots'
 import type { Stage } from '#/core/stage'
 import { stageOf } from '#/core/stage'
 import type { TripView } from '#/core/view'
 import { tripView } from '#/core/view'
+import { initialTrip } from '#/core/trip'
 import type { Db } from '../db/client'
 import type { TripRecord } from '../trips'
 import { commit, openTrip, rememberPreview, saveConversation } from '../trips'
@@ -42,8 +45,11 @@ import { askTools, makeTools } from './tools'
  * One conversational turn, end to end:
  *
  *   merge incoming message → settle skipped cards → apply card answers
- *   → safety gate → ToolLoopAgent (stage-gated tools, forced tools, approvals)
- *   → append the card the stage needs → persist conversation
+ *   → apply a reply chip → safety gate
+ *   → (chip answer that needs no reasoning) the app answers by itself
+ *   → otherwise ToolLoopAgent (stage-gated tools, forced tools, approvals)
+ *   → append the next question with its chips, or the card the stage needs
+ *   → persist conversation
  *
  * The same harness runs with OpenAI or with the rule-based model; only the
  * model differs.
@@ -53,8 +59,19 @@ export type { TripView }
 export { tripView }
 
 export type AgentMode = 'OPENAI' | 'DEMO' | 'FALLBACK'
-export type AgentMetadata = { mode: AgentMode; stage: Stage; revision: number }
-export type AgentData = { trip: TripView }
+/** A reply chip tapped by the user, sent with the chip's text. */
+export type ChipAnswer = {
+  slot: SlotId
+  value: string | number | boolean | null | string[]
+}
+/** Assistant messages carry mode/stage/revision; user messages may carry a chip answer. */
+export type AgentMetadata = {
+  mode?: AgentMode
+  stage?: Stage
+  revision?: number
+  choice?: ChipAnswer
+}
+export type AgentData = { trip: TripView; choices: ChoicePrompt }
 export type AgentUIMessage = UIMessage<
   AgentMetadata,
   AgentData,
@@ -76,37 +93,46 @@ const approvalSecret = () =>
     )
     .digest('hex')
 
-const emptyPrefill = {
-  prefill: { arrivalAt: null, trainTime: null, interests: null },
-}
+const textParts = (...texts: (string | undefined)[]) =>
+  texts
+    .filter((t): t is string => !!t)
+    .map((text) => ({ type: 'text' as const, text }))
 
-/** The first message of every trip: a greeting and the basics card. */
-export const openingMessages = (): AgentUIMessage[] => [
+/** The app's question for the next unanswered slot: a sentence and its chips. */
+const questionParts = (prompt: ChoicePrompt | null) =>
+  prompt
+    ? [
+        ...textParts(prompt.question),
+        {
+          type: 'data-choices' as const,
+          id: `c_${crypto.randomUUID()}`,
+          data: prompt,
+        },
+      ]
+    : []
+
+/** The first message of every trip: a greeting and the first question. */
+export const openingFor = (config: TripConfig) => (): AgentUIMessage[] => [
   {
     id: `m_${crypto.randomUUID()}`,
     role: 'assistant',
     metadata: { mode: 'DEMO', stage: 'ONBOARDING', revision: 0 },
     parts: [
-      {
-        type: 'text',
-        text: '안녕하세요! 완주 후 구룡포에 들렀다 열차 시간 전에 돌아오는 일정을 같이 짤게요. 먼저 포항 일정을 알려주세요.',
-      },
-      {
-        type: 'tool-ask_trip_basics',
-        toolCallId: `h_${crypto.randomUUID()}`,
-        state: 'input-available',
-        input: emptyPrefill,
-      },
+      ...textParts(
+        '안녕하세요! 완주 후 구룡포에 들렀다 열차 시간 전에 포항역으로 돌아오는 하루를 같이 짤게요. 편하게 말로 알려주세요.',
+      ),
+      ...questionParts(promptFor(config, initialTrip(config))),
     ],
   },
 ]
 
 /** The card each stage keeps open, appended by the harness if the agent did not. */
 const standingCard: Partial<Record<Stage, AskTool>> = {
-  ONBOARDING: 'ask_trip_basics',
-  CHECK_IN: 'ask_condition',
   JOURNEY: 'await_progress',
 }
+
+/** Stages where a chip answer is handled by the app alone, without a model. */
+const answeredByApp: Stage[] = ['ONBOARDING', 'CHECK_IN', 'PRE_RACE']
 
 const lastUserText = (messages: AgentUIMessage[]) =>
   [...messages]
@@ -141,17 +167,53 @@ const forcedTool = (
   stepNumber: number,
   steps: ReadonlyArray<StepLike>,
   canCommit: boolean,
+  extract: boolean,
 ): ToolName | null => {
   const once = (name: ToolName) => (calledInTurn(steps, name) ? null : name)
   // A previewed change is always put to the user as an approval card.
   if (canCommit && previewAwaitingProposal(steps)) return 'apply_plan_change'
-  if (stage === 'ONBOARDING') return stepNumber === 0 ? 'ask_trip_basics' : null
-  if (stage === 'CHECK_IN') return once('ask_condition')
+  // Free text while collecting details: always try to read details from it.
+  if (
+    (stage === 'ONBOARDING' || stage === 'CHECK_IN') &&
+    stepNumber === 0 &&
+    extract
+  )
+    return 'update_trip_details'
   if (stage === 'SAFETY') return once('show_safety_help')
   if (stage === 'DONE') return once('summarize_trip')
   if (stage === 'PLANNING' && enteredThisTurn) return once('plan_course')
   return null
 }
+
+type Writer = {
+  write: (chunk: UIMessageChunk<AgentMetadata, AgentData>) => void
+}
+
+const say = (writer: Writer, text: string) => {
+  const id = `t_${crypto.randomUUID()}`
+  writer.write({ type: 'text-start', id })
+  writer.write({ type: 'text-delta', id, delta: text })
+  writer.write({ type: 'text-end', id })
+}
+
+const writeQuestion = (writer: Writer, prompt: ChoicePrompt | null) => {
+  if (!prompt) return
+  say(writer, prompt.question)
+  writer.write({
+    type: 'data-choices',
+    id: `c_${crypto.randomUUID()}`,
+    data: prompt,
+  })
+}
+
+/** Drop tool parts of tools that no longer exist (older conversations). */
+const withKnownTools = (messages: AgentUIMessage[], tools: AgentTools) =>
+  messages.map((m) => ({
+    ...m,
+    parts: m.parts.filter(
+      (p) => !p.type.startsWith('tool-') || p.type.slice(5) in tools,
+    ),
+  }))
 
 export const runTurn = async (
   deps: HarnessDeps,
@@ -162,7 +224,7 @@ export const runTurn = async (
     db,
     config,
     input.tripId,
-    openingMessages,
+    openingFor(config),
   )
   const messages = settleOpenCards(
     mergeIncoming(record.messages as AgentUIMessage[], input.message),
@@ -210,6 +272,28 @@ export const runTurn = async (
   // Persist the merged conversation now, so an answer is never applied twice.
   await saveConversation(db, { id: record.id, messages, meta: record.meta })
 
+  // A reply chip carries its value: apply it as given, no interpretation.
+  const chip =
+    input.message.role === 'user'
+      ? messages.at(-1)?.metadata?.choice
+      : undefined
+  let chipReply: string | undefined
+  let chipApplied = false
+  if (chip && chip.slot === pendingSlot(config, record.state)) {
+    const prompt = promptFor(config, record.state, chip.slot)
+    const parsed = choiceValue(chip.slot, chip.value)
+    if (parsed.ok) {
+      record = await commit(
+        db,
+        record,
+        fillSlots(config, record.state, parsed.details, [chip.slot]),
+        { source: 'chip', slot: chip.slot },
+      )
+      chipApplied = true
+      chipReply = prompt?.choices.find((c) => c.value === chip.value)?.reply
+    }
+  }
+
   // Safety gate: a symptom stops the trip without asking any model.
   const text = lastUserText(messages)
   if (mentionsSymptom(text) && record.state.plan.condition !== 'UNWELL')
@@ -219,6 +303,38 @@ export const runTurn = async (
       [{ type: 'plan.patched', patch: { condition: 'UNWELL' } }],
       { source: 'safety-gate' },
     )
+
+  const stageNow = stageOf(record.state)
+  if (chipApplied && answeredByApp.includes(stageNow)) {
+    const done = record
+    return createUIMessageStream<AgentUIMessage>({
+      originalMessages: messages,
+      execute: ({ writer }) => {
+        // No mode: the app answered by itself; the header keeps the last model's.
+        const meta = { stage: stageNow, revision: done.state.plan.revision }
+        writer.write({ type: 'start', messageMetadata: meta })
+        const lines = [
+          chipReply,
+          stageNow !== stageAtStart ? entryLine[stageNow] : undefined,
+        ]
+        for (const line of lines.filter(Boolean)) say(writer, line!)
+        writeQuestion(writer, promptFor(config, done.state))
+        writer.write({
+          type: 'data-trip',
+          data: tripView(config, done.state),
+          transient: true,
+        })
+        writer.write({ type: 'finish', messageMetadata: meta })
+      },
+      onEnd: async ({ messages: final }) => {
+        await saveConversation(db, {
+          id: done.id,
+          messages: final,
+          meta: done.meta,
+        })
+      },
+    })
+  }
 
   let current = record
   const ctx: TurnContext = {
@@ -287,6 +403,7 @@ export const runTurn = async (
         stepNumber,
         steps,
         active.includes('apply_plan_change'),
+        !chipApplied && text.length > 0,
       )
       return {
         activeTools: active,
@@ -314,16 +431,17 @@ export const runTurn = async (
         stageAfterIngest !== stageAtStart
           ? entryLine[stageAfterIngest]
           : undefined
-      if (entry) {
-        writer.write({ type: 'text-start', id: 'entry' })
-        writer.write({ type: 'text-delta', id: 'entry', delta: entry })
-        writer.write({ type: 'text-end', id: 'entry' })
-      }
+      if (entry) say(writer, entry)
 
       const asked = new Set<string>()
       let awaitingApproval = false
       const result = await agent.stream({
-        messages: await convertToModelMessages(messages, { tools }),
+        messages: await convertToModelMessages(
+          withKnownTools(messages, tools),
+          {
+            tools,
+          },
+        ),
       })
       const ui = toUIMessageStream({
         stream: result.stream,
@@ -339,15 +457,18 @@ export const runTurn = async (
         writer.write(chunk as never)
       }
 
-      // Keep the card the stage needs open, unless the agent already asked something.
+      // Ask the next question, or keep the card the stage needs open —
+      // unless the agent already asked something or awaits an approval.
       const stage = stageOf(current.state)
       const card = standingCard[stage]
-      if (card && !askTools.some((t) => asked.has(t)) && !awaitingApproval)
+      const free = !askTools.some((t) => asked.has(t)) && !awaitingApproval
+      if (free) writeQuestion(writer, promptFor(config, current.state))
+      if (card && free)
         writer.write({
           type: 'tool-input-available',
           toolCallId: `h_${crypto.randomUUID()}`,
           toolName: card,
-          input: card === 'ask_trip_basics' ? emptyPrefill : {},
+          input: {},
         })
 
       writer.write({
