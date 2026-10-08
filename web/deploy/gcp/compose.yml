@@ -1,0 +1,33 @@
+# GCP VM deployment: app + Caddy (automatic HTTPS, required for the PWA).
+#
+#   1. Ask the organisers to open TCP 80/443 and give the VM a static external IP.
+#   2. On the VM:  cp ../../.env.example .env  (fill keys),  export DOMAIN=<ip-with-dashes>.sslip.io
+#   3. docker compose -f deploy/gcp/compose.yml up -d --build
+#
+# DOMAIN can be a real domain or <a-b-c-d>.sslip.io, which resolves to that IP and
+# lets Caddy obtain a Let's Encrypt certificate without buying a domain.
+services:
+  app:
+    build: ../..
+    restart: unless-stopped
+    env_file: ../../.env
+    volumes:
+      - pglite:/data
+    expose:
+      - '3000'
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN, e.g. 34-64-1-2.sslip.io}
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      - app
+volumes:
+  pglite:
+  caddy-data:
