@@ -81,7 +81,8 @@ const placeTools: ToolName[] = [
 
 /** Tools available in each stage (commit tools are further gated per turn). */
 export const stageTools: Record<Stage, ToolName[]> = {
-  ONBOARDING: ['update_trip_details', ...infoTools],
+  // Questions can come at any point; lookups are open from the first turn.
+  ONBOARDING: ['update_trip_details', ...infoTools, ...placeTools],
   PRE_RACE: [
     'record_race_progress',
     'update_trip_details',
@@ -90,7 +91,7 @@ export const stageTools: Record<Stage, ToolName[]> = {
     ...infoTools,
     ...placeTools,
   ],
-  CHECK_IN: ['update_trip_details', ...infoTools],
+  CHECK_IN: ['update_trip_details', ...infoTools, ...placeTools],
   PLANNING: [
     'plan_course',
     'apply_plan_change',
