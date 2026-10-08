@@ -305,6 +305,13 @@ describe('정보 질문은 프롬프트가 아니라 도구로 답함', () => {
     expect(await openQuestion()).toMatchObject({ slot: 'departMode' })
   })
 
+  it('온보딩 중 버스를 물어도 길찾기 링크로 답함', async () => {
+    await load()
+    const turn = await say('영일대에서 구룡포 가는 버스 뭐 타요?')
+    expect(calledTool(turn, 'get_directions')).toBeTruthy()
+    expect(said(turn)).toContain('map.kakao.com')
+  })
+
   it('일반 관광 질문은 안내 자료를 검색', async () => {
     await onboard()
     const turn = await say('구룡포는 뭘로 유명해요?')
