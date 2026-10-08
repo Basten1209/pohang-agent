@@ -4,7 +4,7 @@ import type {
   LanguageModelV4Prompt,
   LanguageModelV4StreamPart,
 } from '@ai-sdk/provider'
-import { interpret } from '#/core/intents'
+import { asksInfo, interpret } from '#/core/intents'
 import { detailsFromText } from '#/core/slots'
 
 /**
@@ -115,15 +115,122 @@ const trailingResults = (prompt: LanguageModelV4Prompt): ToolResult[] => {
 const detailsIn = (text: string, prompt: LanguageModelV4Prompt): Json => {
   const system = systemText(prompt)
   const readyTime = system.match(/준비 시각: (\d{2}:\d{2})/)?.[1] ?? '10:40'
-  const d = detailsFromText(text, { stage: stageIn(prompt), readyTime })
+  const d = detailsFromText(text, {
+    stage: stageIn(prompt),
+    readyTime,
+    courses: coursesIn(prompt),
+  })
   // "카페도" adds to what was already chosen.
   const before =
     system.match(/하고 싶은 일: ([a-z, ]+) ·/)?.[1]?.split(', ') ?? []
   if (Array.isArray(d.interests) && d.interests.length && /도\s|도$/.test(text))
-    d.interests = [...new Set([...before, ...d.interests])]
+    d.interests = [
+      ...new Set([...(before as typeof d.interests), ...d.interests]),
+    ]
   return d
 }
 const saysSomething = (d: Json) => Object.values(d).some((v) => v !== null)
+
+/** `코스 id: guryongpo=구룡포, …` from the snapshot. */
+const coursesIn = (prompt: LanguageModelV4Prompt) =>
+  (systemText(prompt).match(/코스 id: ([^\n]+)/)?.[1] ?? '')
+    .split(', ')
+    .map((pair) => pair.split('='))
+    .filter((p) => p.length === 2)
+    .map(([id, area]) => ({ id, area, title: area }))
+
+const raceTopic = (text: string) =>
+  /코스|경로|반환|급수/.test(text)
+    ? 'course'
+    : /준비물|챙겨|배번|기록칩/.test(text)
+      ? 'kit'
+      : /일정|시간표|몇\s*시|시상/.test(text)
+        ? 'schedule'
+        : /화장실|탈의|물품|보관|시설|의료/.test(text)
+          ? 'facilities'
+          : /셔틀|주차|통제|규정|이어폰/.test(text)
+            ? 'rules'
+            : 'overview'
+
+/** Where a sentence points, from the course areas and a few well-known names. */
+const placeIn = (text: string, prompt: LanguageModelV4Prompt) =>
+  [
+    ...coursesIn(prompt).map((c) => c.area),
+    '포항역',
+    '버스터미널',
+    '터미널',
+    '공항',
+    '영일대',
+    '대회장',
+  ].find((n) => text.includes(n)) ?? null
+
+/** An information question → the lookup tool that answers it. */
+const infoCall = (
+  text: string,
+  stage: string,
+  prompt: LanguageModelV4Prompt,
+  has: (n: string) => boolean,
+): Reply | null => {
+  const pick = (name: string, input: Json): Reply | null =>
+    has(name) ? { call: { name, input } } : null
+  // "다른 코스" compares; "…로 바꿔 줘" changes (handled by plan_course).
+  if (
+    /다른\s*(코스|데|곳)|코스\s*비교|어디가\s*(제일|더)/.test(text) &&
+    !/바꿔|바꾸/.test(text)
+  )
+    return pick('compare_courses', {})
+  // Plan questions (why, taxi, still ok?) have their own tools.
+  if (!asksInfo(text) || /왜|이유|택시|지금도|최신|이 코스로|갈게/.test(text))
+    return null
+  const where = placeIn(text, prompt)
+  // Before the race, "코스" means the race course.
+  const raceCourse =
+    /코스/.test(text) && (stage === 'ONBOARDING' || stage === 'PRE_RACE')
+  if (
+    raceCourse ||
+    /대회|레이스|배번|급수|셔틀|준비물|물품보관|출발\s*시간|제한\s*시간/.test(
+      text,
+    )
+  )
+    return pick('get_race_info', { topic: raceTopic(text) })
+  if (/날씨|비\s*(와|오)|바람|기온|추워|더워/.test(text))
+    return pick('get_weather', { near: where, date: null })
+  if (
+    /기차|열차|KTX|SRT|ktx|srt/.test(text) &&
+    /시간|몇\s*시|있어|막차/.test(text)
+  )
+    return pick('get_train_times', {
+      from: null,
+      to:
+        text.match(/(서울|동대구|대구|부산|대전|수서|경주|울산)/)?.[1] ??
+        '서울',
+      date: null,
+      after: null,
+    })
+  if (/언제\s*와|도착\s*정보|정류장/.test(text))
+    return pick('get_bus_arrivals', { near: where ?? 'HERE' })
+  if (/버스|어떻게\s*가|가는\s*(법|길)|길찾|얼마나\s*걸/.test(text))
+    return pick('get_directions', { from: null, to: where ?? 'COURSE' })
+  if (/맛집|식당|먹을\s*곳|카페|숙소|근처|주변/.test(text))
+    return pick('find_nearby', {
+      near: where ?? 'COURSE',
+      type: /숙소/.test(text)
+        ? 'stay'
+        : /맛집|식당|먹|카페/.test(text)
+          ? 'food'
+          : null,
+      keyword: null,
+      radiusM: null,
+    })
+  return pick('search_guide', { query: text.slice(0, 60) })
+}
+
+/** One line per result list, for the rule-based reply. */
+const listed = (rows: unknown[], f: (r: Json) => string, n = 4) =>
+  rows
+    .slice(0, n)
+    .map((r) => `- ${f(r as Json)}`)
+    .join('\n')
 
 const defaultInput = (
   name: string,
@@ -141,7 +248,7 @@ const describePlan = (v: Json) => {
     ? (v.reasons as string[]).join(' ')
     : ''
   const arrival = v.planningArrival
-    ? ` 계획상 포항역 도착은 ${v.planningArrival}이에요.`
+    ? ` 계획상 ${v.hub ?? '도착지'} 도착은 ${v.planningArrival}이에요.`
     : ''
   return `${reasons}${arrival}`.trim()
 }
@@ -162,6 +269,7 @@ const decideFromText = (
   stage: string,
   has: (n: string) => boolean,
   details: Json,
+  prompt: LanguageModelV4Prompt,
 ): Reply => {
   if (text.startsWith('/시연')) {
     const scenario = demoScenario(text)
@@ -171,6 +279,8 @@ const decideFromText = (
           text: '시연 명령: /시연 기본 · 16시 · 혼잡 · 대기 · 지연 · 누락 · 오래된 관측',
         }
   }
+  const info = infoCall(text, stage, prompt, has)
+  if (info && stage !== 'SAFETY') return info
   if (stage === 'PRE_RACE') {
     if (/완주|다 뛰|끝났/.test(text))
       return {
@@ -201,7 +311,7 @@ const decideFromText = (
   if (stage === 'PLANNING' || stage === 'JOURNEY') {
     if (/이 코스로|갈게|출발할게/.test(text) && has('start_journey'))
       return { call: { name: 'start_journey', input: {} } }
-    const intent = interpret(text)
+    const intent = interpret(text, coursesIn(prompt))
     if (intent.kind === 'CHANGE' && has('plan_course'))
       return {
         call: { name: 'plan_course', input: { changes: intent.changes } },
@@ -219,14 +329,14 @@ const decideFromText = (
         call: {
           name: 'ask_quick_reply',
           input: {
-            question: '몇 시 기차인가요?',
+            question: '몇 시에 출발해요?',
             options: [
               {
-                id: `${String(h).padStart(2, '0')}:00 기차`,
+                id: `${String(h).padStart(2, '0')}:00 출발로 바뀌었어`,
                 label: `오전 ${h}시`,
               },
               {
-                id: `${String(h + 12).padStart(2, '0')}:00 기차`,
+                id: `${String(h + 12).padStart(2, '0')}:00 출발로 바뀌었어`,
                 label: `오후 ${h}시`,
               },
             ],
@@ -235,7 +345,7 @@ const decideFromText = (
       }
     }
     return {
-      text: '바꿀 조건을 알려주세요. 예: "16시 기차로 바뀌었어", "15분만 걷고 싶어", "30분 더 쉴래".',
+      text: '바꿀 조건을 알려주세요. 예: "16시로 바뀌었어", "호미곶으로 바꿔줘", "카페는 빼 줘", "30분 더 쉴래".',
     }
   }
   return { text: '알겠어요.' }
@@ -245,6 +355,7 @@ const decideFromResult = (
   r: ToolResult,
   stage: string,
   has: (n: string) => boolean,
+  prompt: LanguageModelV4Prompt,
 ): Reply => {
   const v = r.value ?? {}
   if (r.denied) return { text: '기존 계획을 그대로 둘게요.' }
@@ -265,7 +376,7 @@ const decideFromResult = (
     case 'apply_plan_change':
       return {
         text: v.applied
-          ? `반영했어요.${v.planningArrival ? ` 계획상 포항역 도착은 ${v.planningArrival}이에요.` : ''}`
+          ? `반영했어요.${v.planningArrival ? ` 계획상 도착은 ${v.planningArrival}이에요.` : ''}`
           : '그사이 조건이 바뀌어서 반영하지 않았어요. 다시 요청해 주세요.',
       }
     case 'explain_plan':
@@ -274,7 +385,7 @@ const decideFromResult = (
       }
     case 'compare_transport':
       return {
-        text: '포항역 복귀 버스는 시연 기준 120분이에요. 택시는 시간·요금을 아직 확인할 수 없어 버스 계획을 유지해요.',
+        text: `${v.from ?? '코스'}에서 ${v.to}까지 대중교통은 시연 기준 ${(v.transit as Json)?.minutes ?? '—'}분이에요. 택시 시간·요금은 아직 연결된 데이터가 없어 카카오T 앱에서 확인해 주세요.`,
       }
     case 'check_live_conditions':
       return {
@@ -303,7 +414,10 @@ const decideFromResult = (
         : { text: '시연 조건을 적용했어요.' }
     case 'summarize_trip':
       return {
-        text: `오늘 ${(v.visited as string[] | undefined)?.join(', ') || '구룡포'}에 다녀왔어요. ${v.trainTime} 열차 잘 타세요.`,
+        text: `오늘 ${(v.visited as string[] | undefined)?.join(', ') || '포항'}에 다녀왔어요. ${v.depart ?? ''} 잘 챙기세요.`.replace(
+          '  ',
+          ' ',
+        ),
       }
     case 'show_safety_help':
       return { text: String(v.message ?? '') }
@@ -320,19 +434,177 @@ const decideFromResult = (
       }
     }
     case 'ask_quick_reply':
-      return decideFromText(String(v.id ?? v.label ?? ''), stage, has, {})
+      return decideFromText(
+        String(v.id ?? v.label ?? ''),
+        stage,
+        has,
+        {},
+        prompt,
+      )
     case 'await_progress':
       return {
         text:
           {
-            ARRIVED: '구룡포에 도착했어요.',
+            ARRIVED: '도착했어요. 첫 장소로 가요.',
             STOP_DONE: '좋아요, 다음으로 가요.',
             SKIP: '건너뛰고 남은 일정을 다시 계산했어요.',
             REST: '조금 더 쉬도록 다시 계산했어요.',
-            START_RETURN: '포항역으로 출발해요.',
+            START_RETURN: '돌아가는 길이에요. 시간 넉넉히 움직여요.',
             AT_STATION: '도착했어요.',
           }[String(v.event)] ?? '확인했어요.',
       }
+    case 'get_race_info': {
+      const info = (v.info ?? {}) as Json
+      const [topic] = Object.keys(info)
+      const body = info[topic]
+      if (topic === 'overview' && body && typeof body === 'object') {
+        const o = body as Json
+        return {
+          text: `${o.name}: ${o.date} ${o.gun} 출발, ${o.venue}. 제한시간 ${o.cutoff}.`,
+        }
+      }
+      if (topic === 'course') {
+        const c = body as Json
+        return { text: `${c.summary}\n${(c.route as string[]).join(' → ')}` }
+      }
+      if (Array.isArray(body))
+        return {
+          text: listed(
+            body,
+            (r) =>
+              typeof r === 'string'
+                ? r
+                : String(
+                    r.time
+                      ? `${r.time} ${r.label}`
+                      : r.label
+                        ? `${r.label}: ${r.detail}`
+                        : `${r.q} ${r.a}`,
+                  ),
+            8,
+          ),
+        }
+      if (topic === 'rules') {
+        const r = body as { rules: string[]; notes: string[] }
+        return { text: listed([...r.notes, ...r.rules], (x) => String(x), 6) }
+      }
+      return { text: '대회 정보를 확인했어요.' }
+    }
+    case 'search_guide': {
+      const rows = (v.results as Json[] | undefined) ?? []
+      return {
+        text: rows.length
+          ? listed(
+              rows,
+              (r) => `**${r.title}** ${String(r.text).slice(0, 140)}`,
+              3,
+            )
+          : '앱 안내 자료에서는 찾지 못했어요. 다른 단어로 물어봐 주세요.',
+      }
+    }
+    case 'compare_courses': {
+      const rows = (v.courses as Json[] | undefined) ?? []
+      return {
+        text: listed(
+          rows,
+          (r) =>
+            `${r.title}: ${r.arrival ? `${r.arrival} 도착 · ${(r.stops as string[]).join('·') || '바로 귀가'}` : String(r.reason ?? r.decision)}`,
+          6,
+        ),
+      }
+    }
+    case 'find_nearby': {
+      if (v.status !== 'LIVE') {
+        const fb = (v.fallback as Json[] | undefined) ?? []
+        return {
+          text: `실시간 관광정보를 쓸 수 없어요(${v.message ?? v.status}).${fb.length ? `\n${listed(fb, (r) => `**${r.title}** ${String(r.text).slice(0, 100)}`, 3)}` : ''}`,
+        }
+      }
+      const rows = (v.results as Json[] | undefined) ?? []
+      return {
+        text: rows.length
+          ? `${v.near} 주변이에요(한국관광공사):\n${listed(rows, (r) => `${r.title} · ${r.type}${r.distanceM ? ` · ${r.distanceM}m` : ''}`, 5)}`
+          : '주변에서 찾지 못했어요.',
+      }
+    }
+    case 'get_place_detail': {
+      const p = (v.place ?? {}) as Json
+      const info = (p.info ?? {}) as Record<string, string>
+      return {
+        text:
+          v.status === 'LIVE'
+            ? `${p.title}: ${String(p.overview ?? '').slice(0, 160)}${
+                Object.values(info).length
+                  ? `\n${Object.entries(info)
+                      .slice(0, 4)
+                      .map(([k, x]) => `- ${k}: ${x}`)
+                      .join('\n')}`
+                  : ''
+              }`
+            : `상세 정보를 가져오지 못했어요(${v.message}).`,
+      }
+    }
+    case 'get_directions': {
+      if (v.status === 'UNKNOWN_PLACE') return { text: String(v.message) }
+      const links = (v.links ?? {}) as Json
+      const est = v.appEstimate as Json | null
+      const stops = (v.busStops as Json[] | null) ?? []
+      const first = stops[0]
+      const arr = ((first?.arrivals as Json[]) ?? []).slice(0, 3)
+      return {
+        text: [
+          `${v.from} → ${v.to} (직선 ${v.straightKm}km)${est?.minutes ? `, 앱 기준 ${est.via} 약 ${est.minutes}분` : ''}.`,
+          first
+            ? `가까운 정류장 ${first.stop}(${first.distanceM}m)${arr.length ? `: ${arr.map((a) => `${a.route}번 ${a.inMin}분 후`).join(', ')}` : ''}`
+            : '',
+          `[카카오맵 대중교통 길찾기](${links.transit})`,
+        ]
+          .filter(Boolean)
+          .join('\n'),
+      }
+    }
+    case 'get_bus_arrivals': {
+      if (v.status !== 'LIVE')
+        return {
+          text: `버스 정보를 가져오지 못했어요(${v.message ?? v.status}).`,
+        }
+      const stops = (v.stops as Json[] | undefined) ?? []
+      return {
+        text: `${v.near} 근처 정류장(${v.asOf} 기준):\n${listed(
+          stops,
+          (s) =>
+            `${s.stop}: ${
+              ((s.arrivals as Json[] | null) ?? [])
+                .slice(0, 3)
+                .map((a) => `${a.route}번 ${a.inMin}분`)
+                .join(', ') || '도착 예정 없음'
+            }`,
+          3,
+        )}`,
+      }
+    }
+    case 'get_train_times': {
+      if (v.status !== 'LIVE')
+        return {
+          text: `열차 시간표를 가져오지 못했어요(${v.message ?? v.status}).`,
+        }
+      const rows = (v.trains as Json[] | undefined) ?? []
+      return {
+        text: rows.length
+          ? `${v.date} 열차:\n${listed(rows, (t) => `${t.departs} → ${t.arrives} ${t.grade} ${t.no}`, 6)}`
+          : '조건에 맞는 열차가 없어요.',
+      }
+    }
+    case 'get_weather': {
+      if (v.status !== 'LIVE')
+        return { text: `날씨를 가져오지 못했어요(${v.message ?? v.status}).` }
+      const hours = (v.hours as Json[] | undefined) ?? []
+      return {
+        text: hours.length
+          ? `${v.near} ${v.date} 예보(기상청):\n${listed(hours, (h) => `${h.time} ${h.tempC}°C ${h.precip || h.sky} 강수 ${h.popPct}% 바람 ${h.windMs}m/s`, 5)}`
+          : `${v.date} 예보는 아직 없어요(예보는 ${v.lastForecastDate}까지).`,
+      }
+    }
     default:
       return { text: '확인했어요.' }
   }
@@ -349,7 +621,7 @@ export const decide = (options: LanguageModelV4CallOptions): Reply => {
   const text = lastUserText(options.prompt)
   const results = trailingResults(options.prompt)
   const fromResult = results.length
-    ? decideFromResult(results.at(-1)!, stage, has)
+    ? decideFromResult(results.at(-1)!, stage, has, options.prompt)
     : null
   if (options.toolChoice?.type === 'tool') {
     const forced = options.toolChoice.toolName
@@ -364,7 +636,13 @@ export const decide = (options: LanguageModelV4CallOptions): Reply => {
         }
   }
   if (fromResult) return fromResult
-  return decideFromText(text, stage, has, detailsIn(text, options.prompt))
+  return decideFromText(
+    text,
+    stage,
+    has,
+    detailsIn(text, options.prompt),
+    options.prompt,
+  )
 }
 
 export const scriptedModel = (): LanguageModelV4 => ({

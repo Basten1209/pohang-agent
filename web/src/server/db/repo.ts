@@ -12,7 +12,11 @@ import {
   trips,
 } from './schema'
 
-/** Write the seed once. Existing rows are never overwritten, so edits in the DB survive restarts. */
+/**
+ * Write the seed. Rows are written once and edits in the DB survive
+ * restarts; a row still holding an *older seed* (never edited, or edited
+ * before the seed changed shape) is replaced when the seed version rises.
+ */
 export const seed = async (db: Db, config: TripConfig) => {
   await db
     .insert(appConfig)
@@ -24,7 +28,15 @@ export const seed = async (db: Db, config: TripConfig) => {
         meta: { source: 'seed' },
       })),
     )
-    .onConflictDoNothing()
+    .onConflictDoUpdate({
+      target: appConfig.key,
+      set: {
+        value: sql`excluded.value`,
+        version: sql`excluded.version`,
+        updatedAt: new Date(),
+      },
+      setWhere: sql`${appConfig.version} < excluded.version and ${appConfig.meta}->>'source' = 'seed'`,
+    })
   await db
     .insert(places)
     .values(
@@ -34,10 +46,21 @@ export const seed = async (db: Db, config: TripConfig) => {
         sort: p.sort,
         active: p.active,
         attrs: p.attrs,
-        meta: p.meta,
+        meta: { ...p.meta, seedVersion: config.version },
       })),
     )
-    .onConflictDoNothing()
+    .onConflictDoUpdate({
+      target: places.id,
+      set: {
+        kind: sql`excluded.kind`,
+        sort: sql`excluded.sort`,
+        active: sql`excluded.active`,
+        attrs: sql`excluded.attrs`,
+        meta: sql`excluded.meta`,
+        updatedAt: new Date(),
+      },
+      setWhere: sql`coalesce((${places.meta}->>'seedVersion')::int, 1) < (excluded.meta->>'seedVersion')::int`,
+    })
 }
 
 export const readConfig = async (db: Db, base: TripConfig) => {
@@ -99,18 +122,18 @@ export const eventsOf = (db: Db, tripId: string) =>
     .orderBy(tripEvents.id)
 
 /** jsonb query example: every event whose payload changed the train time. */
-export const trainChanges = (db: Db, tripId: string) =>
+export const departChanges = (db: Db, tripId: string) =>
   db
     .select({
       at: tripEvents.createdAt,
-      trainTime: sql<string>`${tripEvents.payload} #>> '{patch,trainTime}'`,
+      departTime: sql<string>`${tripEvents.payload} #>> '{patch,departTime}'`,
     })
     .from(tripEvents)
     .where(
       and(
         eq(tripEvents.tripId, tripId),
         sql`${tripEvents.payload} @> '{"patch":{}}'::jsonb`,
-        sql`${tripEvents.payload} -> 'patch' ? 'trainTime'`,
+        sql`${tripEvents.payload} -> 'patch' ? 'departTime'`,
       ),
     )
     .orderBy(tripEvents.id)

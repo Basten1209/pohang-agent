@@ -3,6 +3,8 @@ import {
   Footprints,
   Landmark,
   MapPin,
+  Palette,
+  Ship,
   ShoppingBag,
   Utensils,
   Waves,
@@ -26,6 +28,8 @@ const icons: Record<string, LucideIcon> = {
   landmark: Landmark,
   shopping: ShoppingBag,
   waves: Waves,
+  ship: Ship,
+  palette: Palette,
 }
 
 export const PlaceIcon = ({ name }: { name: string }) => {

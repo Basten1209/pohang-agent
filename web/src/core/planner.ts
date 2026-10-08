@@ -1,6 +1,10 @@
 import type { Rule } from './fp'
 import { decideWith, indexBy, sum } from './fp'
+import { activeCourses, courseById, hubOf, isHub } from './route'
 import type {
+  Course,
+  HubId,
+  Mode,
   Observations,
   Place,
   PlaceId,
@@ -8,6 +12,7 @@ import type {
   TripConfig,
   Variant,
 } from './schema'
+import { AUTO_COURSE } from './schema'
 import type { Effect } from './signals'
 import { assessSignals, fill } from './signals'
 import { minutes, within } from './time'
@@ -15,10 +20,14 @@ import { minutes, within } from './time'
 /**
  * The decision engine: `planner(config)(plan, observations) → Itinerary`.
  *
- * Pure and deterministic. It is a short list of rules tried in priority
- * order (medical first, then completeness, then routes, then the course
- * search). All numbers come from `config.policy`; this file only knows how
- * to combine them.
+ * Pure and deterministic. For one course it is a short list of rules tried
+ * in priority order (medical first, then completeness, then routes, then the
+ * variant search). With `course: 'auto'` every active course is planned and
+ * the best fit wins. All numbers come from config (`courses`, `modes`,
+ * `policy`); this file only knows how to combine them.
+ *
+ * "Station" in field names means the trip's hub: the station, bus terminal,
+ * airport or race parking, depending on how the runner leaves.
  */
 
 export type Decision =
@@ -36,6 +45,9 @@ export type Itinerary = {
   decision: Decision
   calculationStatus: 'READY' | 'PARTIAL' | 'NOT_RUN' | 'NEEDS_DATA'
   executionMode: 'DEMO'
+  /** The course this itinerary is for (chosen, or picked by `auto`). */
+  course: string | null
+  hub: HubId
   variant: string | null
   revision: number
   start: number
@@ -61,6 +73,11 @@ type Context = {
   config: TripConfig
   plan: Plan
   obs: Observations
+  course: Course
+  mode: Mode
+  hub: { id: HubId; name: string }
+  /** Minutes from the course area to the hub; null = no registered route. */
+  hubMin: number | null
   start: number
   target: number
   effect: Effect
@@ -72,26 +89,35 @@ const contextOf = (
   config: TripConfig,
   plan: Plan,
   obs: Observations,
+  course: Course,
 ): Context => {
   const { policy } = config
+  const { mode, ...hub } = hubOf(config, plan)
   const start =
     Math.max(minutes(plan.readyTime), minutes(plan.currentTime)) + plan.restMin
-  const target = minutes(plan.trainTime) - policy.stationBufferMin
+  const target = minutes(plan.departTime) - mode.bufferMin
+  const hubMin = course.return.minutes[hub.id] ?? null
   return {
     config,
     plan,
     obs,
+    course,
+    mode,
+    hub,
+    hubMin,
     start,
     target,
     effect: assessSignals(policy, obs),
     places: indexBy(
-      config.places.filter((p) => p.active),
+      config.places.filter((p) => p.active && p.attrs.course === course.id),
       (p) => p.id,
     ),
     base: {
       decision: 'INCOMPLETE',
       calculationStatus: 'NOT_RUN',
       executionMode: 'DEMO',
+      course: course.id,
+      hub: hub.id,
       variant: null,
       revision: plan.revision,
       start,
@@ -102,9 +128,8 @@ const contextOf = (
       slack: null,
       walking: 0,
       localMin: 0,
-      outbound:
-        plan.currentPlace === 'GURYONGPO' ? 0 : policy.legs.outbound.minutes,
-      returnMin: policy.legs.return.minutes,
+      outbound: plan.currentPlace === 'COURSE' ? 0 : course.outbound.minutes,
+      returnMin: hubMin ?? 0,
       returnDeparture: null,
       trafficReserve: 0,
       reasons: [],
@@ -113,11 +138,20 @@ const contextOf = (
   }
 }
 
+/** Copy from config, with the trip's names available to every sentence. */
 const copy = (
   ctx: Context,
   key: string,
   vars?: Record<string, string | number>,
-) => fill(ctx.config.policy.copy[key] ?? key, vars)
+) =>
+  fill(ctx.config.policy.copy[key] ?? key, {
+    area: ctx.course.area,
+    hub: ctx.hub.name,
+    noun: ctx.mode.noun,
+    time: ctx.plan.departTime,
+    buffer: ctx.mode.bufferMin,
+    ...vars,
+  })
 
 /** The base with observation effects applied (reserve, partial status). */
 const observed = (ctx: Context): Itinerary => ({
@@ -143,7 +177,7 @@ const incomplete: Rule<Context, Itinerary> = (ctx) =>
     : undefined
 
 const atStation: Rule<Context, Itinerary> = (ctx) => {
-  if (ctx.plan.currentPlace !== 'STATION') return undefined
+  if (!isHub(ctx.plan.currentPlace)) return undefined
   const now = minutes(ctx.plan.currentTime)
   return {
     ...ctx.base,
@@ -159,7 +193,14 @@ const atStation: Rule<Context, Itinerary> = (ctx) => {
 }
 
 const routeUnavailable: Rule<Context, Itinerary> = (ctx) => {
-  const { outbound } = ctx.config.policy.legs
+  if (ctx.hubMin === null)
+    return {
+      ...ctx.base,
+      decision: 'NEEDS_DATA',
+      calculationStatus: 'NEEDS_DATA',
+      reasons: [copy(ctx, 'noHubRoute')],
+    }
+  const { outbound } = ctx.course
   const outOfWindow =
     ctx.base.outbound > 0 && !within(outbound.window)(ctx.start)
   return !ctx.obs.routeAvailable || outOfWindow
@@ -174,7 +215,8 @@ const routeUnavailable: Rule<Context, Itinerary> = (ctx) => {
 
 const returnLeg: Rule<Context, Itinerary> = (ctx) => {
   if (ctx.plan.stage !== 'RETURN') return undefined
-  const leg = ctx.config.policy.legs.return
+  const leg = ctx.course.return
+  const legMin = ctx.hubMin ?? 0
   const base = observed(ctx)
   if (!within(leg.window)(ctx.start))
     return {
@@ -185,13 +227,13 @@ const returnLeg: Rule<Context, Itinerary> = (ctx) => {
       reasons: [copy(ctx, 'returnRouteMissing')],
     }
   const departure = ctx.start + leg.stopAccess
-  const eta = departure + leg.minutes
+  const eta = departure + legMin
   const planned = eta + ctx.effect.reserveMin
   return {
     ...base,
     decision: planned <= ctx.target ? 'GO' : 'CANCEL',
     outbound: 0,
-    returnMin: leg.stopAccess + leg.minutes,
+    returnMin: leg.stopAccess + legMin,
     stationEta: eta,
     planningArrival: planned,
     returnDeparture: departure,
@@ -200,7 +242,7 @@ const returnLeg: Rule<Context, Itinerary> = (ctx) => {
       ...ctx.effect.reasons,
       copy(ctx, 'returnLeg', {
         stopAccess: leg.stopAccess,
-        returnMin: leg.minutes,
+        returnMin: legMin,
       }),
     ],
   }
@@ -216,6 +258,7 @@ type Candidate =
 
 const allowedIn = (ctx: Context) => (id: PlaceId) =>
   id in ctx.places &&
+  ctx.plan.interests.includes(ctx.places[id].attrs.interest) &&
   !ctx.plan.excluded.includes(id) &&
   !ctx.plan.completed.includes(id) &&
   !(ctx.effect.outdoorBlocked && ctx.places[id].attrs.outdoor)
@@ -236,11 +279,11 @@ const evaluate =
         : 0
     const localMin = approach + sum(selected.map((s) => s.dwell))
     const walking =
-      (base.outbound ? policy.legs.outbound.accessWalk : 0) +
-      policy.legs.return.accessWalk +
+      (base.outbound ? ctx.course.outbound.accessWalk : 0) +
+      ctx.course.return.accessWalk +
       sum(selected.map((s) => s.walk))
     const returnDeparture = ctx.start + base.outbound + localMin
-    if (!within(policy.legs.return.window)(returnDeparture))
+    if (!within(ctx.course.return.window)(returnDeparture))
       return { kind: 'window-miss' }
 
     const eta = returnDeparture + base.returnMin
@@ -261,18 +304,18 @@ const evaluate =
     }, [])
 
     const chosen = new Set(selected.map((s) => s.place))
-    const excluded = ctx.config.places
-      .filter(
-        (p) => p.active && !chosen.has(p.id) && !plan.completed.includes(p.id),
-      )
+    const excluded = Object.values(ctx.places)
+      .filter((p) => !chosen.has(p.id) && !plan.completed.includes(p.id))
       .sort((a, b) => a.sort - b.sort)
       .map((p) => ({
         id: p.id,
         reason: plan.excluded.includes(p.id)
           ? copy(ctx, 'excludedByUser')
-          : p.attrs.outdoor && effect.outdoorBlocked
-            ? copy(ctx, 'excludedOutdoor')
-            : copy(ctx, 'excludedByTime'),
+          : !plan.interests.includes(p.attrs.interest)
+            ? copy(ctx, 'excludedByInterest')
+            : p.attrs.outdoor && effect.outdoorBlocked
+              ? copy(ctx, 'excludedOutdoor')
+              : copy(ctx, 'excludedByTime'),
       }))
 
     const reasons = [
@@ -296,10 +339,11 @@ const evaluate =
         reasons: reasons.length
           ? reasons
           : [
-              copy(ctx, 'fullCourse', {
-                count: selected.length,
-                buffer: policy.stationBufferMin,
-              }),
+              copy(
+                ctx,
+                ctx.mode.bufferMin > 0 ? 'fullCourse' : 'fullCourseBack',
+                { count: selected.length },
+              ),
             ],
         excluded,
       },
@@ -308,21 +352,25 @@ const evaluate =
 
 const courseSearch = (ctx: Context): Itinerary => {
   let windowMissing = false
-  const variants = ctx.config.policy.variants
+  let allEmpty = true
+  const { variants } = ctx.course
   for (let i = 0; i < variants.length; i++) {
     const candidate = evaluate(ctx)(variants[i], i)
     if (candidate.kind === 'ok') return candidate.itinerary
     if (candidate.kind === 'window-miss') windowMissing = true
+    if (candidate.kind !== 'empty') allEmpty = false
   }
   const base = observed(ctx)
+  const why = windowMissing
+    ? 'windowMissing'
+    : allEmpty && ctx.plan.interests.length
+      ? 'noInterest'
+      : 'cancel'
   return {
     ...base,
     decision: windowMissing ? 'NEEDS_DATA' : 'CANCEL',
     calculationStatus: windowMissing ? 'NEEDS_DATA' : base.calculationStatus,
-    reasons: [
-      ...ctx.effect.reasons,
-      copy(ctx, windowMissing ? 'windowMissing' : 'cancel'),
-    ],
+    reasons: [...ctx.effect.reasons, copy(ctx, why)],
   }
 }
 
@@ -331,7 +379,36 @@ const decide = decideWith<Context, Itinerary>(
   courseSearch,
 )
 
+/** Lower is better: a full course, then a shortened one, then anything else. */
+const fit = (it: Itinerary) =>
+  it.decision === 'GO' || it.decision === 'INDOOR'
+    ? 0
+    : it.decision === 'SHORTEN'
+      ? 1
+      : 2
+
+/** The best of several courses' itineraries: fit, then more stops, then catalogue order. */
+export const bestOf = (its: Itinerary[]): Itinerary =>
+  its.reduce((best, it) =>
+    fit(it) < fit(best) ||
+    (fit(it) === fit(best) && it.stops.length > best.stops.length)
+      ? it
+      : best,
+  )
+
+/** One itinerary per active course, for comparison. */
+export const planEveryCourse = (
+  config: TripConfig,
+  plan: Plan,
+  obs: Observations,
+): Itinerary[] =>
+  activeCourses(config).map((c) => decide(contextOf(config, plan, obs, c)))
+
 export const planner =
   (config: TripConfig) =>
-  (plan: Plan, obs: Observations): Itinerary =>
-    decide(contextOf(config, plan, obs))
+  (plan: Plan, obs: Observations): Itinerary => {
+    const fixed =
+      plan.course === AUTO_COURSE ? undefined : courseById(config, plan.course)
+    if (fixed) return decide(contextOf(config, plan, obs, fixed))
+    return bestOf(planEveryCourse(config, plan, obs))
+  }

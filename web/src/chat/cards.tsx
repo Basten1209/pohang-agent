@@ -35,6 +35,7 @@ import type { Decision, Itinerary } from '#/core/planner'
 import type { ChoicePrompt } from '#/core/slots'
 import type { Progress } from '#/core/stage'
 import { progressOptions } from '#/core/stage'
+import { courseById, departLabel, hubOf } from '#/core/route'
 import { clock } from '#/core/time'
 import type { PartOf, ToolPart } from './context'
 import { useChatContext } from './context'
@@ -171,38 +172,44 @@ const QuickReplyCard = ({
 
 // ── Ask: next action while travelling ──────────────────────────────────
 
-const progressLabel: Record<Progress, string> = {
-  ARRIVED: '구룡포 도착',
+const progressLabel = (
+  area: string,
+  hub: string,
+): Record<Progress, string> => ({
+  ARRIVED: `${area} 도착`,
   STOP_DONE: '다 봤어요',
   SKIP: '건너뛰기',
   REST: '30분 더 쉬기',
-  START_RETURN: '역으로 출발',
-  AT_STATION: '포항역 도착',
-}
+  START_RETURN: '돌아가기 시작',
+  AT_STATION: `${hub} 도착`,
+})
 
 const ProgressCard = ({
   part,
   interactive,
 }: CardProps<PartOf<'await_progress'>>) => {
   const { config, view, answer } = useChatContext()
+  const { state, itinerary: it } = view
+  const course = courseById(config, it.course)
+  const hub = hubOf(config, state.plan)
+  const labels = progressLabel(course?.area ?? '코스', hub.name)
   if (part.state === 'output-available')
     return skipped(part.output) || !('event' in part.output) ? null : (
-      <Answered>{progressLabel[part.output.event]}</Answered>
+      <Answered>{labels[part.output.event]}</Answered>
     )
   if (part.state !== 'input-available' || !interactive) return null
 
-  const { state, itinerary: it } = view
   const options = progressOptions(state, it)
   if (!options.length) return null
-  const map = mapUrl(config)
+  const map = mapUrl(config, it.course)
   const [stop] = it.stops
   const place = stop && config.places.find((p) => p.id === stop.id)
   const target =
     state.plan.stage === 'OUTBOUND'
       ? {
-          title: '구룡포로 이동',
-          desc: '버스로 이동해요',
-          url: map('GURYONGPO'),
+          title: `${course?.area ?? '코스'}로 이동`,
+          desc: `${course?.outbound.via ?? '대중교통'} · 약 ${it.outbound}분`,
+          url: map('COURSE'),
         }
       : state.plan.stage === 'LOCAL' && place
         ? {
@@ -211,12 +218,12 @@ const ProgressCard = ({
             url: map(place.id, 'walk'),
           }
         : {
-            title: '포항역으로',
+            title: `${hub.name}(으)로`,
             desc:
               it.planningArrival === null
-                ? '역으로 이동해요'
-                : `계획상 ${clock(it.planningArrival)} 도착`,
-            url: map('STATION'),
+                ? `${hub.name}(으)로 이동해요`
+                : `계획상 ${clock(it.planningArrival)} 도착 · ${departLabel(config, state.plan)}`,
+            url: map(hub.id),
           }
 
   return (
@@ -236,7 +243,7 @@ const ProgressCard = ({
               answer('await_progress', part.toolCallId, { event: o })
             }
           >
-            {progressLabel[o]}
+            {labels[o]}
           </Button>
         ))}
       </CardContent>
@@ -270,18 +277,26 @@ export const CourseSummary = ({
   it: Itinerary
   title: string
 }) => {
-  const { config } = useChatContext()
+  const { config, view } = useChatContext()
+  const course = courseById(config, it.course)
+  const hub = hubOf(config, view.state.plan)
   return (
     <Card size="sm">
       <CardHeader>
-        <CardDescription>{title}</CardDescription>
+        <CardDescription>
+          {title}
+          {course && it.stops.length > 0 && ` · ${course.title}`}
+        </CardDescription>
         <CardTitle>
           {it.planningArrival === null
             ? '관광 없이 귀가'
-            : `포항역 ${clock(it.planningArrival)} 도착`}
+            : `${hub.name} ${clock(it.planningArrival)} 도착`}
         </CardTitle>
-        <div>
+        <div className="flex flex-wrap gap-1">
           <Badge variant="secondary">{decisionLabel[it.decision]}</Badge>
+          <Badge variant="outline">
+            {departLabel(config, view.state.plan)}
+          </Badge>
         </div>
       </CardHeader>
       {it.stops.length > 0 && (
@@ -422,13 +437,13 @@ const SummaryCard = ({ part }: CardProps<PartOf<'summarize_trip'>>) =>
       <CardHeader>
         <CardDescription>오늘의 여정</CardDescription>
         <CardTitle>
-          {part.output.arrivedAt} 포항역 도착 · {part.output.trainTime} 열차
+          {part.output.arrivedAt} {part.output.hub} 도착 · {part.output.depart}
         </CardTitle>
       </CardHeader>
       <CardContent className="text-sm">
         {part.output.visited.length
           ? part.output.visited.join(' → ')
-          : '구룡포는 다음에 들러요'}
+          : '관광은 다음에 해요'}
       </CardContent>
     </Card>
   )
@@ -440,6 +455,15 @@ const toolTitle: Record<string, string> = {
   check_live_conditions: '디지털 트윈 확인',
   compare_transport: '이동수단 비교',
   set_demo_observation: '시연 조건 적용',
+  get_race_info: '대회 정보 조회',
+  search_guide: '안내 자료 검색',
+  compare_courses: '코스 비교',
+  find_nearby: '주변 관광정보 (한국관광공사)',
+  get_place_detail: '장소 상세 (한국관광공사)',
+  get_directions: '길찾기·버스',
+  get_bus_arrivals: '버스 도착정보 (TAGO)',
+  get_train_times: '열차 시간표 (TAGO)',
+  get_weather: '날씨 예보 (기상청)',
 }
 
 const GenericTool = ({ part }: CardProps<ToolPart>) => (

@@ -41,15 +41,29 @@ export type TripRecord = {
 
 const emptyMeta = (): TripMeta => ({ ingested: [], previews: {} })
 
+/**
+ * A row from an older state version starts over as a whole: a fresh state
+ * with the old conversation would ask questions the trip no longer matches.
+ */
 const fromRow = (
   config: TripConfig,
   row: typeof trips.$inferSelect,
-): TripRecord => {
+  opening: () => unknown[],
+): TripRecord & { restarted: boolean } => {
   const state = tripStateSchema.safeParse(row.state)
   const meta = tripMetaSchema.safeParse(row.meta)
+  if (!state.success)
+    return {
+      id: row.id,
+      state: initialTrip(config),
+      messages: opening(),
+      meta: emptyMeta(),
+      restarted: true,
+    }
   return {
     id: row.id,
-    state: state.success ? state.data : initialTrip(config),
+    restarted: false,
+    state: state.data,
     messages: Array.isArray(row.messages) ? row.messages : [],
     meta: meta.success ? meta.data : emptyMeta(),
   }
@@ -63,7 +77,21 @@ export const openTrip = async (
   opening: () => unknown[] = () => [],
 ): Promise<TripRecord> => {
   const [row] = await db.select().from(trips).where(eq(trips.id, id))
-  if (row) return fromRow(config, row)
+  if (row) {
+    const { restarted, ...record } = fromRow(config, row, opening)
+    // Persist a restarted trip right away so the next load agrees with it.
+    if (restarted)
+      await db
+        .update(trips)
+        .set({
+          state: record.state,
+          messages: record.messages,
+          meta: record.meta,
+          updatedAt: new Date(),
+        })
+        .where(eq(trips.id, id))
+    return record
+  }
   const fresh: TripRecord = {
     id,
     state: initialTrip(config),

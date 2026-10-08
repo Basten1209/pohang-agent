@@ -56,6 +56,13 @@ import { RadioGroup } from '@/components/ui/radio-group'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { canTravel } from '#/core/planner'
 import type { Decision } from '#/core/planner'
+import {
+  activeCourses,
+  courseById,
+  departLabel,
+  hubOf,
+  modeOf,
+} from '#/core/route'
 import type { Plan } from '#/core/schema'
 import { clock, minutes } from '#/core/time'
 import {
@@ -67,7 +74,7 @@ import {
   skipStop,
   startReturn,
 } from '#/core/trip'
-import { Choice, PageHeader, PlaceIcon } from './bits'
+import { Choice, PageHeader } from './bits'
 import {
   AdjustCard,
   ItineraryCard,
@@ -98,18 +105,20 @@ const Columns = ({ main, rail }: { main: ReactNode; rail: ReactNode }) => (
 export const PlanScreen = () => {
   const { state, config, run } = useApp()
   const { plan } = state
-  const places = config.places.filter((p) => p.active)
+  const mode = modeOf(config, plan)
+  const interests = config.conversation.slots.interests?.choices ?? []
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6">
       <PageHeader
-        title="완주 후 구룡포, 다녀올 수 있을까요?"
-        description="열차 시각을 알려주면 완주 후 일정과 포항역 복귀 시간을 함께 계산해요."
+        title="완주 후 포항, 어디까지 다녀올 수 있을까요?"
+        description="돌아가는 방법과 시각을 알려주면 완주 후 일정과 복귀 시간을 함께 계산해요."
       />
       <Card>
         <CardHeader>
           <CardTitle>내 하루 만들기</CardTitle>
           <CardDescription>
-            포항 해안 러닝 10km · 10월 13일 09:00 · 영일대 인근 (가상 행사)
+            {config.event.name} · {config.event.dateLabel} {config.event.gun} ·{' '}
+            {config.event.venue} (가상 행사)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -119,25 +128,66 @@ export const PlanScreen = () => {
               <Input
                 id="arrival"
                 type="datetime-local"
-                max="2026-10-13T08:59"
+                max={`${config.event.date}T${config.event.gun}`}
                 value={plan.arrivalAt}
                 onChange={(e) =>
                   e.target.value && run(patch({ arrivalAt: e.target.value }))
                 }
               />
             </Field>
+            <FieldSet>
+              <FieldLegend variant="label">돌아가는 방법</FieldLegend>
+              <ToggleGroup
+                type="single"
+                variant="outline"
+                className="flex-wrap"
+                value={plan.departMode}
+                onValueChange={(v) =>
+                  v && run(patch({ departMode: v as Plan['departMode'] }))
+                }
+              >
+                {config.modes.map((m) => (
+                  <ToggleGroupItem key={m.id} value={m.id}>
+                    {m.label}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </FieldSet>
             <Field>
-              <FieldLabel htmlFor="train-time">서울행 열차 출발</FieldLabel>
+              <FieldLabel htmlFor="train-time">
+                {mode.noun === '귀가'
+                  ? '돌아올 시각'
+                  : `${mode.noun} 출발 시각`}
+              </FieldLabel>
               <Input
                 id="train-time"
                 type="time"
-                value={plan.trainTime}
+                value={plan.departTime}
                 onChange={(e) =>
-                  e.target.value && run(patch({ trainTime: e.target.value }))
+                  e.target.value && run(patch({ departTime: e.target.value }))
                 }
               />
-              <FieldDescription>10월 13일 · 포항역</FieldDescription>
+              <FieldDescription>
+                {config.event.dateLabel} · {hubOf(config, plan).name}
+              </FieldDescription>
             </Field>
+            <FieldSet>
+              <FieldLegend variant="label">가 보고 싶은 곳</FieldLegend>
+              <ToggleGroup
+                type="single"
+                variant="outline"
+                className="flex-wrap"
+                value={plan.course}
+                onValueChange={(v) => v && run(patch({ course: v }))}
+              >
+                <ToggleGroupItem value="auto">추천</ToggleGroupItem>
+                {activeCourses(config).map((c) => (
+                  <ToggleGroupItem key={c.id} value={c.id}>
+                    {c.title}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </FieldSet>
             <FieldSet>
               <FieldLegend variant="label">완주 후 하고 싶은 일</FieldLegend>
               <ToggleGroup
@@ -145,12 +195,16 @@ export const PlanScreen = () => {
                 variant="outline"
                 className="flex-wrap"
                 value={plan.interests}
-                onValueChange={(interests) => run(patch({ interests }))}
+                onValueChange={(v) =>
+                  run(patch({ interests: v as Plan['interests'] }))
+                }
               >
-                {places.map((p) => (
-                  <ToggleGroupItem key={p.id} value={p.id}>
-                    <PlaceIcon name={p.attrs.icon} />
-                    {p.attrs.interestLabel}
+                {interests.map((c) => (
+                  <ToggleGroupItem
+                    key={String(c.value)}
+                    value={String(c.value)}
+                  >
+                    {c.label}
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
@@ -212,24 +266,48 @@ const phases = [
   },
   {
     title: '출발 준비',
-    description: '09:00 출발 · 영일대 인근 집결지 (가상 행사)',
+    description: '대회장 집결 · 출발 30분 전까지 (가상 행사)',
   },
   { title: '달리는 중', description: '완주하면 다음 단계로 넘어가요.' },
 ]
 const checklist = ['배번호와 러닝화', '마실 물과 간식', '완주 후 짐 회수 계획']
 
 export const DayScreen = () => {
-  const { state, run, map } = useApp()
+  const { state, run, map, config, itinerary } = useApp()
   const phase = phases[state.phase]
+  const hub = hubOf(config, state.plan)
+  const course = courseById(config, itinerary.course)
   const timeline: [string, string, string, LucideIcon][] = [
-    [`전날 ${state.plan.arrivalAt.slice(11)}`, '포항역 도착', '영일대 근처 숙소', TrainFront],
-    ['09:00', '10km 달리기', '영일대 인근', Flag],
-    ['완주 후', '구룡포', '컨디션 확인 뒤 코스 결정', MapPin],
-    [state.plan.trainTime, '포항역 출발', '30분 전 역 도착 목표', TrainFront],
+    [
+      `전날 ${state.plan.arrivalAt.slice(11)}`,
+      '포항 도착',
+      '영일대 근처 숙소',
+      TrainFront,
+    ],
+    [
+      config.event.gun,
+      `${config.event.course.distanceKm}km 달리기`,
+      config.event.venue,
+      Flag,
+    ],
+    [
+      '완주 후',
+      course?.title ?? '코스 추천',
+      '컨디션 확인 뒤 코스 결정',
+      MapPin,
+    ],
+    [
+      state.plan.departTime,
+      `${hub.name} ${hub.mode.noun}`,
+      hub.mode.bufferMin
+        ? `${hub.mode.bufferMin}분 전 도착 목표`
+        : '돌아올 시각',
+      TrainFront,
+    ],
   ]
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="내 하루" description="2026년 10월 12–13일" />
+      <PageHeader title="내 하루" description={config.event.dateLabel} />
       <Columns
         main={
           <>
@@ -248,10 +326,15 @@ export const DayScreen = () => {
                           id={`check-${i}`}
                           checked={state.checks[i]}
                           onCheckedChange={() =>
-                            run({ events: [{ type: 'day.checkToggled', index: i }] })
+                            run({
+                              events: [{ type: 'day.checkToggled', index: i }],
+                            })
                           }
                         />
-                        <FieldLabel htmlFor={`check-${i}`} className="font-normal">
+                        <FieldLabel
+                          htmlFor={`check-${i}`}
+                          className="font-normal"
+                        >
                           {text}
                         </FieldLabel>
                       </Field>
@@ -261,13 +344,21 @@ export const DayScreen = () => {
               )}
               <CardFooter className="gap-2">
                 {state.phase === 0 && (
-                  <Button onClick={() => run({ events: [{ type: 'day.advanced', phase: 1 }] })}>
+                  <Button
+                    onClick={() =>
+                      run({ events: [{ type: 'day.advanced', phase: 1 }] })
+                    }
+                  >
                     포항에 도착했어요
                   </Button>
                 )}
                 {state.phase === 1 && (
                   <>
-                    <Button onClick={() => run({ events: [{ type: 'day.advanced', phase: 2 }] })}>
+                    <Button
+                      onClick={() =>
+                        run({ events: [{ type: 'day.advanced', phase: 2 }] })
+                      }
+                    >
                       출발해요
                     </Button>
                     <Button variant="outline" asChild>
@@ -285,7 +376,7 @@ export const DayScreen = () => {
             <Card>
               <CardHeader>
                 <CardTitle>일정</CardTitle>
-                <CardDescription>버스와 기차로 이동해요.</CardDescription>
+                <CardDescription>대중교통 기준으로 계산해요.</CardDescription>
               </CardHeader>
               <CardContent>
                 <ItemGroup>
@@ -312,9 +403,11 @@ export const DayScreen = () => {
           <>
             <Card>
               <CardHeader>
-                <CardTitle>완주 후 후보: 구룡포</CardTitle>
+                <CardTitle>
+                  완주 후 후보: {course?.title ?? '추천 코스'}
+                </CardTitle>
                 <CardDescription>
-                  점심, 짧은 골목 구경, 카페. 완주 후 컨디션에 맞춰 다시 계산해요.
+                  {course?.desc ?? ''} 완주 후 컨디션에 맞춰 다시 계산해요.
                 </CardDescription>
               </CardHeader>
               <CardFooter>
@@ -324,7 +417,9 @@ export const DayScreen = () => {
                   onClick={() =>
                     run({
                       events: [{ type: 'candidate.toggled' }],
-                      notice: state.candidate ? '후보에서 뺐어요.' : '후보로 담았어요.',
+                      notice: state.candidate
+                        ? '후보에서 뺐어요.'
+                        : '후보로 담았어요.',
                     })
                   }
                 >
@@ -363,7 +458,9 @@ export const FinishScreen = () => {
                 <FieldSet>
                   <FieldLegend>지금 상태</FieldLegend>
                   <RadioGroup
-                    value={plan.condition === 'UNANSWERED' ? '' : plan.condition}
+                    value={
+                      plan.condition === 'UNANSWERED' ? '' : plan.condition
+                    }
                     onValueChange={(v) =>
                       run(patch({ condition: v as Plan['condition'] }))
                     }
@@ -400,12 +497,24 @@ export const FinishScreen = () => {
                           run(patch({ walkingLimit: Number(v) }))
                         }
                       >
-                        <Choice id="w-15" value="15" title="15분 이내" description="최소한으로" />
-                        <Choice id="w-30" value="30" title="30분 이내" description="짧은 구경은 괜찮아요" />
+                        <Choice
+                          id="w-15"
+                          value="15"
+                          title="15분 이내"
+                          description="최소한으로"
+                        />
+                        <Choice
+                          id="w-30"
+                          value="30"
+                          title="30분 이내"
+                          description="짧은 구경은 괜찮아요"
+                        />
                       </RadioGroup>
                     </FieldSet>
                     <Field>
-                      <FieldLabel htmlFor="ready">출발 준비 완료 시각</FieldLabel>
+                      <FieldLabel htmlFor="ready">
+                        출발 준비 완료 시각
+                      </FieldLabel>
                       <div className="flex gap-2">
                         <Input
                           id="ready"
@@ -461,7 +570,11 @@ export const FinishScreen = () => {
               </CardFooter>
             ) : (
               <CardFooter>
-                <Button className="w-full" disabled={!ready} onClick={() => run(go('course'))}>
+                <Button
+                  className="w-full"
+                  disabled={!ready}
+                  onClick={() => run(go('course'))}
+                >
                   가능한 코스 보기 <ArrowRight />
                 </Button>
               </CardFooter>
@@ -474,7 +587,7 @@ export const FinishScreen = () => {
   )
 }
 
-// ── S4 구룡포 코스 ───────────────────────────────────────────────────────
+// ── S4 코스 ──────────────────────────────────────────────────────────────
 
 const decisionLabel: Record<Decision, string> = {
   GO: '추천 코스',
@@ -496,14 +609,17 @@ const emptyTitle: Partial<Record<Decision, string>> = {
 export const CourseScreen = () => {
   const { state, itinerary: it, run, open, config, map } = useApp()
   const travel = canTravel(it)
+  const hub = hubOf(config, state.plan)
   const names = it.stops
     .map((s) => config.places.find((p) => p.id === s.id)?.attrs.short)
     .join(' → ')
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="구룡포 코스"
-        description={travel ? names : '지금 조건으로는 관광 코스를 만들 수 없어요.'}
+        title={courseById(config, it.course)?.title ?? '코스'}
+        description={
+          travel ? names : '지금 조건으로는 관광 코스를 만들 수 없어요.'
+        }
         action={
           <Badge variant={travel ? 'secondary' : 'outline'}>
             {decisionLabel[it.decision]}
@@ -520,7 +636,11 @@ export const CourseScreen = () => {
                   <AlertTitle>이 코스인 이유</AlertTitle>
                   <AlertDescription>
                     <p>{it.reasons.join(' ')}</p>
-                    <Button variant="link" className="h-auto p-0" onClick={() => open('why')}>
+                    <Button
+                      variant="link"
+                      className="h-auto p-0"
+                      onClick={() => open('why')}
+                    >
                       계산 근거 보기
                     </Button>
                   </AlertDescription>
@@ -532,16 +652,24 @@ export const CourseScreen = () => {
               <Empty className="border">
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
-                    {it.decision === 'MEDICAL_FIRST' ? <HeartPulse /> : <CircleAlert />}
+                    {it.decision === 'MEDICAL_FIRST' ? (
+                      <HeartPulse />
+                    ) : (
+                      <CircleAlert />
+                    )}
                   </EmptyMedia>
-                  <EmptyTitle>{emptyTitle[it.decision] ?? '확인이 필요해요'}</EmptyTitle>
+                  <EmptyTitle>
+                    {emptyTitle[it.decision] ?? '확인이 필요해요'}
+                  </EmptyTitle>
                   <EmptyDescription>{it.reasons.join(' ')}</EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent className="flex-row justify-center gap-2">
-                  <Button onClick={() => run(navigate(state, 'finish'))}>조건 다시 확인</Button>
+                  <Button onClick={() => run(navigate(state, 'finish'))}>
+                    조건 다시 확인
+                  </Button>
                   <Button variant="outline" asChild>
-                    <a href={map('STATION')} target="_blank" rel="noreferrer">
-                      포항역 길찾기 <ArrowUpRight />
+                    <a href={map(hub.id)} target="_blank" rel="noreferrer">
+                      {hub.name} 길찾기 <ArrowUpRight />
                     </a>
                   </Button>
                 </EmptyContent>
@@ -549,7 +677,8 @@ export const CourseScreen = () => {
             )}
             <ObservationCard />
             <p className="text-xs text-muted-foreground">
-              이동시간과 관측값은 시연용 가정값이에요. 실제 버스편·영업시간·보행 경로는 확인이 필요해요.
+              이동시간과 관측값은 시연용 가정값이에요. 실제 버스편·영업시간·보행
+              경로는 확인이 필요해요.
             </p>
           </>
         }
@@ -557,7 +686,11 @@ export const CourseScreen = () => {
           <>
             <TrainCard />
             <AdjustCard />
-            <Button className="hidden lg:flex" disabled={!travel} onClick={() => run(accept(state, it))}>
+            <Button
+              className="hidden lg:flex"
+              disabled={!travel}
+              onClick={() => run(accept(state, it))}
+            >
               이 코스로 갈게요 <ArrowRight />
             </Button>
           </>
@@ -569,13 +702,16 @@ export const CourseScreen = () => {
 
 // ── S5 다음 행동 ──────────────────────────────────────────────────────────
 
-const stageLabel: Record<Plan['stage'], string> = {
+const stageLabel = (
+  area: string,
+  hub: string,
+): Record<Plan['stage'], string> => ({
   BEFORE: '출발 전',
-  OUTBOUND: '구룡포로 이동 중',
-  LOCAL: '구룡포에 머무는 중',
-  RETURN: '포항역으로 이동 중',
+  OUTBOUND: `${area}(으)로 이동 중`,
+  LOCAL: `${area}에 머무는 중`,
+  RETURN: `${hub}(으)로 이동 중`,
   DONE: '도착',
-}
+})
 
 export const NextScreen = () => {
   const { state, itinerary: it, run, config, map, open } = useApp()
@@ -584,6 +720,8 @@ export const NextScreen = () => {
     ? config.places.find((p) => p.id === it.stops[0].id)
     : undefined
   const travel = canTravel(it)
+  const hub = hubOf(config, plan)
+  const area = courseById(config, it.course)?.area ?? '코스'
 
   if (plan.stage === 'DONE')
     return (
@@ -594,7 +732,7 @@ export const NextScreen = () => {
           </EmptyMedia>
           <EmptyTitle>여행을 마쳤어요</EmptyTitle>
           <EmptyDescription>
-            포항역 도착 {plan.currentTime} · 서울행 {plan.trainTime}
+            {hub.name} 도착 {plan.currentTime} · {departLabel(config, plan)}
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
@@ -614,17 +752,17 @@ export const NextScreen = () => {
 
   const headline =
     plan.stage === 'OUTBOUND'
-      ? '구룡포시장으로'
+      ? `${area}(으)로`
       : plan.stage === 'RETURN'
-        ? '포항역으로'
+        ? `${hub.name}(으)로`
         : !travel || !next
-          ? '포항역으로 돌아갈 시간이에요'
+          ? `${hub.name}(으)로 돌아갈 시간이에요`
           : next.attrs.short
   const description =
     plan.stage === 'OUTBOUND'
       ? '버스 경로와 승차 정류장은 지도에서 확인해 주세요.'
       : plan.stage === 'RETURN'
-        ? '열차 탑승 전까지 여유 있게 이동해요.'
+        ? `${departLabel(config, plan)} 전까지 여유 있게 이동해요.`
         : next
           ? next.attrs.desc
           : '남은 관광 대신 귀가 동선을 먼저 확인해요.'
@@ -632,10 +770,10 @@ export const NextScreen = () => {
     plan.stage === 'OUTBOUND' || plan.stage === 'RETURN' || it.stops.length > 0
   const destination =
     plan.stage === 'OUTBOUND'
-      ? 'GURYONGPO'
+      ? 'COURSE'
       : plan.stage === 'RETURN'
-        ? 'STATION'
-        : (it.stops[0]?.id ?? 'STATION')
+        ? hub.id
+        : (it.stops[0]?.id ?? hub.id)
 
   return (
     <div className="flex flex-col gap-6">
@@ -653,7 +791,9 @@ export const NextScreen = () => {
           <>
             <Card>
               <CardHeader>
-                <CardDescription>{stageLabel[plan.stage]}</CardDescription>
+                <CardDescription>
+                  {stageLabel(area, hub.name)[plan.stage]}
+                </CardDescription>
                 <CardTitle className="text-xl">{headline}</CardTitle>
                 <CardDescription>{description}</CardDescription>
               </CardHeader>
@@ -661,22 +801,26 @@ export const NextScreen = () => {
                 <CardFooter className="flex-col gap-2">
                   <Button className="w-full" asChild>
                     <a
-                      href={map(destination, plan.stage === 'LOCAL' ? 'walk' : 'traffic')}
+                      href={map(
+                        destination,
+                        plan.stage === 'LOCAL' ? 'walk' : 'traffic',
+                      )}
                       target="_blank"
                       rel="noreferrer"
                     >
-                      {plan.stage === 'LOCAL' ? '길찾기' : '대중교통 경로'} <ArrowUpRight />
+                      {plan.stage === 'LOCAL' ? '길찾기' : '대중교통 경로'}{' '}
+                      <ArrowUpRight />
                     </a>
                   </Button>
                   <Button
                     variant="outline"
                     className="w-full"
-                    onClick={() => run(advance(config, state, it))}
+                    onClick={() => run(advance(state, it))}
                   >
                     {plan.stage === 'OUTBOUND'
-                      ? '구룡포에 도착했어요'
+                      ? `${area}에 도착했어요`
                       : plan.stage === 'RETURN'
-                        ? '역에 도착했어요'
+                        ? `${hub.name}에 도착했어요`
                         : `${next?.attrs.actionLabel ?? '방문'} 마쳤어요`}
                   </Button>
                   <p className="text-xs text-muted-foreground">
@@ -687,10 +831,16 @@ export const NextScreen = () => {
             </Card>
             {plan.stage === 'LOCAL' && it.stops.length > 0 && (
               <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" onClick={() => run(skipStop(state, it))}>
+                <Button
+                  variant="outline"
+                  onClick={() => run(skipStop(state, it))}
+                >
                   <SkipForward /> 건너뛰기
                 </Button>
-                <Button variant="outline" onClick={() => run(restMore(config, state))}>
+                <Button
+                  variant="outline"
+                  onClick={() => run(restMore(config, state))}
+                >
                   <Coffee /> 30분 더 쉬기
                 </Button>
               </div>
@@ -701,8 +851,11 @@ export const NextScreen = () => {
         rail={
           <>
             <TrainCard />
-            <Button variant="outline" onClick={() => run(startReturn(state))}>
-              <TrainFront /> 포항역으로 돌아가기
+            <Button
+              variant="outline"
+              onClick={() => run(startReturn(state, it))}
+            >
+              <TrainFront /> {hub.name}(으)로 돌아가기
             </Button>
             <ObservationCard />
           </>

@@ -32,7 +32,14 @@ export const AppProvider = ({
   const [sheet, open] = useState<Sheet>(null)
   return (
     <AppContext.Provider
-      value={{ ...store, config, storage, map: mapUrl(config), sheet, open }}
+      value={{
+        ...store,
+        config,
+        storage,
+        map: mapUrl(config, store.itinerary.course),
+        sheet,
+        open,
+      }}
     >
       {children}
     </AppContext.Provider>

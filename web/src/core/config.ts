@@ -4,7 +4,11 @@ import { configSchema, placeSchema } from './schema'
 
 /** Config documents stored one-per-row in `app_config`. Places live in their own table. */
 export const configKeys = [
+  'event',
   'policy',
+  'courses',
+  'modes',
+  'guide',
   'anchors',
   'sources',
   'agent',

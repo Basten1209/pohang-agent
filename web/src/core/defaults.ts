@@ -1,4 +1,8 @@
 import type { TripConfig } from './schema'
+import { courses, modes } from './seed/courses'
+import { event } from './seed/event'
+import { guide } from './seed/guide'
+import { places } from './seed/places'
 
 /**
  * Seed configuration. On first boot it is written to the database as jsonb
@@ -7,29 +11,20 @@ import type { TripConfig } from './schema'
  * health standard.
  */
 export const seedConfig: TripConfig = {
-  version: 1,
+  // 2: courses, ways home, race event (see seed/). Older seeded rows are replaced.
+  version: 2,
+  event,
+  courses,
+  modes,
+  guide,
   policy: {
-    stationBufferMin: 30,
     restCapMin: 180,
-    legs: {
-      outbound: {
-        minutes: 90,
-        accessWalk: 10,
-        window: { from: '10:00', to: '12:00' },
-      },
-      return: {
-        minutes: 120,
-        accessWalk: 10,
-        stopAccess: 5,
-        window: { from: '12:00', to: '18:00' },
-      },
-    },
     local: { firstApproach: 5, lastApproach: 5 },
     signals: [
       {
         kind: 'reserve-by-band',
         reading: 'congestion',
-        label: '구룡포 통합 혼잡',
+        label: '포항 통합 교통 혼잡',
         bands: [
           { gte: 75, reserveMin: 20 },
           { gte: 50, reserveMin: 10 },
@@ -43,146 +38,62 @@ export const seedConfig: TripConfig = {
         limit: 50,
       },
     ],
-    variants: [
-      {
-        id: 'full',
-        stops: [
-          { place: 'food', dwell: 60, walk: 0 },
-          { place: 'street', dwell: 20, walk: 10 },
-          { place: 'cafe', dwell: 40, walk: 0 },
-        ],
-        reason: null,
-      },
-      {
-        id: 'short',
-        stops: [
-          { place: 'food', dwell: 50, walk: 0 },
-          { place: 'street', dwell: 5, walk: 5 },
-        ],
-        reason: '열차 시간에 맞춰 카페를 빼고 골목 구경을 5분으로 줄였어요.',
-      },
-      {
-        id: 'minimal',
-        stops: [{ place: 'food', dwell: 50, walk: 0 }],
-        reason: '점심만 남겨 귀가 시간을 확보했어요.',
-      },
-    ],
     copy: {
       medical:
         '관광 계획을 멈추고 현장 의료부스 또는 운영요원에게 도움을 요청해 주세요.',
       incomplete: '컨디션과 짐 회수 여부를 먼저 확인해 주세요.',
-      atStation: '포항역 도착을 직접 확인했어요.',
+      atStation: '{hub} 도착을 직접 확인했어요.',
       routeMissing:
         '이 출발 시각에 맞는 왕복 경로가 없어요. 지도에서 경로를 확인해 주세요.',
       returnRouteMissing:
         '현재 시각에 맞는 복귀 경로가 없어요. 외부 지도에서 확인해 주세요.',
       returnLeg:
-        '정류장 접근 {stopAccess}분과 시연 버스 {returnMin}분을 반영해 포항역으로 이동해요.',
+        '정류장 접근 {stopAccess}분과 시연 이동 {returnMin}분을 반영해 {hub}(으)로 가요.',
       reserveUnknown:
         '최신 관측을 확인할 수 없어 시연 정책의 교통 여유 {reserve}분을 반영했어요.',
       reserveBand:
         '{label} 신호에 따라 교통 여유 {reserve}분을 한 번 더했어요.',
       outdoorUnknown:
         '대기 조건을 확인할 수 없어 선택적 야외 구경을 제외했어요.',
-      outdoorLimit: '시연 대기 정책에 따라 야외 골목 구경을 제외했어요.',
+      outdoorLimit: '시연 대기 정책에 따라 야외 구경을 제외했어요.',
       fullCourse:
-        '선택한 {count}곳을 둘러보고 열차 출발 {buffer}분 전에 역에 도착하는 계획이에요.',
+        '{area}에서 {count}곳을 둘러보고 {noun} {buffer}분 전에 {hub}에 도착하는 계획이에요.',
+      fullCourseBack:
+        '{area}에서 {count}곳을 둘러보고 {time}까지 {hub}(으)로 돌아오는 계획이에요.',
+      noHubRoute: '{area}에서 {hub}(으)로 가는 경로가 등록돼 있지 않아요.',
       windowMissing: '변경된 복귀 시각은 등록된 경로의 범위 밖이에요.',
       cancel:
-        '최소 식사 코스도 귀가 시간 또는 걷기 조건을 맞추기 어려워요. 관광 대신 귀가 경로를 확인해 주세요.',
+        '{area}는 가장 짧은 코스도 {noun} 시간이나 걷기 조건에 맞추기 어려워요. 관광 대신 {hub}(으)로 가는 길을 확인해 주세요.',
+      noInterest: '{area}에는 고른 활동에 맞는 장소가 없어요.',
       excludedByUser: '직접 제외한 장소',
       excludedOutdoor: '야외 체류 제한',
       excludedByTime: '귀가 시간과 걷기 조건 반영',
+      excludedByInterest: '고른 활동이 아님',
     },
   },
-  places: [
-    {
-      id: 'food',
-      kind: 'FOOD',
-      sort: 10,
-      active: true,
-      attrs: {
-        title: '구룡포에서 든든한 한 끼',
-        short: '항구 앞 점심',
-        subtitle: '구룡포시장 · 식당 후보',
-        category: 'LOCAL FOOD',
-        desc: '달린 뒤 찾아온 반가운 허기. 구룡포시장 근처에서 여유 있게 점심을 먹으며 여행을 시작해요.',
-        detail:
-          '식당은 아직 선정 전입니다. 이 데모에서는 구룡포시장 권역을 목적지로 사용해요. 1인 식사 가능 여부, 메뉴와 가격, 영업시간은 현지 확인이 필요합니다.',
-        icon: 'utensils',
-        image: '/images/guryongpo-harbor.jpg',
-        actionLabel: '식사',
-        interestLabel: '맛있는 점심',
-        outdoor: false,
-        defaultDwell: 60,
-        geo: { lat: 35.9868, lng: 129.5528 },
-      },
-      meta: { provenance: 'PLACEHOLDER', verified: false },
-    },
-    {
-      id: 'street',
-      kind: 'STREET',
-      sort: 20,
-      active: true,
-      attrs: {
-        title: '골목을 따라, 구룡포 한 장',
-        short: '일본인 가옥거리',
-        subtitle: '오래된 집과 작은 골목',
-        category: 'SLOW WALK',
-        desc: '항구 마을의 시간이 남아 있는 일본인 가옥거리. 짧게 둘러보고 오늘의 사진 한 장을 남겨요.',
-        detail:
-          '일본인 가옥거리의 짧은 구간을 둘러보는 시연 코스예요. 구룡포공원 계단은 코스에서 제외했습니다. 실제 보행 구간의 경사와 접근성은 확인이 필요합니다.',
-        icon: 'footprints',
-        image: '/images/guryongpo-street.jpg',
-        actionLabel: '구경',
-        interestLabel: '짧은 구경',
-        outdoor: true,
-        defaultDwell: 20,
-        geo: { lat: 35.9902, lng: 129.5595 },
-      },
-      meta: {
-        provenance: 'PLACEHOLDER',
-        verified: false,
-        photo:
-          'https://badaon.or.kr/seantour_map/travel/destination/detail.do?destId=DEST000662',
-      },
-    },
-    {
-      id: 'cafe',
-      kind: 'CAFE',
-      sort: 30,
-      active: true,
-      attrs: {
-        title: '서두르지 않는 커피 한 잔',
-        short: '골목 카페에서 휴식',
-        subtitle: '가옥거리 인근 · 카페 후보',
-        category: 'COFFEE BREAK',
-        desc: '여행의 마지막은 느긋하게. 항구 마을의 분위기를 느끼며 앉아서 잠깐 쉬어 가요.',
-        detail:
-          '카페는 아직 선정 전입니다. 가옥거리 인근 후보를 가정한 체류 시간이므로 상호·영업시간·가격·출입 동선 확인 후 실제 목적지를 등록해야 합니다.',
-        icon: 'coffee',
-        image: '/images/guryongpo-street.jpg',
-        actionLabel: '휴식',
-        interestLabel: '카페 휴식',
-        outdoor: false,
-        defaultDwell: 40,
-        geo: { lat: 35.9902, lng: 129.5595 },
-      },
-      meta: { provenance: 'PLACEHOLDER', verified: false },
-    },
-  ],
+  places,
   anchors: [
-    { id: 'STATION', name: '포항역', geo: { lat: 36.0714, lng: 129.3418 } },
     { id: 'RACE', name: '영일대해수욕장', geo: { lat: 36.0565, lng: 129.378 } },
     {
       id: 'HOTEL',
-      name: '영일대해수욕장',
+      name: '영일대 인근 숙소',
       geo: { lat: 36.0565, lng: 129.378 },
     },
+    { id: 'STATION', name: '포항역', geo: { lat: 36.0714, lng: 129.3418 } },
     {
-      id: 'GURYONGPO',
-      name: '구룡포시장',
-      geo: { lat: 35.9868, lng: 129.5528 },
+      id: 'TERMINAL',
+      name: '포항버스터미널',
+      geo: { lat: 36.0255, lng: 129.359 },
+    },
+    {
+      id: 'AIRPORT',
+      name: '포항경주공항',
+      geo: { lat: 35.9879, lng: 129.4206 },
+    },
+    {
+      id: 'PARKING',
+      name: '대회장(영일대)',
+      geo: { lat: 36.0565, lng: 129.378 },
     },
   ],
   sources: [
@@ -229,38 +140,56 @@ export const seedConfig: TripConfig = {
   ],
   agent: {
     model: 'gpt-6-luna',
-    maxSteps: 4,
-    maxToolCalls: 3,
+    maxSteps: 5,
+    maxToolCalls: 4,
     timeoutMs: 20000,
     maxOutputTokens: 600,
-    suggestions: ['16시 기차로 바꿨어', '왜 이 코스야?', '역까지 택시 타면?'],
+    suggestions: ['16시로 바뀌었어', '왜 이 코스야?', '다른 코스는?'],
   },
   conversation: {
-    onboarding: ['trainTime', 'interests', 'origin'],
+    onboarding: ['departMode', 'departTime', 'course', 'interests', 'origin'],
     // Ready time first, so the stage moves on once the condition is known.
     checkIn: ['readyTime', 'condition'],
     slots: {
-      trainTime: {
-        question: '서울 가는 열차는 몇 시예요?',
-        hint: '예: 18시 30분 기차',
+      departMode: {
+        question: '대회 끝나고 어떻게 돌아가요?',
+        hint: '예: KTX 타고 서울 가요',
         multiple: false,
+        // Chips come from \`modes\`.
+        choices: [],
+      },
+      departTime: {
+        // Question, hint and chips come from the chosen mode.
+        question: '몇 시에 출발해요?',
+        hint: '예: 18시 30분',
+        multiple: false,
+        choices: [],
+      },
+      course: {
+        question: '완주하고 어디로 가 볼까요?',
+        hint: '예: 호미곶 가 보고 싶어요',
+        multiple: false,
+        // Chips come from \`courses\`, then this one.
         choices: [
-          { label: '16:00', say: '16시 기차예요', value: '16:00' },
-          { label: '17:30', say: '17시 30분 기차예요', value: '17:30' },
-          { label: '18:30', say: '18시 30분 기차예요', value: '18:30' },
           {
-            label: '아직 몰라요',
-            say: '아직 몰라요',
-            value: null,
-            reply: '그럼 18:30 열차로 가정해 둘게요. 정해지면 말해 주세요.',
+            label: '추천해 주세요',
+            say: '시간에 맞게 추천해 주세요',
+            value: 'auto',
+            reply: '시간과 하고 싶은 일에 맞춰 코스를 골라 둘게요.',
           },
         ],
       },
       interests: {
-        question: '완주하고 구룡포에서 뭐 하고 싶어요? 여러 개 골라도 돼요.',
-        hint: '예: 점심이랑 카페',
+        question: '가서 뭐 하고 싶어요? 여러 개 골라도 돼요.',
+        hint: '예: 밥 먹고 바다 보고 싶어요',
         multiple: true,
-        choices: [],
+        choices: [
+          { label: '맛있는 한 끼', say: '맛있는 한 끼', value: 'food' },
+          { label: '산책·골목 구경', say: '산책·골목 구경', value: 'walk' },
+          { label: '바다 전망·사진', say: '바다 전망·사진', value: 'view' },
+          { label: '실내 볼거리', say: '실내 볼거리', value: 'indoor' },
+          { label: '카페 휴식', say: '카페 휴식', value: 'cafe' },
+        ],
       },
       origin: {
         question: '대회장에서 바로 출발해요, 숙소에 들렀다 가요?',
@@ -327,7 +256,7 @@ export const seedConfig: TripConfig = {
       title: '기본 코스',
       desc: '18:30 열차 · 점심 + 골목 + 카페',
       base: 'reset',
-      plan: { condition: 'TIRED' },
+      plan: { condition: 'TIRED', course: 'guryongpo' },
       readings: {},
       observations: {},
       screen: 'course',
@@ -337,7 +266,7 @@ export const seedConfig: TripConfig = {
       title: '16:00 귀가',
       desc: '카페 제외 · 골목 구경 단축',
       base: 'reset',
-      plan: { condition: 'TIRED', trainTime: '16:00' },
+      plan: { condition: 'TIRED', departTime: '16:00', course: 'guryongpo' },
       readings: {},
       observations: {},
       screen: 'course',
@@ -367,7 +296,8 @@ export const seedConfig: TripConfig = {
       base: 'reset',
       plan: {
         condition: 'TIRED',
-        trainTime: '16:00',
+        course: 'guryongpo',
+        departTime: '16:00',
         readyTime: '10:50',
         currentTime: '10:50',
       },
@@ -397,14 +327,16 @@ export const seedConfig: TripConfig = {
   defaults: {
     plan: {
       revision: 0,
-      arrivalAt: '2026-10-12T17:00',
-      trainTime: '18:30',
+      arrivalAt: '2026-10-24T17:00',
+      departMode: 'TRAIN',
+      departTime: '18:30',
+      course: 'auto',
       readyTime: '10:40',
       condition: 'UNANSWERED',
       walkingLimit: 30,
       baggageCollected: true,
       origin: 'RACE',
-      interests: ['food', 'street', 'cafe'],
+      interests: ['food', 'walk', 'cafe'],
       excluded: [],
       restMin: 0,
       stage: 'BEFORE',

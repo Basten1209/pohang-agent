@@ -12,6 +12,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { canTravel } from '#/core/planner'
 import type { Screen, TripConfig } from '#/core/schema'
 import { screenSchema } from '#/core/schema'
+import { departLabel, hubOf } from '#/core/route'
 import { clock } from '#/core/time'
 import { accept, navigate } from '#/core/trip'
 import { AppProvider, useApp } from './context'
@@ -47,7 +48,7 @@ const Header = () => {
   return (
     <header className="sticky top-0 z-30 border-b bg-background pt-safe">
       <div className="mx-auto flex h-14 max-w-5xl items-center gap-2 px-4">
-        <span className="font-semibold">RUN2구룡포</span>
+        <span className="font-semibold">RUN2포항</span>
         <div className="ml-auto flex gap-1">
           <Button asChild size="sm" variant="ghost">
             <Link to="/">
@@ -92,7 +93,7 @@ const Header = () => {
 
 /** Sticky action bar on phones for the course screen. */
 const CourseBar = () => {
-  const { state, itinerary, run } = useApp()
+  const { state, itinerary, run, config } = useApp()
   if (
     state.screen !== 'course' ||
     !canTravel(itinerary) ||
@@ -104,10 +105,11 @@ const CourseBar = () => {
       <div className="mx-auto flex max-w-xl items-center justify-between gap-4">
         <div className="flex flex-col">
           <span className="text-xs text-muted-foreground">
-            포항역 도착 (시연)
+            {hubOf(config, state.plan).name} 도착 (시연)
           </span>
           <span className="font-semibold tabular-nums">
-            {clock(itinerary.planningArrival)} · {state.plan.trainTime} 열차
+            {clock(itinerary.planningArrival)} ·{' '}
+            {departLabel(config, state.plan)}
           </span>
         </div>
         <Button onClick={() => run(accept(state, itinerary))}>

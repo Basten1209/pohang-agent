@@ -26,9 +26,9 @@ const Offline = () => {
       <p className="font-semibold">서버에 연결할 수 없어요</p>
       {view?.state.created ? (
         <p className="text-muted-foreground tabular-nums">
-          마지막으로 본 일정: {view.state.plan.trainTime} 열차
+          마지막으로 본 일정: {view.state.plan.departTime} 출발
           {view.itinerary.planningArrival !== null &&
-            ` · 포항역 ${clock(view.itinerary.planningArrival)} 도착 (계획)`}
+            ` · ${clock(view.itinerary.planningArrival)} 도착 (계획)`}
         </p>
       ) : (
         <p className="text-muted-foreground">

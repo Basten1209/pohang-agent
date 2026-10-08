@@ -1,6 +1,14 @@
 import { z } from 'zod'
-import type { Choice, Plan, SlotId, TripConfig } from './schema'
-import { placeIdSchema, timeSchema } from './schema'
+import { activeCourses, courseById, modeOf } from './route'
+import type { Choice, Interest, Plan, SlotId, TripConfig } from './schema'
+import {
+  AUTO_COURSE,
+  courseIdSchema,
+  departModeSchema,
+  interestSchema,
+  timeSchema,
+} from './schema'
+import { fill } from './signals'
 import type { Stage } from './stage'
 import { stageOf } from './stage'
 import { clock, minutes } from './time'
@@ -20,13 +28,25 @@ import type { TripEvent, TripState } from './trip'
 /** Every detail the chat can collect; `null` = not mentioned. */
 export const detailsSchema = z
   .object({
-    trainTime: timeSchema
+    departMode: departModeSchema
       .nullable()
-      .describe('서울행 열차 출발 시각 HH:mm (24시간)'),
+      .describe(
+        '포항을 떠나는 방법: TRAIN(기차) BUS(고속·시외버스) FLIGHT(비행기) CAR(자가용) LOCAL(포항 주민)',
+      ),
+    departTime: timeSchema
+      .nullable()
+      .describe(
+        '열차·버스·비행기 출발 시각, 자가용은 출발 시각, 주민은 돌아올 시각. HH:mm (24시간)',
+      ),
+    course: courseIdSchema
+      .nullable()
+      .describe('가고 싶은 코스 id. 추천을 원하면 auto'),
     interests: z
-      .array(placeIdSchema)
+      .array(interestSchema)
       .nullable()
-      .describe('완주 후 하고 싶은 장소 id 목록. 관광 없이 바로 간다면 []'),
+      .describe(
+        '하고 싶은 활동: food(식사) walk(산책·골목) view(바다 전망·사진) indoor(실내 볼거리) cafe(카페). 관광 없이 바로 간다면 []',
+      ),
     origin: z
       .enum(['RACE', 'HOTEL'])
       .nullable()
@@ -58,7 +78,9 @@ export const detailsSchema = z
 export type Details = z.infer<typeof detailsSchema>
 
 export const noDetails: Details = {
-  trainTime: null,
+  departMode: null,
+  departTime: null,
+  course: null,
   interests: null,
   origin: null,
   arrivalAt: null,
@@ -97,15 +119,30 @@ export type ChoicePrompt = {
 const dynamicChoices: Partial<
   Record<SlotId, (config: TripConfig, state: TripState) => Choice[]>
 > = {
-  interests: (config) => [
-    ...config.places
-      .filter((p) => p.active)
-      .map((p) => ({
-        label: p.attrs.interestLabel,
-        say: p.attrs.interestLabel,
-        value: p.id,
+  departMode: (config) =>
+    config.modes.map((m) => ({ label: m.label, say: m.say, value: m.id })),
+  departTime: (config, state) => {
+    const mode = modeOf(config, state.plan)
+    return [
+      ...mode.times.map((t) => ({
+        label: t,
+        say: `${t} ${mode.noun}예요`,
+        value: t,
       })),
-  ],
+      {
+        label: '아직 몰라요',
+        say: '아직 몰라요',
+        value: null,
+        reply: fill(mode.unknownReply, { time: state.plan.departTime }),
+      },
+    ]
+  },
+  course: (config) =>
+    activeCourses(config).map((c) => ({
+      label: c.title,
+      say: `${c.area} 가 보고 싶어요`,
+      value: c.id,
+    })),
   readyTime: (_config, state) => {
     const at = (offset: number) => clock(minutes(state.plan.readyTime) + offset)
     return [
@@ -135,10 +172,12 @@ export const promptFor = (
 ): ChoicePrompt | null => {
   const spec = slot && config.conversation.slots[slot]
   if (!slot || !spec) return null
+  // The time question is worded for the way home ("몇 시 열차", "몇 시까지").
+  const mode = slot === 'departTime' ? modeOf(config, state.plan) : null
   return {
     slot,
-    question: spec.question,
-    hint: spec.hint,
+    question: mode?.question ?? spec.question,
+    hint: mode?.hint ?? spec.hint,
     multiple: spec.multiple,
     choices: [
       ...(dynamicChoices[slot]?.(config, state) ?? []),
@@ -165,15 +204,15 @@ const toPatch = (
   state: TripState,
   d: Partial<Details>,
 ): Partial<Plan> => {
-  const active = config.places.filter((p) => p.active).map((p) => p.id)
   const before = state.plan.stage === 'BEFORE'
+  const course =
+    d.course === AUTO_COURSE || courseById(config, d.course) ? d.course : null
   return {
-    ...(d.trainTime != null && { trainTime: d.trainTime }),
+    ...(d.departMode != null && { departMode: d.departMode }),
+    ...(d.departTime != null && { departTime: d.departTime }),
+    ...(course != null && before && { course }),
     ...(d.arrivalAt != null && { arrivalAt: d.arrivalAt }),
-    ...(d.interests != null && {
-      interests: d.interests.filter((id) => active.includes(id)),
-      excluded: active.filter((id) => !d.interests!.includes(id)),
-    }),
+    ...(d.interests != null && { interests: [...new Set(d.interests)] }),
     ...(d.origin != null && {
       origin: d.origin,
       ...(before && { currentPlace: d.origin }),
@@ -222,18 +261,27 @@ export const describeDetails = (
   config: TripConfig,
   d: Partial<Details>,
 ): string[] => {
-  const place = (id: string) =>
-    config.places.find((p) => p.id === id)?.attrs.interestLabel ?? id
+  const interest = (id: string) =>
+    config.conversation.slots.interests?.choices.find((c) => c.value === id)
+      ?.label ?? id
+  const mode = d.departMode && config.modes.find((m) => m.id === d.departMode)
+  const course =
+    d.course === AUTO_COURSE
+      ? '코스는 추천으로'
+      : d.course && courseById(config, d.course)?.title
   const condition = {
     OK: '컨디션 괜찮음',
     TIRED: '조금 지침',
     UNWELL: '몸이 안 좋음',
   }
   return [
-    d.trainTime && `${d.trainTime} 열차`,
+    mode && mode.label,
+    d.departTime &&
+      `${d.departTime} ${(mode || modeOf(config, { departMode: 'TRAIN' })).noun}`,
+    course,
     d.interests &&
       (d.interests.length
-        ? d.interests.map(place).join('·')
+        ? d.interests.map(interest).join('·')
         : '관광 없이 귀가'),
     d.origin &&
       (d.origin === 'RACE' ? '대회장에서 바로 출발' : '숙소 들렀다 출발'),
@@ -248,11 +296,33 @@ export const describeDetails = (
 
 // ── Reading details from free text (rule-based interpreter) ─────────────
 
-const interestWords: [RegExp, string][] = [
-  [/점심|식사|밥|먹|맛집/, 'food'],
-  [/구경|골목|가옥|산책/, 'street'],
+const interestWords: [RegExp, Interest][] = [
+  [/점심|식사|밥|먹|맛집|맛있|한\s*끼|물회|회\s/, 'food'],
+  [/구경|골목|가옥|산책|걷/, 'walk'],
+  [/바다|전망|사진|풍경|뷰/, 'view'],
+  [/실내|박물관|미술관|전시/, 'indoor'],
   [/카페|커피|디저트/, 'cafe'],
 ]
+
+const modeWords: [RegExp, Details['departMode']][] = [
+  [/포항\s*(?:에\s*)?(?:살|주민|사람)|집이\s*포항|현지인/, 'LOCAL'],
+  [/비행기|공항|항공|김포|제주/, 'FLIGHT'],
+  [/버스|터미널/, 'BUS'],
+  // Before CAR: "기차를", "열차로" also end in 차.
+  [/기차|열차|KTX|SRT|ktx|srt|코레일/, 'TRAIN'],
+  [/자가용|운전|차\s*(?:로|를|가지고|가져)|주차/, 'CAR'],
+]
+
+/** Course words, read from config so new courses need no code. */
+const courseIn = (
+  text: string,
+  courses: { id: string; area: string; title: string }[],
+) =>
+  /추천|알아서|아무\s*데|골라/.test(text)
+    ? AUTO_COURSE
+    : (courses.find(
+        (c) => text.includes(c.area) || text.includes(c.title.split('·')[0]),
+      )?.id ?? null)
 
 const hourMinute = (text: string): { h: number; m: number } | null => {
   const m = text.match(/(\d{1,2})(?:시\s*(?:(\d{1,2})분|(반))?|:(\d{2}))/)
@@ -271,7 +341,11 @@ const hhmm = ({ h, m }: { h: number; m: number }) =>
  */
 export const detailsFromText = (
   text: string,
-  ctx: { stage: Stage | string; readyTime: string },
+  ctx: {
+    stage: Stage | string
+    readyTime: string
+    courses?: { id: string; area: string; title: string }[]
+  },
 ): Details => {
   const d: Details = { ...noDetails }
   const time = hourMinute(text)
@@ -280,7 +354,7 @@ export const detailsFromText = (
   if (time && !checkIn) {
     // "4시" without 오전/오후 is ambiguous for a train; leave it to a question.
     const explicit = time.h > 12 || /오전|오후|저녁|아침|밤/.test(text)
-    if (explicit) d.trainTime = hhmm(time)
+    if (explicit) d.departTime = hhmm(time)
   }
   if (checkIn) {
     if (time) d.readyTime = hhmm(time)
@@ -295,6 +369,8 @@ export const detailsFromText = (
   }
 
   if (!checkIn) {
+    d.departMode = modeWords.find(([re]) => re.test(text))?.[1] ?? null
+    d.course = courseIn(text, ctx.courses ?? [])
     if (/바로\s*(귀가|집|서울)|관광\s*(안|없이)/.test(text)) d.interests = []
     else if (/다\s*좋|전부|모두/.test(text))
       d.interests = interestWords.map(([, id]) => id)
