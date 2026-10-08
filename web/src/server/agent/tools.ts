@@ -2,10 +2,13 @@ import { tool } from 'ai'
 import { z } from 'zod'
 import type { Evidence } from '#/core/evidence'
 import type { Changes } from '#/core/intents'
-import { canTravel, planner } from '#/core/planner'
+import { knowledgeOf, searchKnowledge } from '#/core/knowledge'
+import { directionsUrl } from '#/core/links'
+import { canTravel, planEveryCourse, planner } from '#/core/planner'
 import { planContext, preview } from '#/core/preview'
+import { activeCourses, courseById, departLabel, hubOf } from '#/core/route'
 import type { TripConfig } from '#/core/schema'
-import { timeSchema } from '#/core/schema'
+import { AUTO_COURSE, interestSchema, timeSchema } from '#/core/schema'
 import { clock } from '#/core/time'
 import type { TripEvent } from '#/core/trip'
 import { accept, runScenario } from '#/core/trip'
@@ -17,6 +20,20 @@ import {
   promptFor,
 } from '#/core/slots'
 import type { StoredPreview, TripRecord } from '../trips'
+import type { TourType } from '../sources/datagokr'
+import {
+  arrivals,
+  distanceM,
+  forecast,
+  routesAt,
+  stopsNear,
+  tourDetail,
+  tourNearby,
+  tourSearch,
+  tourTypes,
+  trains,
+} from '../sources/datagokr'
+import { knownPointNames, resolvePoint } from '#/core/where'
 
 /**
  * The agent's tools, in three kinds:
@@ -63,12 +80,21 @@ export const quickReplyAnswerSchema = z.object({
 /** A card skipped because the user typed instead of answering it. */
 export const skippedSchema = z.object({ skipped: z.literal(true) })
 
-export const changesSchema = (placeIds: [string, ...string[]]) =>
+export const changesSchema = (
+  placeIds: [string, ...string[]],
+  courseIds: [string, ...string[]],
+) =>
   z
     .object({
-      trainTime: timeSchema
+      departTime: timeSchema
         .nullable()
-        .describe('귀가 열차 출발 시각, 24시간 HH:mm. 언급이 없으면 null'),
+        .describe(
+          '바뀐 출발 시각(열차·버스·비행기·자가용) 또는 돌아올 시각, 24시간 HH:mm. 언급이 없으면 null',
+        ),
+      course: z
+        .enum(courseIds)
+        .nullable()
+        .describe('바꾸고 싶은 코스 id(auto=추천). 언급이 없으면 null'),
       walkingLimit: z
         .union([z.literal(15), z.literal(30)])
         .nullable()
@@ -84,14 +110,22 @@ export const changesSchema = (placeIds: [string, ...string[]]) =>
         .array(z.enum(placeIds))
         .nullable()
         .describe('빼 달라고 한 장소 id. 언급이 없으면 null'),
+      dropInterests: z
+        .array(interestSchema)
+        .nullable()
+        .describe(
+          '어느 코스에서든 빼 달라는 활동(cafe 카페, indoor 실내, walk 산책, view 전망, food 식사). 언급이 없으면 null',
+        ),
     })
     .strict()
 
 const noChanges: Changes = {
-  trainTime: null,
+  departTime: null,
+  course: null,
   walkingLimit: null,
   extraRestMin: null,
   excludePlaces: null,
+  dropInterests: null,
 }
 const isEmpty = (c: Changes) => Object.values(c).every((v) => v === null)
 
@@ -101,8 +135,14 @@ export const makeTools = (ctx: TurnContext) => {
     string,
     ...string[],
   ]
+  const courseIds = [
+    AUTO_COURSE,
+    ...activeCourses(config).map((c) => c.id),
+  ] as [string, ...string[]]
   const placeName = (id: string) =>
     config.places.find((p) => p.id === id)?.attrs.short ?? id
+  const docs = knowledgeOf(config)
+  const kst = () => new Date(Date.now() + 9 * 3600_000).toISOString()
   const now = () => {
     const { state } = ctx.trip()
     return { state, it: planner(config)(state.plan, state.observations) }
@@ -127,7 +167,7 @@ export const makeTools = (ctx: TurnContext) => {
       inputExamples: [
         {
           input: {
-            question: '몇 시 기차인가요?',
+            question: '몇 시에 출발해요?',
             options: [
               { id: '04:00', label: '오전 4시' },
               { id: '16:00', label: '오후 4시' },
@@ -147,19 +187,21 @@ export const makeTools = (ctx: TurnContext) => {
     // ── Read ──────────────────────────────────────────────────────────
     plan_course: tool({
       description:
-        '현재 조건 또는 요청된 변경으로 구룡포 코스를 계산해 미리보기를 만든다. 코스를 처음 보여줄 때, 사용자가 열차 시각·걷기·휴식·장소 제외를 바꾸고 싶다고 할 때 쓴다. 이유를 묻는 질문에는 explain_plan을 쓴다. 저장하지 않으며, 사용자가 말하지 않은 필드는 null이다.',
+        '현재 조건 또는 요청된 변경으로 코스를 계산해 미리보기를 만든다. 코스를 처음 보여줄 때, 사용자가 출발 시각·코스(권역)·걷기·휴식·장소 제외를 바꾸고 싶다고 할 때 쓴다. 여러 코스를 비교만 하려면 compare_courses, 이유를 묻는 질문에는 explain_plan을 쓴다. 저장하지 않으며, 사용자가 말하지 않은 필드는 null이다.',
       inputSchema: z
-        .object({ changes: changesSchema(placeIds).nullable() })
+        .object({ changes: changesSchema(placeIds, courseIds).nullable() })
         .strict(),
       inputExamples: [
         { input: { changes: null } },
         {
           input: {
             changes: {
-              trainTime: '16:00',
+              departTime: '16:00',
+              course: null,
               walkingLimit: null,
               extraRestMin: null,
-              excludePlaces: ['cafe'],
+              excludePlaces: null,
+              dropInterests: ['cafe'],
             },
           },
         },
@@ -183,6 +225,8 @@ export const makeTools = (ctx: TurnContext) => {
         value: {
           previewId: output.previewId,
           isChange: output.isChange,
+          course: courseById(config, output.itinerary.course)?.title ?? null,
+          hub: hubOf(config, ctx.trip().state.plan).name,
           decision: output.itinerary.decision,
           stops: output.itinerary.stops.map((s) => placeName(s.id)),
           planningArrival:
@@ -235,21 +279,29 @@ export const makeTools = (ctx: TurnContext) => {
     }),
     compare_transport: tool({
       description:
-        '구룡포에서 포항역으로 돌아가는 버스와 택시를 비교만 한다. "택시"를 묻는 질문에 쓴다. 이동수단을 선택하거나 바꾸지 않는다. 입력은 없다.',
+        '코스 권역에서 귀가 거점(역·터미널·공항·대회장)으로 돌아가는 대중교통과 택시를 비교만 한다. "택시"를 묻는 질문에 쓴다. 이동수단을 선택하거나 바꾸지 않는다. 입력은 없다.',
       inputSchema: z.object({}).strict(),
-      execute: async () => ({
-        bus: {
-          minutes: config.policy.legs.return.minutes,
-          fare: null,
-          provenance: 'SIMULATED' as const,
-        },
-        taxi: {
-          minutes: null,
-          fare: null,
-          provenance: 'NOT_CONNECTED' as const,
-        },
-        selectionChanged: false,
-      }),
+      execute: async () => {
+        const { state, it } = now()
+        const course = courseById(config, it.course)
+        const hub = hubOf(config, state.plan)
+        return {
+          from: course?.area ?? null,
+          to: hub.name,
+          transit: {
+            minutes: course?.return.minutes[hub.id] ?? null,
+            via: course?.return.via ?? null,
+            provenance: 'DEMO_POLICY' as const,
+          },
+          taxi: {
+            minutes: null,
+            fare: null,
+            provenance: 'NOT_CONNECTED' as const,
+            note: '택시 시간·요금은 연결된 데이터가 없어요. 카카오T 앱에서 확인하세요.',
+          },
+          selectionChanged: false,
+        }
+      },
     }),
     summarize_trip: tool({
       description:
@@ -260,7 +312,8 @@ export const makeTools = (ctx: TurnContext) => {
         return {
           visited: state.plan.completed.map(placeName),
           arrivedAt: state.plan.currentTime,
-          trainTime: state.plan.trainTime,
+          hub: hubOf(config, state.plan).name,
+          depart: departLabel(config, state.plan),
         }
       },
     }),
@@ -275,16 +328,400 @@ export const makeTools = (ctx: TurnContext) => {
       }),
     }),
 
+    // ── Read: knowledge and live data ─────────────────────────────────
+    get_race_info: tool({
+      description:
+        '대회 정보(일시·장소, 당일 일정, 대회 코스, 준비물, 현장 시설, 규정·안내, 자주 묻는 질문)를 조회한다. 대회·레이스·배번·급수대·물품보관 같은 질문에 쓴다. 관광 코스가 아니라 달리는 대회 코스는 topic=course. 계획을 바꾸지 않는다.',
+      inputSchema: z
+        .object({
+          topic: z.enum([
+            'overview',
+            'schedule',
+            'course',
+            'kit',
+            'facilities',
+            'rules',
+            'faq',
+            'all',
+          ]),
+        })
+        .strict(),
+      execute: async ({ topic }) => {
+        const e = config.event
+        const parts = {
+          overview: {
+            name: e.name,
+            date: e.dateLabel,
+            gun: e.gun,
+            category: e.category,
+            venue: e.venue,
+            address: e.address,
+            cutoff: e.cutoff,
+          },
+          schedule: e.schedule,
+          course: e.course,
+          kit: e.kit,
+          facilities: e.facilities,
+          rules: { rules: e.rules, notes: e.notes },
+          faq: e.faq,
+        }
+        return {
+          topic,
+          provenance: 'DEMO' as const,
+          info: topic === 'all' ? parts : { [topic]: parts[topic] },
+        }
+      },
+    }),
+    search_guide: tool({
+      description:
+        '앱이 가진 포항 안내 자료(관광 코스, 장소 설명·팁, 귀가 방법, 포항 볼거리·먹거리·교통·축제, 대회 FAQ)를 키워드로 검색한다. "뭐가 유명해", "어디 가면 좋아", "버스는 어떻게 타", "과메기 철" 같은 일반 질문에 먼저 쓴다. 답은 결과에 있는 내용만 쓴다. query는 핵심 단어 2–5개.',
+      inputSchema: z.object({ query: z.string().min(1).max(80) }).strict(),
+      inputExamples: [
+        { input: { query: '구룡포 유명 음식' } },
+        { input: { query: '포항역 가는 버스 택시' } },
+      ],
+      execute: async ({ query }) => {
+        const hits = searchKnowledge(docs, query, 4)
+        return {
+          query,
+          results: hits.map((d) => ({
+            title: d.title,
+            text: d.text.slice(0, 500),
+            kind: d.kind,
+          })),
+          note: hits.length
+            ? '앱에 정리된 안내예요. 운영시간·요금은 바뀔 수 있어요.'
+            : '앱 자료에 없어요. find_nearby(실시간 관광정보)나 다른 단어로 다시 찾아보세요.',
+        }
+      },
+    }),
+    compare_courses: tool({
+      description:
+        '지금 조건(출발 시각, 준비 시각, 컨디션, 하고 싶은 일)으로 모든 코스(구룡포, 호미곶, 영일대, 죽도시장 등)를 계산해 비교한다. "다른 코스는?", "어디가 제일 여유 있어?", "호미곶도 갈 수 있어?" 같은 질문에 쓴다. 저장하지 않는다. 바꾸려면 plan_course(changes.course). 입력은 없다.',
+      inputSchema: z.object({}).strict(),
+      execute: async () => {
+        const { state, it } = now()
+        return {
+          current: it.course,
+          courses: planEveryCourse(config, state.plan, state.observations).map(
+            (c) => {
+              const course = courseById(config, c.course)
+              return {
+                id: c.course,
+                title: course?.title ?? c.course,
+                decision: c.decision,
+                stops: c.stops.map((s) => placeName(s.id)),
+                arrival:
+                  c.planningArrival === null ? null : clock(c.planningArrival),
+                slackMin: c.slack,
+                outboundMin: c.outbound,
+                reason: c.reasons[0] ?? null,
+              }
+            },
+          ),
+        }
+      },
+    }),
+    find_nearby: tool({
+      description:
+        '한국관광공사 관광정보로 특정 위치 주변의 관광지·음식점·카페·숙박·행사를 실시간 조회한다. "근처 맛집", "구룡포 근처 볼거리", "영일대 근처 숙소" 같은 질문에 쓴다. near는 장소 이름이나 HERE(현재 위치)·COURSE(현재 코스 권역). keyword가 있으면 포항 안에서 이름으로 찾는다. 결과의 contentId로 get_place_detail을 부를 수 있다.',
+      inputSchema: z
+        .object({
+          near: z
+            .string()
+            .describe(
+              `위치. 예: ${knownPointNames(config).slice(0, 12).join(', ')}`,
+            ),
+          type: z
+            .enum(Object.keys(tourTypes) as [TourType, ...TourType[]])
+            .nullable()
+            .describe(
+              'sight 관광지 · culture 문화시설 · festival 행사 · leisure 레포츠 · stay 숙박 · shopping 쇼핑 · food 음식점(카페 포함). 모르면 null',
+            ),
+          keyword: z.string().max(30).nullable(),
+          radiusM: z.number().int().min(200).max(20000).nullable(),
+        })
+        .strict(),
+      execute: async ({ near, type, keyword, radiusM }) => {
+        const { state } = ctx.trip()
+        const point = resolvePoint(config, state.plan, near)
+        const live = keyword
+          ? await tourSearch({ keyword, type: type ?? undefined, limit: 8 })
+          : point
+            ? await tourNearby({
+                lat: point.lat,
+                lng: point.lng,
+                radiusM: radiusM ?? 2000,
+                type: type ?? undefined,
+                limit: 8,
+              })
+            : null
+        if (!live)
+          return {
+            status: 'UNKNOWN_PLACE' as const,
+            message: `"${near}" 위치를 찾지 못했어요. 장소 이름을 바꿔 다시 시도하세요.`,
+          }
+        if (live.status !== 'LIVE')
+          return {
+            status: live.status,
+            message: live.message,
+            fallback: searchKnowledge(
+              docs,
+              `${near} ${keyword ?? ''} ${type ?? ''}`,
+              3,
+            ).map((d) => ({ title: d.title, text: d.text.slice(0, 300) })),
+          }
+        return {
+          status: 'LIVE' as const,
+          near: point?.name ?? near,
+          source: '한국관광공사 TourAPI',
+          results: live.data.map((r) => ({
+            contentId: r.id,
+            typeId: r.typeId,
+            type: r.type,
+            title: r.title,
+            address: r.address,
+            tel: r.tel || null,
+            distanceM:
+              r.distanceM ??
+              (point && r.lat !== null && r.lng !== null
+                ? distanceM(point, { lat: r.lat, lng: r.lng })
+                : null),
+          })),
+        }
+      },
+    }),
+    get_place_detail: tool({
+      description:
+        '한국관광공사 관광정보에서 한 곳의 상세(개요, 이용시간, 쉬는 날, 주차, 대표 메뉴, 홈페이지)를 조회한다. find_nearby 결과의 contentId·typeId로 쓴다. 영업시간·휴무를 묻는 질문에 쓴다.',
+      inputSchema: z
+        .object({ contentId: z.string(), typeId: z.string().nullable() })
+        .strict(),
+      execute: async ({ contentId, typeId }) => {
+        const live = await tourDetail(contentId, typeId ?? undefined)
+        return live.status === 'LIVE'
+          ? {
+              status: 'LIVE' as const,
+              source: '한국관광공사 TourAPI',
+              place: live.data,
+            }
+          : { status: live.status, message: live.message }
+      },
+    }),
+    get_directions: tool({
+      description:
+        '두 곳 사이 이동 방법을 안내한다: 카카오맵 대중교통·자동차·도보 길찾기 링크, 직선거리, 앱 코스의 시연 이동시간(있을 때), 출발지 근처 버스정류장과 실시간 도착. "버스 뭐 타요", "어떻게 가요", "얼마나 걸려요"에 쓴다. from은 생략하면 현재 위치(HERE).',
+      inputSchema: z
+        .object({
+          from: z
+            .string()
+            .nullable()
+            .describe('출발지 이름. 모르면 null(현재 위치)'),
+          to: z
+            .string()
+            .describe(
+              `도착지. 예: ${knownPointNames(config).slice(2, 14).join(', ')}`,
+            ),
+        })
+        .strict(),
+      execute: async ({ from, to }) => {
+        const { state, it } = now()
+        const courseId = it.course
+        const a = resolvePoint(config, state.plan, from ?? 'HERE', courseId)
+        const b = resolvePoint(config, state.plan, to, courseId)
+        if (!a || !b)
+          return {
+            status: 'UNKNOWN_PLACE' as const,
+            message: `위치를 찾지 못했어요: ${!a ? (from ?? '현재 위치') : to}`,
+          }
+        const stops = await stopsNear({ lat: a.lat, lng: a.lng, limit: 2 })
+        const nearest =
+          stops.status === 'LIVE'
+            ? await Promise.all(
+                stops.data.map(async (st) => {
+                  const arr = await arrivals(st.cityCode, st.id)
+                  return {
+                    stop: st.name,
+                    distanceM: st.distanceM,
+                    arrivals:
+                      arr.status === 'LIVE'
+                        ? arr.data.slice(0, 5).map((x) => ({
+                            route: x.route,
+                            inMin: x.minutes,
+                            stopsAway: x.stopsAway,
+                          }))
+                        : [],
+                  }
+                }),
+              )
+            : null
+        const course = courseById(config, courseId)
+        const hub = hubOf(config, state.plan)
+        return {
+          from: a.name,
+          to: b.name,
+          straightKm: Math.round(distanceM(a, b) / 100) / 10,
+          links: {
+            transit: directionsUrl(a, b, 'traffic'),
+            car: directionsUrl(a, b, 'car'),
+            walk: directionsUrl(a, b, 'walk'),
+          },
+          appEstimate:
+            course && b.name === hub.name
+              ? {
+                  minutes: course.return.minutes[hub.id] ?? null,
+                  via: course.return.via,
+                  provenance: 'DEMO_POLICY',
+                }
+              : course && b.name === course.area
+                ? {
+                    minutes: course.outbound.minutes,
+                    via: course.outbound.via,
+                    provenance: 'DEMO_POLICY',
+                  }
+                : null,
+          busStops: nearest,
+          busStatus:
+            stops.status === 'LIVE'
+              ? 'LIVE'
+              : `${stops.status}: ${stops.message}`,
+          note: '정확한 노선·환승은 transit 링크(카카오맵)에서 확인하세요. 버스 번호를 지어내지 마세요.',
+        }
+      },
+    }),
+    get_bus_arrivals: tool({
+      description:
+        '국토교통부 TAGO로 한 위치 근처 버스정류장, 지나는 노선, 실시간 도착 예정을 조회한다. "버스 언제 와요", "여기 무슨 버스 다녀요"에 쓴다. near는 장소 이름 또는 HERE.',
+      inputSchema: z.object({ near: z.string() }).strict(),
+      execute: async ({ near }) => {
+        const { state, it } = now()
+        const p = resolvePoint(config, state.plan, near, it.course)
+        if (!p)
+          return {
+            status: 'UNKNOWN_PLACE' as const,
+            message: `"${near}" 위치를 찾지 못했어요.`,
+          }
+        const stops = await stopsNear({ lat: p.lat, lng: p.lng, limit: 3 })
+        if (stops.status !== 'LIVE')
+          return { status: stops.status, message: stops.message }
+        const detail = await Promise.all(
+          stops.data.map(async (st) => {
+            const [arr, routes] = await Promise.all([
+              arrivals(st.cityCode, st.id),
+              routesAt(st.cityCode, st.id),
+            ])
+            return {
+              stop: st.name,
+              stopNo: st.no,
+              distanceM: st.distanceM,
+              arrivals:
+                arr.status === 'LIVE'
+                  ? arr.data.slice(0, 6).map((x) => ({
+                      route: x.route,
+                      inMin: x.minutes,
+                      stopsAway: x.stopsAway,
+                    }))
+                  : null,
+              routes:
+                routes.status === 'LIVE'
+                  ? routes.data.slice(0, 12).map((r) => ({
+                      no: r.no,
+                      from: r.from,
+                      to: r.to,
+                    }))
+                  : null,
+            }
+          }),
+        )
+        return {
+          status: 'LIVE' as const,
+          source: '국토교통부 TAGO',
+          near: p.name,
+          asOf: kst().slice(11, 16),
+          stops: detail,
+        }
+      },
+    }),
+    get_train_times: tool({
+      description:
+        '국토교통부 TAGO로 열차 시간표(KTX 등 코레일 열차)를 조회한다. "서울 가는 기차 몇 시 있어?", "막차"에 쓴다. 기본은 포항 출발, 대회 날짜. 예매·좌석은 조회하지 않는다.',
+      inputSchema: z
+        .object({
+          from: z.string().nullable().describe('출발역. 기본 포항'),
+          to: z.string().describe('도착역. 예: 서울, 동대구, 부산, 대전'),
+          date: z
+            .string()
+            .regex(/^\d{4}-\d{2}-\d{2}$/)
+            .nullable()
+            .describe('YYYY-MM-DD. 기본 대회 날짜'),
+          after: timeSchema.nullable().describe('이 시각 이후 열차만'),
+        })
+        .strict(),
+      execute: async ({ from, to, date, after }) => {
+        const live = await trains({
+          from: from ?? '포항',
+          to,
+          date: date ?? config.event.date,
+        })
+        if (live.status !== 'LIVE')
+          return { status: live.status, message: live.message }
+        const list = live.data.filter((t) => !after || t.departs >= after)
+        return {
+          status: 'LIVE' as const,
+          source: '국토교통부 TAGO 열차정보',
+          date: date ?? config.event.date,
+          trains: list.slice(0, 12),
+          total: list.length,
+          note: 'SRT는 포함되지 않을 수 있어요. 예매는 코레일톡·SRT 앱에서.',
+        }
+      },
+    }),
+    get_weather: tool({
+      description:
+        '기상청 단기예보로 포항 지역 날씨(기온, 하늘, 강수확률, 바람)를 시간대별로 조회한다. "날씨 어때", "비 와?", "바람 세?"에 쓴다. 예보는 약 3일 뒤까지만 있다.',
+      inputSchema: z
+        .object({
+          near: z.string().nullable().describe('위치. 기본 대회장'),
+          date: z
+            .string()
+            .regex(/^\d{4}-\d{2}-\d{2}$/)
+            .nullable()
+            .describe('YYYY-MM-DD. 기본 오늘'),
+        })
+        .strict(),
+      execute: async ({ near, date }) => {
+        const { state, it } = now()
+        const p =
+          resolvePoint(config, state.plan, near ?? 'RACE', it.course) ??
+          resolvePoint(config, state.plan, 'RACE')!
+        const live = await forecast(p)
+        if (live.status !== 'LIVE')
+          return { status: live.status, message: live.message }
+        const day = date ?? kst().slice(0, 10)
+        const hours = live.data.filter((h) => h.date === day)
+        return {
+          status: 'LIVE' as const,
+          source: '기상청 단기예보',
+          near: p.name,
+          date: day,
+          hours: hours.filter((_, i) => i % 2 === 0).slice(0, 12),
+          available: hours.length > 0,
+          lastForecastDate: live.data.at(-1)?.date ?? null,
+        }
+      },
+    }),
+
     // ── Commit ────────────────────────────────────────────────────────
     update_trip_details: tool({
       description:
-        '사용자가 대화에서 말한 여정 정보(열차 시각, 하고 싶은 일, 출발 장소, 도착 일시, 출발 준비 시각, 컨디션, 걷기, 짐)를 저장한다. 사용자가 이런 사실을 말할 때마다 쓴다. 코스가 정해진 뒤의 변경은 plan_course로 하고, 질문에는 쓰지 않는다. 사용자가 분명히 말한 값만 넣고 나머지는 null — 추측하지 않는다. interests는 저장 후의 전체 목록이다: "카페도"처럼 추가하면 여정 요약의 기존 목록에 더해서 넣는다.',
+        '사용자가 대화에서 말한 여정 정보(돌아가는 방법, 출발 시각, 가고 싶은 코스, 하고 싶은 일, 출발 장소, 도착 일시, 출발 준비 시각, 컨디션, 걷기, 짐)를 저장한다. 사용자가 이런 사실을 말할 때마다 쓴다. 코스가 정해진 뒤의 변경은 plan_course로 하고, 질문에는 쓰지 않는다. 사용자가 분명히 말한 값만 넣고 나머지는 null — 추측하지 않는다. interests는 저장 후의 전체 목록이다: "카페도"처럼 추가하면 여정 요약의 기존 목록에 더해서 넣는다.',
       inputSchema: detailsSchema,
       inputExamples: [
         {
           input: {
             ...noDetails,
-            trainTime: '18:30',
+            departMode: 'TRAIN',
+            departTime: '18:30',
             interests: ['food', 'cafe'],
           },
         },
@@ -352,7 +789,7 @@ export const makeTools = (ctx: TurnContext) => {
     }),
     start_journey: tool({
       description:
-        '현재 코스로 구룡포 여정을 시작한다. 사용자가 이 코스로 가겠다고 동의했을 때 쓴다. 코스가 불가능한 상태(귀가 우선, 확인 필요)면 쓰지 않는다. 사용자 승인 후 실행된다.',
+        '현재 코스로 여정을 시작한다. 사용자가 이 코스로 가겠다고 동의했을 때 쓴다. 코스가 불가능한 상태(귀가 우선, 확인 필요)면 쓰지 않는다. 사용자 승인 후 실행된다.',
       inputSchema: z.object({}).strict(),
       execute: async () => {
         const { state, it } = now()

@@ -121,7 +121,9 @@ const finishMode = (chunks: { type: string; [k: string]: unknown }[]) =>
 
 const onboard = async () => {
   await load()
-  await choose('trainTime', '18:30', '18시 30분 기차예요')
+  await choose('departMode', 'TRAIN', '기차 타고 가요')
+  await choose('departTime', '18:30', '18시 30분 기차예요')
+  await choose('course', 'guryongpo', '구룡포 가 보고 싶어요')
   await choose('interests', ['food', 'cafe'], '점심, 카페 할래요')
   await choose('origin', 'RACE', '대회장에서 바로 갈게요')
 }
@@ -137,12 +139,12 @@ const checkIn = async () => {
 }
 
 describe('대화로 여정 만들기', () => {
-  it('새 여정은 인사와 첫 질문(열차), 답 버튼으로 시작', async () => {
+  it('새 여정은 인사와 첫 질문(귀가 방법), 답 버튼으로 시작', async () => {
     const { messages, state } = await load()
     expect(stageOf(state)).toBe('ONBOARDING')
     const [first] = messages as UIMessage[]
     expect(toolParts(first)).toEqual([])
-    expect(await openQuestion()).toMatchObject({ slot: 'trainTime' })
+    expect(await openQuestion()).toMatchObject({ slot: 'departMode' })
   })
 
   it('버튼 답은 모델 없이 저장되고 다음 질문이 이어짐', async () => {
@@ -154,9 +156,13 @@ describe('대화로 여정 만들기', () => {
     }
     deps = { ...deps, model: broken }
     await load()
-    const turn = await choose('trainTime', '18:30', '18시 30분 기차예요')
+    const turn = await choose('departMode', 'BUS', '버스 타고 가요')
     // Answered by the app itself: no model, so no model mode either.
     expect(finishMode(turn)).toBeUndefined()
+    expect(await openQuestion()).toMatchObject({ slot: 'departTime' })
+    await choose('departTime', '18:30', '18:30 버스예요')
+    expect(await openQuestion()).toMatchObject({ slot: 'course' })
+    await choose('course', 'auto', '시간에 맞게 추천해 주세요')
     expect(await openQuestion()).toMatchObject({ slot: 'interests' })
     await choose('interests', ['food', 'cafe'], '점심, 카페 할래요')
     expect(await openQuestion()).toMatchObject({ slot: 'origin' })
@@ -165,9 +171,11 @@ describe('대화로 여정 만들기', () => {
     const { state } = await load()
     expect(state.created).toBe(true)
     expect(state.plan).toMatchObject({
-      trainTime: '18:30',
+      departMode: 'BUS',
+      departTime: '18:30',
+      course: 'auto',
       interests: ['food', 'cafe'],
-      excluded: ['street'],
+      excluded: [],
       origin: 'HOTEL',
       currentPlace: 'HOTEL',
     })
@@ -177,11 +185,15 @@ describe('대화로 여정 만들기', () => {
 
   it('한 문장에 여러 정보를 말하면 한 번에 저장', async () => {
     await load()
-    await say('18시 30분 기차고 점심이랑 카페 가고 싶어요. 숙소 들렀다 갈게요')
+    await say(
+      '18시 30분 기차고 호미곶 가서 점심이랑 카페 가고 싶어요. 숙소 들렀다 갈게요',
+    )
     const { state } = await load()
     expect(state.created).toBe(true)
     expect(state.plan).toMatchObject({
-      trainTime: '18:30',
+      departMode: 'TRAIN',
+      departTime: '18:30',
+      course: 'homigot',
       interests: ['food', 'cafe'],
       origin: 'HOTEL',
     })
@@ -190,8 +202,11 @@ describe('대화로 여정 만들기', () => {
   it('일부만 말하면 남은 질문을 이어서 물음', async () => {
     await load()
     await say('저녁 6시 반 기차예요')
-    expect((await load()).state.plan.trainTime).toBe('18:30')
-    expect(await openQuestion()).toMatchObject({ slot: 'interests' })
+    expect((await load()).state.plan).toMatchObject({
+      departMode: 'TRAIN',
+      departTime: '18:30',
+    })
+    expect(await openQuestion()).toMatchObject({ slot: 'course' })
   })
 
   it('"카페도"는 이미 고른 것에 더함', async () => {
@@ -205,18 +220,19 @@ describe('대화로 여정 만들기', () => {
     await load()
     await say('4시 기차예요')
     const { state } = await load()
-    expect(state.answered).not.toContain('trainTime')
-    expect(await openQuestion()).toMatchObject({ slot: 'trainTime' })
+    expect(state.answered).not.toContain('departTime')
+    expect(await openQuestion()).toMatchObject({ slot: 'departTime' })
   })
 
   it('"아직 몰라요"는 기본값으로 넘어가며 그렇게 말해 줌', async () => {
     await load()
-    const turn = await choose('trainTime', null, '아직 몰라요')
+    await choose('departMode', 'TRAIN', '기차 타고 가요')
+    const turn = await choose('departTime', null, '아직 몰라요')
     const said = turn
       .flatMap((c) => (c.type === 'text-delta' ? [c.delta] : []))
       .join('')
     expect(said).toContain('18:30')
-    expect((await load()).state.answered).toContain('trainTime')
+    expect((await load()).state.answered).toContain('departTime')
   })
 
   it('지금 묻는 질문이 아닌 버튼은 값 대신 문장으로 이해', async () => {
@@ -263,6 +279,58 @@ describe('대화로 여정 만들기', () => {
   })
 })
 
+describe('정보 질문은 프롬프트가 아니라 도구로 답함', () => {
+  const calledTool = (
+    chunks: { type: string; [k: string]: unknown }[],
+    name: string,
+  ) =>
+    chunks.find((c) => c.type === 'tool-input-available' && c.toolName === name)
+  const said = (chunks: { type: string; [k: string]: unknown }[]) =>
+    chunks.flatMap((c) => (c.type === 'text-delta' ? [c.delta] : [])).join('')
+
+  it('대회 전 "코스가 어떻게 돼?"는 대회 코스를 조회', async () => {
+    await onboard()
+    const turn = await say('코스가 어떻게 돼?')
+    expect(calledTool(turn, 'get_race_info')).toMatchObject({
+      input: { topic: 'course' },
+    })
+    expect(said(turn)).toContain('반환')
+  })
+
+  it('온보딩 중 질문도 저장하지 않고 답한 뒤 질문을 이어감', async () => {
+    await load()
+    const turn = await say('대회 준비물 뭐예요?')
+    expect(calledTool(turn, 'get_race_info')).toBeTruthy()
+    expect(said(turn)).toContain('배번표')
+    expect(await openQuestion()).toMatchObject({ slot: 'departMode' })
+  })
+
+  it('일반 관광 질문은 안내 자료를 검색', async () => {
+    await onboard()
+    const turn = await say('구룡포는 뭘로 유명해요?')
+    expect(calledTool(turn, 'search_guide')).toBeTruthy()
+    expect(said(turn)).toContain('과메기')
+  })
+
+  it('다른 코스를 물으면 전체 코스를 계산해 비교', async () => {
+    await finishRace()
+    await checkIn()
+    const turn = await say('다른 코스도 보여줘')
+    expect(calledTool(turn, 'compare_courses')).toBeTruthy()
+    expect(said(turn)).toContain('호미곶')
+  })
+
+  it('버스를 물으면 길찾기 링크를 주고 버스 번호를 지어내지 않음', async () => {
+    await finishRace()
+    await checkIn()
+    await say('이 코스로 갈게요')
+    const turn = await say('구룡포 가는 버스 뭐 타요?')
+    expect(calledTool(turn, 'get_directions')).toBeTruthy()
+    expect(said(turn)).toContain('map.kakao.com')
+    expect(said(turn)).not.toMatch(/\d+번/)
+  })
+})
+
 describe('채팅 하네스 (규칙 모델 + PGlite)', () => {
   it('전체 흐름: 완주 → 컨디션 → 코스 → 변경 승인 → 출발 → 도착', async () => {
     await finishRace()
@@ -282,11 +350,11 @@ describe('채팅 하네스 (규칙 모델 + PGlite)', () => {
     const revision = (await load()).state.plan.revision
     const proposed = await say('16시 기차로 바뀌었어요')
     expect(proposed.some((c) => c.type === 'tool-approval-request')).toBe(true)
-    expect((await load()).state.plan.trainTime).toBe('18:30')
+    expect((await load()).state.plan.departTime).toBe('18:30')
     expect((await load()).state.plan.revision).toBe(revision)
 
     await approve(true)
-    expect((await load()).state.plan.trainTime).toBe('16:00')
+    expect((await load()).state.plan.departTime).toBe('16:00')
 
     // "이 코스로 갈게요" starts the journey without a second confirmation.
     await say('이 코스로 갈게요')
@@ -326,7 +394,7 @@ describe('채팅 하네스 (규칙 모델 + PGlite)', () => {
     await checkIn()
     await say('16시 기차로 바뀌었어요')
     await approve(false)
-    expect((await load()).state.plan.trainTime).toBe('18:30')
+    expect((await load()).state.plan.departTime).toBe('18:30')
   })
 
   it('승인 대기 중 다른 말을 하면 변경은 거절 처리', async () => {
@@ -335,7 +403,7 @@ describe('채팅 하네스 (규칙 모델 + PGlite)', () => {
     await say('16시 기차로 바뀌었어요')
     await say('왜 이 코스야?')
     const { state, messages } = await load()
-    expect(state.plan.trainTime).toBe('18:30')
+    expect(state.plan.departTime).toBe('18:30')
     const parts = (messages as UIMessage[]).flatMap((m) => toolParts(m))
     expect(parts.find((p) => p.type === 'tool-apply_plan_change')?.state).toBe(
       'output-denied',
@@ -464,7 +532,7 @@ describe('하네스가 모델을 통제하는 방식', () => {
       toolName: 'apply_plan_change',
     })
     expect(chunks.some((c) => c.type === 'tool-approval-request')).toBe(true)
-    expect((await load()).state.plan.trainTime).toBe('18:30')
+    expect((await load()).state.plan.departTime).toBe('18:30')
   })
 
   it('모델 호출이 실패하면 같은 하네스에서 규칙 모델로 대체', async () => {

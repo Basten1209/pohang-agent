@@ -28,17 +28,27 @@ export const stageOf = (s: TripState): Stage => {
 export const suggestionsFor: Record<Stage, string[]> = {
   // While details are collected, the open question brings its own chips.
   ONBOARDING: [],
-  PRE_RACE: ['포항에 도착했어요', '완주했어요'],
+  PRE_RACE: [
+    '완주했어요',
+    '대회 코스 알려줘',
+    '준비물 뭐야?',
+    '대회날 날씨 어때?',
+  ],
   CHECK_IN: [],
   PLANNING: [
     '이 코스로 갈게요',
-    '16시 기차로 바뀌었어요',
+    '다른 코스도 보여줘',
     '왜 이 코스야?',
-    '덜 걷고 싶어요',
+    '카페는 빼 줘',
   ],
-  JOURNEY: ['30분 더 쉴래요', '역까지 택시 타면?', '지금도 시간 괜찮아?'],
+  JOURNEY: [
+    '버스 언제 와?',
+    '근처 맛집 알려줘',
+    '30분 더 쉴래요',
+    '지금도 시간 괜찮아?',
+  ],
+  DONE: ['열차 시간표 보여줘'],
   SAFETY: [],
-  DONE: [],
 }
 
 /** What the user can report next while travelling (the next-action card). */

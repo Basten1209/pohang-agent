@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { seedConfig } from '#/core/defaults'
 import { planner } from '#/core/planner'
@@ -13,7 +14,7 @@ import {
   readConfig,
   saveSnapshot,
   seed,
-  trainChanges,
+  departChanges,
 } from '#/server/db/repo'
 
 let db: Db
@@ -27,21 +28,56 @@ describe('jsonb 설정 저장소', () => {
     const { config, issues } = await readConfig(db, seedConfig)
     expect(issues).toEqual([])
     expect(config.policy).toEqual(seedConfig.policy)
-    expect(config.places.map((p) => p.id)).toEqual(['food', 'street', 'cafe'])
+    expect(config.places.map((p) => p.id)).toEqual(
+      seedConfig.places.map((p) => p.id),
+    )
+    expect(config.courses.map((c) => c.id)).toEqual([
+      'guryongpo',
+      'homigot',
+      'yeongildae',
+      'jukdo',
+    ])
   })
 
   it('시드를 다시 실행해도 DB의 수정이 유지됨', async () => {
-    await patchConfig(db, 'policy', { stationBufferMin: 20 })
+    // An operator edit: change one number and bump the row's version.
+    await db.execute(
+      sql`update app_config set value = jsonb_set(value, '{0,bufferMin}', '20'), version = version + 1 where key = 'modes'`,
+    )
     await seed(db, seedConfig)
     const { config } = await readConfig(db, seedConfig)
-    expect(config.policy.stationBufferMin).toBe(20)
+    expect(config.modes[0].bufferMin).toBe(20)
     // A DB-only policy edit changes the decision with no code change.
     const it = planner(config)(
-      { ...config.defaults.plan, condition: 'TIRED', trainTime: '16:00' },
+      {
+        ...config.defaults.plan,
+        condition: 'TIRED',
+        departTime: '16:00',
+        course: 'guryongpo',
+      },
       config.defaults.observations,
     )
     expect(it.stationTarget).toBe(940)
-    await patchConfig(db, 'policy', { stationBufferMin: 30 })
+    await db.execute(
+      sql`update app_config set value = jsonb_set(value, '{0,bufferMin}', '30') where key = 'modes'`,
+    )
+  })
+
+  it('시드 버전이 오르면 손대지 않은 옛 시드 행은 새 시드로 바뀜', async () => {
+    const old = await memoryDb()
+    const v1 = {
+      ...seedConfig,
+      version: 1,
+      places: seedConfig.places.map((p) =>
+        p.id === 'food' ? { ...p, attrs: { ...p.attrs, title: '옛 제목' } } : p,
+      ),
+    }
+    await seed(old, v1)
+    await seed(old, seedConfig)
+    const { config } = await readConfig(old, seedConfig)
+    expect(config.places.find((p) => p.id === 'food')?.attrs.title).toBe(
+      seedConfig.places.find((p) => p.id === 'food')?.attrs.title,
+    )
   })
 
   it('잘못된 설정 문서는 거부되고 시드로 대체됨', async () => {
@@ -59,7 +95,7 @@ describe('이벤트 로그 (append-only jsonb)', () => {
     const events: TripEvent[] = [
       { type: 'plan.patched', patch: { condition: 'TIRED' } },
       { type: 'trip.created' },
-      { type: 'plan.patched', patch: { trainTime: '16:00' } },
+      { type: 'plan.patched', patch: { departTime: '16:00' } },
       { type: 'screen.changed', screen: 'course' },
     ]
     const state = replay(initialTrip(seedConfig), events)
@@ -70,8 +106,8 @@ describe('이벤트 로그 (append-only jsonb)', () => {
       rows.map((r) => ({ type: r.type, ...r.payload }) as TripEvent),
     )
     expect(restored).toEqual(state)
-    const changes = await trainChanges(db, id)
-    expect(changes.map((c) => c.trainTime)).toEqual(['16:00'])
+    const changes = await departChanges(db, id)
+    expect(changes.map((c) => c.departTime)).toEqual(['16:00'])
   })
 })
 

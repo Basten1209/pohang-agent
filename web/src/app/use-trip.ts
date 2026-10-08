@@ -31,6 +31,8 @@ export const useTrip = (config: TripConfig) => {
   const [online, setOnline] = useState(true)
   const latest = useRef(state)
   latest.current = state
+  // The course map links start from; kept current for `run`'s callbacks.
+  const courseRef = useRef<string | null>(null)
   const queue = useRef<Promise<unknown>>(Promise.resolve())
 
   useEffect(() => {
@@ -65,7 +67,7 @@ export const useTrip = (config: TripConfig) => {
       if (command.notice) toast(command.notice)
       if (command.open)
         window.open(
-          mapUrl(config)(command.open),
+          mapUrl(config, courseRef.current)(command.open),
           '_blank',
           'noopener,noreferrer',
         )
@@ -77,6 +79,7 @@ export const useTrip = (config: TripConfig) => {
     () => planner(config)(state.plan, state.observations),
     [config, state.plan, state.observations],
   )
+  courseRef.current = itinerary.course
 
   return { state, latest, itinerary, run, online }
 }

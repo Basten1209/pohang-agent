@@ -20,7 +20,8 @@ import { clock, minutes } from './time'
  */
 
 export const tripStateSchema = z.object({
-  version: z.literal(2),
+  // 3: way home, course and interest kinds in the plan. Older trips restart.
+  version: z.literal(3),
   screen: screenSchema,
   plan: planSchema,
   observations: observationsSchema,
@@ -35,7 +36,7 @@ export const tripStateSchema = z.object({
 export type TripState = z.infer<typeof tripStateSchema>
 
 export const initialTrip = (config: TripConfig): TripState => ({
-  version: 2,
+  version: 3,
   screen: 'plan',
   plan: structuredClone(config.defaults.plan),
   observations: structuredClone(config.defaults.observations),
@@ -153,26 +154,19 @@ export const navigate = (state: TripState, target: Screen): Command => {
   )
     return { events: [go('finish')] }
   if (target === 'next' && state.plan.stage === 'BEFORE')
-    return { events: [], notice: '구룡포 코스를 먼저 선택해 주세요.' }
+    return { events: [], notice: '코스를 먼저 선택해 주세요.' }
   return { events: [go(target)] }
 }
 
 export const createTrip = (config: TripConfig, state: TripState): Command => {
-  const deadline = Date.parse('2026-10-13T09:00:00+09:00')
+  const { date, gun } = config.event
+  const deadline = Date.parse(`${date}T${gun}:00+09:00`)
   if (Date.parse(`${state.plan.arrivalAt}:00+09:00`) >= deadline)
     return { events: [], notice: '포항 도착은 대회 출발 전으로 입력해 주세요.' }
-  const ids = config.places.filter((p) => p.active).map((p) => p.id)
-  return {
-    events: [
-      patch({
-        excluded: ids.filter((id) => !state.plan.interests.includes(id)),
-      }),
-      { type: 'trip.created' },
-      go('day'),
-    ],
-  }
+  return { events: [{ type: 'trip.created' }, go('day')] }
 }
 
+/** Start the journey; an `auto` course is pinned to the one the planner picked. */
 export const accept = (state: TripState, it: Itinerary): Command =>
   canTravel(it)
     ? {
@@ -180,6 +174,7 @@ export const accept = (state: TripState, it: Itinerary): Command =>
           patch({
             stage:
               state.plan.stage === 'BEFORE' ? 'OUTBOUND' : state.plan.stage,
+            ...(it.course && { course: it.course }),
           }),
           go('next'),
         ],
@@ -187,19 +182,15 @@ export const accept = (state: TripState, it: Itinerary): Command =>
     : { events: [] }
 
 /** Confirm the next arrival or completion. Location is never tracked. */
-export const advance = (
-  config: TripConfig,
-  state: TripState,
-  it: Itinerary,
-): Command => {
+export const advance = (state: TripState, it: Itinerary): Command => {
   const { plan } = state
   if (plan.stage === 'OUTBOUND')
     return {
       events: [
         patch({
           stage: 'LOCAL',
-          currentPlace: 'GURYONGPO',
-          currentTime: clock(it.start + config.policy.legs.outbound.minutes),
+          currentPlace: 'COURSE',
+          currentTime: clock(it.start + it.outbound),
           restMin: 0,
         }),
       ],
@@ -221,7 +212,7 @@ export const advance = (
       events: [
         patch({
           stage: 'DONE',
-          currentPlace: 'STATION',
+          currentPlace: it.hub,
           currentTime: clock(it.stationEta ?? minutes(plan.currentTime)),
           restMin: 0,
         }),
@@ -230,9 +221,9 @@ export const advance = (
   return { events: [] }
 }
 
-export const startReturn = (state: TripState): Command =>
-  state.plan.currentPlace !== 'GURYONGPO'
-    ? { events: [], open: 'STATION' }
+export const startReturn = (state: TripState, it: Itinerary): Command =>
+  state.plan.currentPlace !== 'COURSE'
+    ? { events: [], open: it.hub }
     : { events: [patch({ stage: 'RETURN', restMin: 0 }), go('next')] }
 
 export const skipStop = (state: TripState, it: Itinerary): Command =>
@@ -268,8 +259,8 @@ export const toggleWalking = (state: TripState): Command => ({
   notice: '조건에 맞춰 코스를 다시 계산했어요.',
 })
 
-export const changeTrain = (trainTime: string): Command => ({
-  events: [patch({ trainTime })],
+export const changeDepart = (departTime: string): Command => ({
+  events: [patch({ departTime })],
   notice: '조건에 맞춰 코스를 다시 계산했어요.',
 })
 

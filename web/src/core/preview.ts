@@ -2,7 +2,9 @@ import { uniq } from './fp'
 import type { Changes } from './intents'
 import type { Itinerary } from './planner'
 import { planner } from './planner'
+import { courseById, departLabel, hubOf } from './route'
 import type { Observations, Plan, TripConfig } from './schema'
+import { AUTO_COURSE } from './schema'
 
 /**
  * Turn requested constraint changes into a *preview*: the plan patch and the
@@ -23,7 +25,11 @@ export const toPlanPatch = (
   const known = new Set(config.places.map((p) => p.id))
   const exclude = (changes.excludePlaces ?? []).filter((id) => known.has(id))
   return {
-    ...(changes.trainTime ? { trainTime: changes.trainTime } : {}),
+    ...(changes.departTime ? { departTime: changes.departTime } : {}),
+    ...(changes.course &&
+    (changes.course === AUTO_COURSE || courseById(config, changes.course))
+      ? { course: changes.course }
+      : {}),
     ...(changes.walkingLimit ? { walkingLimit: changes.walkingLimit } : {}),
     ...(changes.extraRestMin !== null
       ? {
@@ -35,6 +41,13 @@ export const toPlanPatch = (
       : {}),
     ...(exclude.length
       ? { excluded: uniq([...plan.excluded, ...exclude]) }
+      : {}),
+    ...(changes.dropInterests?.length
+      ? {
+          interests: plan.interests.filter(
+            (i) => !changes.dropInterests!.includes(i),
+          ),
+        }
       : {}),
   }
 }
@@ -61,7 +74,9 @@ export const planContext = (
 ) => {
   const it = planner(config)(plan, obs)
   return {
-    trainTime: plan.trainTime,
+    depart: departLabel(config, plan),
+    hub: hubOf(config, plan).name,
+    course: courseById(config, it.course)?.title ?? null,
     readyTime: plan.readyTime,
     walkingLimit: plan.walkingLimit,
     stage: plan.stage,

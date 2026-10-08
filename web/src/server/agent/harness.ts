@@ -11,7 +11,7 @@ import {
 } from 'ai'
 import { createHash } from 'node:crypto'
 import type { Evidence } from '#/core/evidence'
-import { isReadOnly, mentionsSymptom } from '#/core/intents'
+import { asksInfo, isReadOnly, mentionsSymptom } from '#/core/intents'
 import type { SlotId, TripConfig } from '#/core/schema'
 import type { ChoicePrompt } from '#/core/slots'
 import { choiceValue, fillSlots, pendingSlot, promptFor } from '#/core/slots'
@@ -119,7 +119,7 @@ export const openingFor = (config: TripConfig) => (): AgentUIMessage[] => [
     metadata: { mode: 'DEMO', stage: 'ONBOARDING', revision: 0 },
     parts: [
       ...textParts(
-        '안녕하세요! 완주 후 구룡포에 들렀다 열차 시간 전에 포항역으로 돌아오는 하루를 같이 짤게요. 편하게 말로 알려주세요.',
+        '안녕하세요! 대회 끝나고 포항을 둘러본 뒤 제시간에 돌아가는 하루를 같이 짤게요. 대회 코스·준비물·맛집·버스처럼 궁금한 것도 언제든 물어보세요.',
       ),
       ...questionParts(promptFor(config, initialTrip(config))),
     ],
@@ -403,7 +403,7 @@ export const runTurn = async (
         stepNumber,
         steps,
         active.includes('apply_plan_change'),
-        !chipApplied && text.length > 0,
+        !chipApplied && text.length > 0 && !asksInfo(text),
       )
       return {
         activeTools: active,

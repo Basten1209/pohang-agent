@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { seedConfig } from '#/core/defaults'
-import { deepMerge } from '#/core/fp'
+import { planEveryCourse } from '#/core/planner'
 import { planner } from '#/core/planner'
 import type { Observations, Plan, TripConfig } from '#/core/schema'
 import { planSchema } from '#/core/schema'
@@ -9,7 +9,11 @@ import { mapUrl } from '#/core/links'
 import { interpret } from '#/core/intents'
 
 const calculate = planner(seedConfig)
-const plan: Plan = { ...seedConfig.defaults.plan, condition: 'TIRED' }
+const plan: Plan = {
+  ...seedConfig.defaults.plan,
+  condition: 'TIRED',
+  course: 'guryongpo',
+}
 const obs = seedConfig.defaults.observations
 const withReadings = (readings: Observations['readings']): Observations => ({
   ...obs,
@@ -26,7 +30,7 @@ describe('명세 D01–D08', () => {
     expect(r.stops).toHaveLength(3)
   })
   it('D02: 16시 열차이면 카페 제외, 구경 5분, 역 15:15', () => {
-    const r = calculate({ ...plan, trainTime: '16:00' }, obs)
+    const r = calculate({ ...plan, departTime: '16:00' }, obs)
     expect(r.decision).toBe('SHORTEN')
     expect(clock(r.stationEta!)).toBe('15:15')
     expect(r.stops.map((x) => x.id)).toEqual(['food', 'street'])
@@ -35,7 +39,7 @@ describe('명세 D01–D08', () => {
   })
   it('D03: 혼잡만 82로 올리면 식사만 남고 교통 여유를 한 번 반영', () => {
     const r = calculate(
-      { ...plan, trainTime: '16:00' },
+      { ...plan, departTime: '16:00' },
       withReadings({ congestion: 82 }),
     )
     expect(r.stops.map((x) => x.id)).toEqual(['food'])
@@ -51,7 +55,7 @@ describe('명세 D01–D08', () => {
   })
   it('D05: 준비 완료가 10분 늦어지면 최소 코스도 불가', () => {
     const r = calculate(
-      { ...plan, trainTime: '16:00', readyTime: '10:50' },
+      { ...plan, departTime: '16:00', readyTime: '10:50' },
       withReadings({ congestion: 82 }),
     )
     expect(r.decision).toBe('CANCEL')
@@ -75,7 +79,7 @@ describe('명세 D01–D08', () => {
 describe('예외와 상태 변화', () => {
   it('대기 제한보다 귀가 불가능이 우선', () =>
     expect(
-      calculate({ ...plan, trainTime: '14:00' }, withReadings({ pm25: 60 }))
+      calculate({ ...plan, departTime: '14:00' }, withReadings({ pm25: 60 }))
         .decision,
     ).toBe('CANCEL'))
   it('STALE과 null을 정상 관측으로 취급하지 않음', () => {
@@ -99,7 +103,7 @@ describe('예외와 상태 변화', () => {
       {
         ...plan,
         stage: 'LOCAL',
-        currentPlace: 'GURYONGPO',
+        currentPlace: 'COURSE',
         currentTime: '13:15',
         completed: ['food'],
       },
@@ -119,10 +123,10 @@ describe('예외와 상태 변화', () => {
       {
         ...plan,
         stage: 'RETURN',
-        currentPlace: 'GURYONGPO',
+        currentPlace: 'COURSE',
         currentTime: '13:05',
         completed: ['food'],
-        trainTime: '16:00',
+        departTime: '16:00',
       },
       withReadings({ congestion: 82 }),
     )
@@ -130,13 +134,13 @@ describe('예외와 상태 변화', () => {
     expect(clock(r.planningArrival!)).toBe('15:30')
   })
   it('입력 시각과 휴식 범위를 검증', () => {
-    expect(planSchema.safeParse({ ...plan, trainTime: '26:00' }).success).toBe(
+    expect(planSchema.safeParse({ ...plan, departTime: '26:00' }).success).toBe(
       false,
     )
     expect(planSchema.safeParse({ ...plan, restMin: -1 }).success).toBe(false)
   })
   it('지도 링크에 이동수단과 양쪽 좌표를 구분해 전달', () => {
-    const url = mapUrl(seedConfig)('STATION')
+    const url = mapUrl(seedConfig, 'guryongpo')('STATION')
     expect(url).toContain('/link/by/traffic/')
     expect(url).toContain(',35.9868,129.5528/')
     expect(url).toContain(',36.0714,129.3418')
@@ -145,10 +149,13 @@ describe('예외와 상태 변화', () => {
 
 describe('설정이 곧 정책 (jsonb 확장)', () => {
   it('정책 수치를 설정만으로 바꾸면 코드 변경 없이 결과가 바뀜', () => {
-    const relaxed = deepMerge(seedConfig, {
-      policy: { stationBufferMin: 10 },
-    }) as TripConfig
-    const r = planner(relaxed)({ ...plan, trainTime: '16:00' }, obs)
+    const relaxed: TripConfig = {
+      ...seedConfig,
+      modes: seedConfig.modes.map((m) =>
+        m.id === 'TRAIN' ? { ...m, bufferMin: 10 } : m,
+      ),
+    }
+    const r = planner(relaxed)({ ...plan, departTime: '16:00' }, obs)
     expect(r.stationTarget).toBe(950)
     expect(r.decision).toBe('SHORTEN')
     expect(r.slack).toBe(35)
@@ -182,7 +189,8 @@ describe('설정이 곧 정책 (jsonb 확장)', () => {
     }
     const r = planner(noCafe)(plan, obs)
     expect(r.stops.map((s) => s.id)).toEqual(['food', 'street'])
-    expect(r.excluded).toEqual([])
+    // Only the indoor place is left out, for not being a chosen activity.
+    expect(r.excluded.map((e) => e.id)).toEqual(['gp-museum'])
   })
 })
 
@@ -196,6 +204,90 @@ describe('열차 시각 읽기', () => {
   ])('%s → %s', (text, time) => {
     const intent = interpret(text)
     expect(intent.kind).toBe('CHANGE')
-    if (intent.kind === 'CHANGE') expect(intent.changes.trainTime).toBe(time)
+    if (intent.kind === 'CHANGE') expect(intent.changes.departTime).toBe(time)
+  })
+})
+
+describe('코스 다변화와 귀가 방식', () => {
+  const auto: Plan = { ...plan, course: 'auto' }
+
+  it('추천(auto)은 전체 코스를 계산해 가장 잘 맞는 코스를 고름', () => {
+    // 16:00 열차면 구룡포는 단축되지만 가까운 코스는 그대로 갈 수 있음.
+    const r = calculate({ ...auto, departTime: '16:00' }, obs)
+    expect(r.decision).toBe('GO')
+    expect(['yeongildae', 'jukdo']).toContain(r.course)
+  })
+  it('모든 활성 코스를 한 번에 비교', () => {
+    const all = planEveryCourse(seedConfig, auto, obs)
+    expect(all.map((i) => i.course)).toEqual([
+      'guryongpo',
+      'homigot',
+      'yeongildae',
+      'jukdo',
+    ])
+  })
+  it('하고 싶은 일이 고른 장소를 정함', () => {
+    const r = calculate(
+      { ...plan, course: 'homigot', interests: ['view', 'indoor'] },
+      obs,
+    )
+    expect(r.stops.map((s) => s.id)).toEqual(['hm-hand', 'hm-museum'])
+    expect(r.excluded.find((e) => e.id === 'hm-food')?.reason).toBe(
+      '고른 활동이 아님',
+    )
+  })
+  it('버스로 가면 터미널과 20분 여유를 기준으로 계산', () => {
+    const r = calculate(
+      { ...plan, departMode: 'BUS', departTime: '17:00' },
+      obs,
+    )
+    expect(r.hub).toBe('TERMINAL')
+    expect(r.stationTarget).toBe(17 * 60 - 20)
+  })
+  it('포항 주민은 여유 없이 돌아올 시각까지 계산하고 문구도 바뀜', () => {
+    const r = calculate(
+      { ...plan, departMode: 'LOCAL', departTime: '17:00' },
+      obs,
+    )
+    expect(r.stationTarget).toBe(17 * 60)
+    expect(r.reasons.join(' ')).toContain('17:00까지')
+  })
+  it('귀가 거점으로 가는 경로가 없으면 추측하지 않음', () => {
+    const noAirport: TripConfig = {
+      ...seedConfig,
+      courses: seedConfig.courses.map((c) =>
+        c.id === 'guryongpo'
+          ? {
+              ...c,
+              return: {
+                ...c.return,
+                minutes: { STATION: 120, TERMINAL: 110, PARKING: 110 },
+              },
+            }
+          : c,
+      ),
+    }
+    const r = planner(noAirport)({ ...plan, departMode: 'FLIGHT' }, obs)
+    expect(r.decision).toBe('NEEDS_DATA')
+    expect(r.stationEta).toBeNull()
+  })
+  it('관심 활동이 하나도 없는 코스는 이유를 말함', () => {
+    const r = calculate(
+      { ...plan, interests: ['indoor'], course: 'jukdo' },
+      {
+        ...obs,
+      },
+    )
+    expect(r.stops.map((s) => s.id)).toEqual(['jd-canalhall'])
+    const none = calculate(
+      {
+        ...plan,
+        course: 'guryongpo',
+        interests: ['view'],
+      },
+      obs,
+    )
+    expect(none.decision).toBe('CANCEL')
+    expect(none.reasons.at(-1)).toContain('고른 활동에 맞는 장소가 없어요')
   })
 })

@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/table'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { pace, raceClock, snapshot } from '#/core/race'
-import { demoStart, event, race } from './mock'
+import { bib, category, demoStart, race } from './mock'
 
 const km = (d: number) => d.toFixed(2)
 
@@ -55,7 +55,7 @@ export const RaceLive = () => {
       <Card>
         <CardHeader>
           <CardDescription>
-            {event.category} · 배번 {event.bib}
+            {category} · 배번 {bib}
           </CardDescription>
           <CardTitle className="text-4xl tabular-nums">
             {raceClock(s.finished ? s.projected : s.t)}
@@ -122,7 +122,7 @@ export const RaceLive = () => {
               {s.board.map((r, i) => (
                 <TableRow
                   key={r.bib}
-                  data-state={r.bib === event.bib ? 'selected' : undefined}
+                  data-state={r.bib === bib ? 'selected' : undefined}
                   className={
                     i > 0 && r.rank - s.board[i - 1].rank > 1
                       ? 'border-t-4'
@@ -131,7 +131,7 @@ export const RaceLive = () => {
                 >
                   <TableCell>{r.rank}</TableCell>
                   <TableCell className="font-medium">
-                    {r.bib === event.bib ? `나 (${r.bib})` : r.name}
+                    {r.bib === bib ? `나 (${r.bib})` : r.name}
                   </TableCell>
                   <TableCell className="text-right">
                     {r.finish !== null

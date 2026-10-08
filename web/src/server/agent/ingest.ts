@@ -65,12 +65,12 @@ export const answerToEvents = (
     // Only what the next-action card offers right now is accepted.
     if (!progressOptions(state, it).includes(a.data.event)) return []
     const command = {
-      ARRIVED: () => advance(config, state, it),
-      STOP_DONE: () => advance(config, state, it),
-      AT_STATION: () => advance(config, state, it),
+      ARRIVED: () => advance(state, it),
+      STOP_DONE: () => advance(state, it),
+      AT_STATION: () => advance(state, it),
       SKIP: () => skipStop(state, it),
       REST: () => restMore(config, state),
-      START_RETURN: () => startReturn(state),
+      START_RETURN: () => startReturn(state, it),
     }[a.data.event]()
     // Screen navigation belongs to the classic UI; the chat ignores it.
     return command.events.filter((e) => e.type !== 'screen.changed')

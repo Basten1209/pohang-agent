@@ -27,6 +27,7 @@ import {
   ItemTitle,
 } from '@/components/ui/item'
 import { usableReading } from '#/core/signals'
+import { courseById, hubOf, modeOf } from '#/core/route'
 import { clock, duration } from '#/core/time'
 import { toggleExcluded, toggleWalking } from '#/core/trip'
 import { useApp } from './context'
@@ -39,16 +40,18 @@ const Stat = ({ label, value }: { label: string; value: string }) => (
 )
 
 export const TrainCard = () => {
-  const { state, itinerary, open } = useApp()
+  const { state, itinerary, open, config } = useApp()
   const slack = itinerary.slack
   return (
     <Card>
       <CardHeader>
-        <CardTitle>귀가 열차</CardTitle>
-        <CardDescription>포항역 → 서울 · 실제 예약은 바뀌지 않아요</CardDescription>
+        <CardTitle>귀가 {modeOf(config, state.plan).noun}</CardTitle>
+        <CardDescription>
+          {hubOf(config, state.plan).name} · 실제 예약은 바뀌지 않아요
+        </CardDescription>
         <CardAction>
           <Button variant="outline" size="sm" onClick={() => open('train')}>
-            {state.plan.trainTime} 변경
+            {state.plan.departTime} 변경
           </Button>
         </CardAction>
       </CardHeader>
@@ -82,7 +85,7 @@ export const ObservationCard = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>구룡포 관측</CardTitle>
+        <CardTitle>포항 관측</CardTitle>
         <CardDescription>
           E-UM 디지털 트윈 ·{' '}
           {obs.provenance === 'SIMULATED' ? '시연 관측' : '실관측'}
@@ -116,7 +119,7 @@ export const StatsCard = () => {
     <Card>
       <CardContent className="grid grid-cols-3 gap-4">
         <Stat label="걷기" value={`${itinerary.walking}분`} />
-        <Stat label="구룡포 체류" value={duration(itinerary.localMin)} />
+        <Stat label="코스 체류" value={duration(itinerary.localMin)} />
         <Stat
           label="왕복 이동"
           value={duration(itinerary.outbound + itinerary.returnMin)}
@@ -127,13 +130,15 @@ export const StatsCard = () => {
 }
 
 export const ItineraryCard = () => {
-  const { itinerary: it, config, open, map } = useApp()
+  const { itinerary: it, config, open, map, state } = useApp()
   const place = (id: string) => config.places.find((p) => p.id === id)
   return (
     <Card>
       <CardHeader>
         <CardTitle>코스</CardTitle>
-        <CardDescription>{it.stops.length}곳 · 구룡포 중심부</CardDescription>
+        <CardDescription>
+          {it.stops.length}곳 · {courseById(config, it.course)?.title ?? ''}
+        </CardDescription>
         <CardAction>
           <Button variant="ghost" size="sm" onClick={() => open('taxi')}>
             이동수단
@@ -150,7 +155,9 @@ export const ItineraryCard = () => {
               <ItemContent>
                 <ItemTitle>{clock(it.start)} 영일대 출발</ItemTitle>
                 <ItemDescription>
-                  버스로 구룡포까지 · 도보·대기 포함 {it.outbound}분 (시연)
+                  {courseById(config, it.course)?.outbound.via ?? '대중교통'} ·{' '}
+                  {courseById(config, it.course)?.area}까지 {it.outbound}분
+                  (시연)
                 </ItemDescription>
               </ItemContent>
             </Item>
@@ -187,7 +194,10 @@ export const ItineraryCard = () => {
                 <TrainFront />
               </ItemMedia>
               <ItemContent>
-                <ItemTitle>{clock(it.returnDeparture)} 포항역으로 복귀</ItemTitle>
+                <ItemTitle>
+                  {clock(it.returnDeparture)} {hubOf(config, state.plan).name}
+                  (으)로 복귀
+                </ItemTitle>
                 <ItemDescription>
                   버스 {it.returnMin}분 · 요금 확인 필요
                   {it.trafficReserve
@@ -210,13 +220,17 @@ export const ItineraryCard = () => {
       </CardContent>
       <CardFooter className="grid grid-cols-2 gap-2">
         <Button variant="outline" asChild>
-          <a href={map('GURYONGPO')} target="_blank" rel="noreferrer">
-            구룡포 경로 <ArrowUpRight />
+          <a href={map('COURSE')} target="_blank" rel="noreferrer">
+            {courseById(config, it.course)?.area} 경로 <ArrowUpRight />
           </a>
         </Button>
         <Button variant="outline" asChild>
-          <a href={map('STATION')} target="_blank" rel="noreferrer">
-            포항역 경로 <ArrowUpRight />
+          <a
+            href={map(hubOf(config, state.plan).id)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {hubOf(config, state.plan).name} 경로 <ArrowUpRight />
           </a>
         </Button>
       </CardFooter>
@@ -240,7 +254,9 @@ export const AdjustCard = () => {
           onClick={() => run(toggleWalking(state))}
         >
           <Footprints />
-          {state.plan.walkingLimit === 30 ? '15분 이내로 걷기' : '30분까지 걷기'}
+          {state.plan.walkingLimit === 30
+            ? '15분 이내로 걷기'
+            : '30분까지 걷기'}
         </Button>
         <Button
           variant="outline"

@@ -1,10 +1,10 @@
-# RUN2구룡포 web — TanStack Start · shadcn · Vercel AI SDK · PWA
+# RUN2포항 web — TanStack Start · shadcn · Vercel AI SDK · PWA
 
-완주 후 구룡포에 들렀다 포항역으로 돌아오는 러너를 위한 모바일 PWA입니다. 기획·명세는 [`docs/`](../docs)를, 이전 Vite+Express 데모는 저장소 루트를 참고하세요.
+포항 러닝 대회를 마친 러너가 완주 후 포항을 둘러보고(구룡포·호미곶·영일대·죽도시장) 기차·버스·비행기·자가용 시간 또는 귀가 시각까지 돌아오도록 돕는 모바일 PWA입니다. 기획·명세는 [`docs/`](../docs)를, 이전 Vite+Express 데모는 저장소 루트를 참고하세요.
 
 ## 화면 (iPhone 13 기준, 실제 모델로 진행)
 
-앱 전체가 하나의 대화입니다. 폼이 없습니다. 열차 시각·하고 싶은 일·출발 장소·완주 후 상태를 앱이 한 번에 하나씩 묻고, 사용자는 말로 답하거나 답 버튼을 누릅니다(버튼은 그 문장을 대신 보내 줄 뿐입니다). 코스·변경 승인·다음 행동만 대화 안의 카드로 뜹니다.
+앱 전체가 하나의 대화입니다. 폼이 없습니다. 돌아가는 방법(기차·버스·비행기·자가용·포항 주민)·출발 시각·가고 싶은 코스(또는 추천)·하고 싶은 일·출발 장소·완주 후 상태를 앱이 한 번에 하나씩 묻고, 사용자는 말로 답하거나 답 버튼을 누릅니다(버튼은 그 문장을 대신 보내 줄 뿐입니다). 코스·변경 승인·다음 행동만 대화 안의 카드로 뜹니다.
 
 | 일정 만들기 | 완주 후 | 변경 승인 | 이동 중 | 도착 |
 | --- | --- | --- | --- | --- |
@@ -33,7 +33,7 @@ npm run build && npm start   # 프로덕션(Nitro node 서버)
 | --- | --- |
 | 프레임워크 | TanStack Start (Vite, file routes, server routes·server functions) + Nitro |
 | UI | shadcn/ui **Nova 프리셋 기본값 그대로**(radix, neutral 흑백, Geist). 컴포넌트는 레지스트리 원본을 수정 없이 사용하고 화면에서는 레이아웃용 className만 씀 |
-| Agent | Vercel AI SDK v7 `streamText` + 도구 4종 → `useChat` + AI Elements(Conversation·Message·PromptInput·Tool·Suggestion) |
+| Agent | Vercel AI SDK v7 `ToolLoopAgent` + 단계별 도구(계획·지식 조회·실시간 공공데이터) → `useChat` + AI Elements(Conversation·Message·PromptInput·Tool·Suggestion) |
 | 모델 | `@ai-sdk/openai`, 기본 `gpt-6-luna`(설정값). `OPENAI_MODEL`로 덮어씀 |
 | 저장소 | Drizzle ORM + PostgreSQL(`DATABASE_URL`) 또는 PGlite(내장 Postgres/WASM) |
 | PWA | `manifest.webmanifest` + 규칙 테이블 기반 서비스 워커(`public/sw.js`) |
@@ -47,22 +47,22 @@ npm run build && npm start   # 프로덕션(Nitro node 서버)
 - **상태 = 이벤트의 왼쪽 접기** (`core/trip.ts`). `state = events.reduce(apply, initial)`. 화면은 명령(`state → events`)만 실행하고, 이벤트는 그대로 jsonb로 서버에 기록됩니다. 계획 변경만 `revision`을 올려, 늦게 도착한 Agent 미리보기는 `applyPreview`가 거절합니다.
 - **도구 = 클로저** (`server/agent/tools.ts`). 요청 하나의 계획·관측·예산을 닫아 넣은 함수(`makeOps`)를 만들고, AI SDK 도구(`makeTools`)는 그 위에 스키마만 씌웁니다. 모델이 고르든 결정적 해석기가 고르든 같은 함수가 실행됩니다.
 
-**설정은 데이터(jsonb).** 정책 수치, 코스 변형, 장소, 관측 소스 계약, Agent 한도, 시연 시나리오가 전부 `core/defaults.ts`의 시드 → DB(jsonb) 문서입니다. 코드 수정 없이 DB 수정으로 동작이 바뀝니다.
+**설정은 데이터(jsonb).** 대회 정보(`event`), 코스(`courses` — 권역별 이동시간·귀가 거점별 복귀시간·단축 단계), 귀가 방법(`modes` — 거점·여유 시간·질문 문구), 장소(`places`), 안내 자료(`guide`), 관측 소스 계약, Agent 한도, 시연 시나리오가 전부 `core/seed/*`·`core/defaults.ts`의 시드 → DB(jsonb) 문서입니다. 코드 수정 없이 DB 수정으로 동작이 바뀝니다. 시드 `version`이 오르면 손대지 않은 옛 시드 행은 새 시드로 교체됩니다.
 
 ```sql
--- 역 도착 목표를 열차 20분 전으로: 다음 요청부터 반영(30초 캐시)
-UPDATE app_config SET value = value || '{"stationBufferMin": 20}' WHERE key = 'policy';
+-- 기차 이용자의 역 도착 목표를 열차 20분 전으로: 다음 요청부터 반영(30초 캐시)
+UPDATE app_config SET value = jsonb_set(value, '{0,bufferMin}', '20'), version = version + 1 WHERE key = 'modes';
 -- 장소 추가/비활성화
 UPDATE places SET active = false WHERE id = 'cafe';
--- 열차 시각을 바꾼 이벤트만 jsonb로 조회
-SELECT payload #>> '{patch,trainTime}' FROM trip_events WHERE payload -> 'patch' ? 'trainTime';
+-- 출발 시각을 바꾼 이벤트만 jsonb로 조회
+SELECT payload #>> '{patch,departTime}' FROM trip_events WHERE payload -> 'patch' ? 'departTime';
 ```
 
 설정 문서는 시드 위에 깊은 병합되고 `configSchema`로 검증됩니다. 잘못된 수정은 통째로 거부되고 시드로 대체되며, `/api/status`의 `configIssues`로 드러납니다.
 
 | 테이블 | 관계형 열 | jsonb |
 | --- | --- | --- |
-| `app_config` | key, version | `value`(policy·sources·agent·scenarios·anchors·defaults), `meta` |
+| `app_config` | key, version | `value`(event·policy·courses·modes·guide·sources·agent·conversation·scenarios·anchors·defaults), `meta` |
 | `places` | id, kind, sort, active | `attrs`(이름·설명·좌표·야외 여부·아이콘…), `meta`(출처·검증 상태) |
 | `trips` | id | `state`(최신 접힌 상태 — 서버가 단일 원천), `messages`(AI SDK UIMessage 대화), `meta`(적용한 카드 id·변경 미리보기) |
 | `trip_events` | trip_id, type, created_at | `payload`(이벤트 본문), `meta` — append-only, GIN 인덱스 |
@@ -87,11 +87,26 @@ SELECT payload #>> '{patch,trainTime}' FROM trip_events WHERE payload -> 'patch'
           → data-trip(요약 바), 대화·meta 저장
 ```
 
-도구는 세 종류입니다. **Ask**(`ask_quick_reply`, `await_progress`)는 `execute`가 없어 루프가 멈추고 카드가 뜹니다. **Read**(`plan_course`, `explain_plan`, `check_live_conditions`, `compare_transport`, `summarize_trip`, `show_safety_help`)는 여정을 바꾸지 않습니다. **Commit**(`update_trip_details`, `record_race_progress`, `apply_plan_change`, `start_journey`, `set_demo_observation`)만 이벤트를 남깁니다.
+도구는 세 종류입니다. **Ask**(`ask_quick_reply`, `await_progress`)는 `execute`가 없어 루프가 멈추고 카드가 뜹니다. **Read**(`plan_course`, `compare_courses`, `explain_plan`, `check_live_conditions`, `compare_transport`, `summarize_trip`, `show_safety_help`와 아래 지식·실시간 도구)는 여정을 바꾸지 않습니다. **Commit**(`update_trip_details`, `record_race_progress`, `apply_plan_change`, `start_journey`, `set_demo_observation`)만 이벤트를 남깁니다.
 
 일정·완주 후 정보는 대화로 채웁니다([설계](docs/agent-ux.md#10-대화로-정보-받기)). 질문 순서·문구·답 버튼은 설정의 `conversation`(jsonb)에 있고, 다음 질문은 모델이 아니라 앱이 붙입니다. 답 버튼을 누르면 값이 함께 가서 모델 없이 저장되고, 자유롭게 쓴 문장은 모델이 `update_trip_details`로 읽어 저장합니다.
 
 키가 없거나 모델 호출이 실패하면 같은 하네스에서 규칙 기반 `LanguageModelV4`(`scripted-model.ts`)가 응답합니다. 도구·승인·카드·저장이 모두 같고 모델만 바뀝니다(헤더 배지: AI / 규칙 모델 / 규칙 모델(대체)).
+
+**지식은 프롬프트가 아니라 도구에.** 지시문에는 원칙과 여정 요약만 있고, 대회·관광·교통 정보는 모델이 필요할 때 도구로 조회합니다. 결과에 없는 버스 번호·시간·요금은 말하지 않도록 지시합니다.
+
+| 도구 | 출처 | 답하는 질문 |
+| --- | --- | --- |
+| `get_race_info` | 설정 `event` | 대회 일시·장소, 대회 코스, 준비물, 시설, 규정, FAQ |
+| `search_guide` | 설정에서 만든 문서(`core/knowledge.ts`) | 코스·장소 설명과 팁, 포항 볼거리·먹거리·교통 요령·축제 |
+| `compare_courses` | 결정 엔진 | 지금 조건으로 모든 코스 비교 |
+| `find_nearby`, `get_place_detail` | 한국관광공사 TourAPI(KorService2) | 주변 관광지·음식점·숙소, 영업시간·휴무 |
+| `get_directions` | 카카오맵 링크 + TAGO 정류장·도착 | 어떻게 가요, 버스 뭐 타요 |
+| `get_bus_arrivals` | 국토교통부 TAGO 버스 | 근처 정류장·지나는 노선·실시간 도착 |
+| `get_train_times` | 국토교통부 TAGO 열차 | 포항 출발 열차 시간표 |
+| `get_weather` | 기상청 단기예보 | 시간대별 기온·강수·바람 |
+
+공공데이터 도구는 `DATA_GO_KR_SERVICE_KEY`가 없거나 호출이 실패하면 `NOT_CONFIGURED`/`ERROR`를 돌려주고, 모델은 안내 자료와 길찾기 링크로 대신 답합니다.
 
 시연 조건은 채팅에 `/시연 혼잡만 82%로`처럼 보내거나 헤더 메뉴 → 시연 조건에서 고릅니다.
 
@@ -103,6 +118,7 @@ SELECT payload #>> '{patch,trainTime}' FROM trip_events WHERE payload -> 'patch'
 | `OPENAI_MODEL` | 기본은 설정의 `agent.model`(gpt-6-luna) |
 | `EUM_SERVICE_KEY` | pohang-eum.kr → 마이페이지 → 나의 API의 인증키 |
 | `EUM_AIR_DEVICE_ID` | INT_S01_004 대기 장비 id |
+| `DATA_GO_KR_SERVICE_KEY` | 공공데이터포털 인증키(디코딩/인코딩 모두 가능). 관광공사 국문 관광정보, TAGO 버스정류소·버스도착·버스노선·열차정보, 기상청 단기예보 활용신청 필요 |
 | `DATABASE_URL` | 있으면 PostgreSQL, 없으면 PGlite |
 | `PGLITE_DIR` | 프로덕션에서 PGlite를 디스크에 보존(GCP: `/data/pglite`) |
 | `AGENT_APPROVAL_SECRET` | 변경 승인 서명 키(선택, 없으면 `OPENAI_API_KEY`에서 유도) |
@@ -131,8 +147,8 @@ SELECT payload #>> '{patch,trainTime}' FROM trip_events WHERE payload -> 'patch'
 ## 구조
 
 ```text
-src/core/        순수 함수: schema · defaults(시드 설정) · planner · signals · trip(이벤트) · stage(대화 단계) · view · intents · preview · evidence · links · fp
-src/server/      DB(drizzle·PGlite/pg·repo) · trips(여정 저장·commit) · config(시드⊕jsonb⊕env) · sources(E-UM)
+src/core/        순수 함수: schema · defaults · seed/(대회·코스·귀가 방법·장소·안내 자료) · planner · route(코스·거점 해석) · knowledge(검색) · where(위치 이름) · signals · trip(이벤트) · stage · view · intents · preview · evidence · links · fp
+src/server/      DB(drizzle·PGlite/pg·repo) · trips(여정 저장·commit) · config(시드⊕jsonb⊕env) · sources(E-UM · datagokr: 관광공사·TAGO·기상청)
 src/server/agent harness(턴 루프) · tools(Ask/Read/Commit) · ingest(카드 답→이벤트) · prompts · scripted-model · model
 src/routes/      / (채팅) · /classic (화면) · /api/chat · /api/trips/$tripId · /api/config · /api/evidence · /api/status
 src/chat/        chat(useChat·헤더·입력) · cards(도구별 카드)

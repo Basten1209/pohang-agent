@@ -10,17 +10,17 @@ export const Route = createRootRoute({
         name: 'viewport',
         content: 'width=device-width, initial-scale=1, viewport-fit=cover',
       },
-      { title: 'RUN2구룡포 · 완주 다음의 여행' },
+      { title: 'RUN2포항 · 완주 다음의 여행' },
       {
         name: 'description',
         content:
-          '완주 다음의 여행, RUN2구룡포. 기차 시간과 내 컨디션에 맞춰 만드는 포항의 하루.',
+          '완주 다음의 여행, RUN2포항. 돌아가는 시간과 내 컨디션에 맞춰 만드는 포항의 하루.',
       },
       { name: 'theme-color', content: '#ffffff' },
       { name: 'apple-mobile-web-app-capable', content: 'yes' },
       { name: 'mobile-web-app-capable', content: 'yes' },
       { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
-      { name: 'apple-mobile-web-app-title', content: 'RUN2구룡포' },
+      { name: 'apple-mobile-web-app-title', content: 'RUN2포항' },
     ],
     links: [
       { rel: 'stylesheet', href: appCss },

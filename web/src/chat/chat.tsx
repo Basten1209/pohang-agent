@@ -45,6 +45,7 @@ import { cacheView, newTripId } from '#/app/trip-client'
 import type { TripConfig } from '#/core/schema'
 import type { Stage } from '#/core/stage'
 import { suggestionsFor } from '#/core/stage'
+import { courseById, departLabel, hubOf } from '#/core/route'
 import { clock } from '#/core/time'
 import type { TripView } from '#/core/view'
 import type { AgentMode, AgentUIMessage } from '#/server/agent/harness'
@@ -125,7 +126,7 @@ const Header = ({
   return (
     <header className="sticky top-0 z-30 border-b bg-background pt-safe">
       <div className="mx-auto flex h-14 max-w-2xl items-center gap-2 px-4">
-        <span className="font-semibold">RUN2구룡포</span>
+        <span className="font-semibold">RUN2포항</span>
         <Badge variant="secondary">{stageLabel[view.stage]}</Badge>
         {mode && <Badge variant="outline">{modeLabel[mode]}</Badge>}
         <DropdownMenu>
@@ -193,9 +194,12 @@ const Header = ({
       </div>
       {tab === 'chat' && view.state.created && (
         <p className="mx-auto max-w-2xl px-4 pb-2 text-xs text-muted-foreground tabular-nums">
-          {plan.trainTime} 열차
+          {departLabel(config, plan)}
+          {courseById(config, it.course) &&
+            it.stops.length > 0 &&
+            ` · ${courseById(config, it.course)!.area}`}
           {it.planningArrival !== null &&
-            ` · 포항역 ${clock(it.planningArrival)} 도착 (계획)`}
+            ` · ${hubOf(config, plan).name} ${clock(it.planningArrival)} 도착 (계획)`}
           {plan.completed.length > 0 && ` · ${plan.completed.length}곳 다녀옴`}
         </p>
       )}
@@ -385,7 +389,7 @@ export const Chat = ({
           value="overview"
           className="min-h-0 overflow-y-auto pb-safe"
         >
-          <RaceOverview />
+          <RaceOverview event={config.event} />
         </TabsContent>
         <TabsContent
           value="race"

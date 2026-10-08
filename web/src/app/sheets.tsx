@@ -26,12 +26,18 @@ import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import type { Evidence } from '#/core/evidence'
+import { courseById, departLabel, hubOf } from '#/core/route'
 import { clock } from '#/core/time'
-import { changeTrain, runScenario } from '#/core/trip'
+import { changeDepart, runScenario } from '#/core/trip'
 import { useApp } from './context'
 import type { Sheet } from './context'
 
-type SheetSpec = { title: string; description: string; body: ReactNode; footer?: ReactNode }
+type SheetSpec = {
+  title: string
+  description: string
+  body: ReactNode
+  footer?: ReactNode
+}
 
 export const Sheets = () => {
   const { sheet, open } = useApp()
@@ -45,7 +51,9 @@ export const Sheets = () => {
               <DrawerTitle>{spec.title}</DrawerTitle>
               <DrawerDescription>{spec.description}</DrawerDescription>
             </DrawerHeader>
-            <div className="flex flex-col gap-4 overflow-y-auto px-4">{spec.body}</div>
+            <div className="flex flex-col gap-4 overflow-y-auto px-4">
+              {spec.body}
+            </div>
             <DrawerFooter className="pb-safe">{spec.footer}</DrawerFooter>
           </>
         )}
@@ -56,21 +64,45 @@ export const Sheets = () => {
 
 /** Sheet id → title, description, body. */
 const useSpec = (sheet: Sheet): SheetSpec | null => {
-  const { config } = useApp()
+  const { config, state } = useApp()
   if (sheet === 'demo')
-    return { title: '데모 시나리오', description: '설정(jsonb)에 저장된 시연 조건을 적용해요.', ...demo() }
+    return {
+      title: '데모 시나리오',
+      description: '설정(jsonb)에 저장된 시연 조건을 적용해요.',
+      ...demo(),
+    }
   if (sheet === 'evidence')
-    return { title: '데이터와 연결 상태', description: '시연 관측과 실제 연결을 구분해서 보여줘요.', body: <EvidenceBody /> }
+    return {
+      title: '데이터와 연결 상태',
+      description: '시연 관측과 실제 연결을 구분해서 보여줘요.',
+      body: <EvidenceBody />,
+    }
   if (sheet === 'train')
-    return { title: '귀가 열차 시각', description: '10월 13일 포항역 출발. 실제 예약은 바뀌지 않아요.', body: <TrainBody /> }
+    return {
+      title: '귀가 출발 시각',
+      description: `${config.event.dateLabel} · ${hubOf(config, state.plan).name}. 실제 예약은 바뀌지 않아요.`,
+      body: <TrainBody />,
+    }
   if (sheet === 'taxi')
-    return { title: '포항역 복귀 이동수단', description: '비교만 하고 선택은 바꾸지 않아요.', body: <TaxiBody /> }
+    return {
+      title: `${hubOf(config, state.plan).name} 복귀 이동수단`,
+      description: '비교만 하고 선택은 바꾸지 않아요.',
+      body: <TaxiBody />,
+    }
   if (sheet === 'why')
-    return { title: '계산 근거', description: '입력한 조건과 결정 엔진의 계산이에요.', body: <WhyBody /> }
+    return {
+      title: '계산 근거',
+      description: '입력한 조건과 결정 엔진의 계산이에요.',
+      body: <WhyBody />,
+    }
   if (sheet && typeof sheet === 'object') {
     const place = config.places.find((p) => p.id === sheet.place)
     if (place)
-      return { title: place.attrs.title, description: place.attrs.subtitle, body: <PlaceBody id={place.id} /> }
+      return {
+        title: place.attrs.title,
+        description: place.attrs.subtitle,
+        body: <PlaceBody id={place.id} />,
+      }
   }
   return null
 }
@@ -155,14 +187,23 @@ const EvidenceBody = () => {
     <>
       <div className="flex flex-col gap-2">
         <Row label="일정·이동 경로" value="SIMULATED" />
-        <Row label="결정에 쓰는 관측" value={`${obs.provenance} · ${obs.freshness}`} />
+        <Row
+          label="결정에 쓰는 관측"
+          value={`${obs.provenance} · ${obs.freshness}`}
+        />
         <Row
           label="혼잡 / 초미세먼지"
           value={`${obs.readings.congestion ?? '—'}% / ${obs.readings.pm25 ?? '—'}`}
         />
         <Row
           label="OpenAI"
-          value={status ? (status.agent === 'CONFIGURED' ? `연결 · ${status.model}` : '미설정 · 시연 응답') : '…'}
+          value={
+            status
+              ? status.agent === 'CONFIGURED'
+                ? `연결 · ${status.model}`
+                : '미설정 · 시연 응답'
+              : '…'
+          }
         />
         <Row label="저장소" value={String(status?.storage ?? storage)} />
       </div>
@@ -175,7 +216,10 @@ const EvidenceBody = () => {
             <Item key={e.sourceId} variant="outline" size="sm">
               <ItemContent>
                 <ItemTitle>
-                  {e.label} <Badge variant={e.status === 'LIVE' ? 'default' : 'outline'}>{e.status}</Badge>
+                  {e.label}{' '}
+                  <Badge variant={e.status === 'LIVE' ? 'default' : 'outline'}>
+                    {e.status}
+                  </Badge>
                 </ItemTitle>
                 <ItemDescription>
                   {e.value !== null ? `${e.value} ${e.unit} · ` : ''}
@@ -190,27 +234,37 @@ const EvidenceBody = () => {
         E-UM 연결 다시 확인
       </Button>
       <p className="text-xs text-muted-foreground">
-        식당·카페는 상호 미정 후보예요. 일정은 이 기기에 저장되고 7일 뒤 초기화돼요. 서버에는 구조화된 변경 이벤트만 기록하고 채팅 원문은 저장하지 않아요. 사진: 한국관광공사, 바다온.
+        식당·카페는 상호 미정 후보예요. 일정은 이 기기에 저장되고 7일 뒤
+        초기화돼요. 서버에는 구조화된 변경 이벤트만 기록하고 채팅 원문은
+        저장하지 않아요. 사진: 한국관광공사, 바다온.
       </p>
     </>
   )
 }
 
 const TrainBody = () => {
-  const { state, run, open } = useApp()
-  const [draft, setDraft] = useState(state.plan.trainTime)
+  const { state, run, open, config } = useApp()
+  const [draft, setDraft] = useState(state.plan.departTime)
   return (
     <form
       className="flex flex-col gap-4"
       onSubmit={(e) => {
         e.preventDefault()
-        run(changeTrain(draft))
+        run(changeDepart(draft))
         open(null)
       }}
     >
       <Field>
-        <FieldLabel htmlFor="train">서울행 열차 출발</FieldLabel>
-        <Input id="train" type="time" required value={draft} onChange={(e) => setDraft(e.target.value)} />
+        <FieldLabel htmlFor="train">
+          {departLabel(config, state.plan)} → 변경
+        </FieldLabel>
+        <Input
+          id="train"
+          type="time"
+          required
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+        />
       </Field>
       <ToggleGroup
         type="single"
@@ -230,7 +284,7 @@ const TrainBody = () => {
 }
 
 const TaxiBody = () => {
-  const { map, config } = useApp()
+  const { map, config, state, itinerary: it } = useApp()
   return (
     <>
       <ItemGroup>
@@ -240,19 +294,28 @@ const TaxiBody = () => {
               버스 <Badge>선택됨</Badge>
             </ItemTitle>
             <ItemDescription>
-              {config.policy.legs.return.minutes}분 · 도보·대기 포함 (시연) · 요금 확인 필요
+              {courseById(config, it.course)?.return.minutes[
+                hubOf(config, state.plan).id
+              ] ?? '—'}
+              분 · 도보·대기 포함 (시연) · 요금 확인 필요
             </ItemDescription>
           </ItemContent>
         </Item>
         <Item variant="outline" size="sm">
           <ItemContent>
             <ItemTitle>택시</ItemTitle>
-            <ItemDescription>시간·요금 확인 필요 · 경로 API 미연결</ItemDescription>
+            <ItemDescription>
+              시간·요금 확인 필요 · 경로 API 미연결
+            </ItemDescription>
           </ItemContent>
         </Item>
       </ItemGroup>
       <Button asChild>
-        <a href={map('STATION')} target="_blank" rel="noreferrer">
+        <a
+          href={map(hubOf(config, state.plan).id)}
+          target="_blank"
+          rel="noreferrer"
+        >
           카카오맵에서 경로 확인 <ArrowUpRight />
         </a>
       </Button>
@@ -266,14 +329,18 @@ const WhyBody = () => {
     <>
       <div className="flex flex-col gap-2">
         <Row label="출발 준비" value={state.plan.readyTime} />
-        <Row label="구룡포까지" value={`${it.outbound}분`} />
-        <Row label="구룡포 체류" value={`${it.localMin}분`} />
-        <Row label="포항역까지" value={`${it.returnMin}분`} />
+        <Row label="코스까지" value={`${it.outbound}분`} />
+        <Row label="코스 체류" value={`${it.localMin}분`} />
+        <Row label="귀가 거점까지" value={`${it.returnMin}분`} />
         <Row label="교통 여유" value={`${it.trafficReserve}분`} />
         <Separator />
         <Row
           label="계획상 역 도착"
-          value={it.planningArrival !== null ? clock(it.planningArrival) : '계산 중단'}
+          value={
+            it.planningArrival !== null
+              ? clock(it.planningArrival)
+              : '계산 중단'
+          }
         />
         <Row label="역 도착 목표" value={clock(it.stationTarget)} />
       </div>
@@ -288,7 +355,8 @@ const WhyBody = () => {
         </AlertDescription>
       </Alert>
       <p className="text-xs text-muted-foreground">
-        관측 임계값은 시연 정책이며 공인 기준이 아니에요. 코스 변형: {it.variant ?? '—'}
+        관측 임계값은 시연 정책이며 공인 기준이 아니에요. 코스 변형:{' '}
+        {it.variant ?? '—'}
       </p>
     </>
   )
@@ -298,15 +366,22 @@ const PlaceBody = ({ id }: { id: string }) => {
   const { config, itinerary, map } = useApp()
   const place = config.places.find((p) => p.id === id)
   if (!place) return null
-  const dwell = itinerary.stops.find((s) => s.id === id)?.dwell ?? place.attrs.defaultDwell
+  const dwell =
+    itinerary.stops.find((s) => s.id === id)?.dwell ?? place.attrs.defaultDwell
   return (
     <>
-      <img src={place.attrs.image} alt="" className="aspect-video w-full rounded-lg object-cover" />
+      <img
+        src={place.attrs.image}
+        alt=""
+        className="aspect-video w-full rounded-lg object-cover"
+      />
       <p className="text-sm">{place.attrs.desc}</p>
       <p className="text-sm text-muted-foreground">{place.attrs.detail}</p>
       <div className="flex flex-wrap gap-2">
         <Badge variant="secondary">예상 체류 {dwell}분</Badge>
-        {place.meta.verified === false && <Badge variant="outline">미검증 후보</Badge>}
+        {place.meta.verified === false && (
+          <Badge variant="outline">미검증 후보</Badge>
+        )}
       </div>
       <Button variant="outline" asChild>
         <a href={map(place.id, 'walk')} target="_blank" rel="noreferrer">
