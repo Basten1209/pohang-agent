@@ -5,6 +5,19 @@ import { getDb } from '../db/client'
 import { latestLiveSnapshot, saveSnapshot } from '../db/repo'
 
 /**
+ * The portal shows the key both URL-encoded (`…%2B…%3D`) and decoded.
+ * Accept either: `searchParams` encodes it once more on the way out.
+ */
+export const decodedKey = (key: string) => {
+  if (!/%[0-9A-Fa-f]{2}/.test(key)) return key
+  try {
+    return decodeURIComponent(key)
+  } catch {
+    return key
+  }
+}
+
+/**
  * Fetch one configured source. The service key comes only from the server
  * environment and is never logged, returned, or stored.
  */
@@ -29,7 +42,7 @@ export const fetchSource = async (
       message: `설정 필요: ${missing.join(', ')}`,
     }
   const url = new URL(source.url)
-  url.searchParams.set('serviceKey', key)
+  url.searchParams.set('serviceKey', decodedKey(key))
   for (const [name, p] of Object.entries(source.params))
     url.searchParams.set(name, 'env' in p ? env[p.env]! : p.value)
   try {

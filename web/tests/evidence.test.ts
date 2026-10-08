@@ -93,3 +93,13 @@ describe('E-UM 호출', () => {
     expect(JSON.stringify(e)).not.toContain('secret-test-key')
   })
 })
+
+describe('E-UM 인증키 형식', () => {
+  it('포털의 인코딩된 키와 디코딩된 키를 모두 받음', async () => {
+    const { decodedKey } = await import('#/server/sources/observe')
+    expect(decodedKey('ab%2Bcd%2Fef%3D')).toBe('ab+cd/ef=')
+    expect(decodedKey('ab+cd/ef=')).toBe('ab+cd/ef=')
+    // A key that is not valid percent-encoding is passed through untouched.
+    expect(decodedKey('ab%zz')).toBe('ab%zz')
+  })
+})
