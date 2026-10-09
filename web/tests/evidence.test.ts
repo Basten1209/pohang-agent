@@ -45,6 +45,28 @@ describe('E-UM 응답 해석 (문서 샘플 형식)', () => {
     // Hourly source, 2h window: the 10:00 value is fresh shortly after.
     expect(e.freshness).toBe('FRESH')
   })
+  it('교통 혼잡: 최신 시간대가 아직 비어 있으면 값이 있는 직전 시간대를 사용', () => {
+    const body = {
+      status: 'success',
+      data: [
+        { hour: '2026-10-13 09:00:00.0', cntPerc: 30.5 },
+        { hour: '2026-10-13 10:00:00.0', cntPerc: null },
+      ],
+    }
+    const e = interpretBody(traffic, body, new Date(now).toISOString(), now)
+    expect(e.status).toBe('LIVE')
+    expect(e.value).toBe(30.5)
+    expect(e.observedAt).toBe('2026-10-13T00:00:00.000Z')
+  })
+  it('교통 혼잡: 쓸 수 있는 값이 하나도 없으면 받은 값을 남기고 오류', () => {
+    const body = {
+      status: 'success',
+      data: [{ hour: '2026-10-13 10:00:00.0', cntPerc: '' }],
+    }
+    const e = interpretBody(traffic, body, new Date(now).toISOString(), now)
+    expect(e.status).toBe('ERROR')
+    expect(e.message).toContain('받은 값: ""')
+  })
   it('대기: 단일 객체, 문자열 수치도 범위 검증 후 허용', () => {
     const body = {
       status: 'success',

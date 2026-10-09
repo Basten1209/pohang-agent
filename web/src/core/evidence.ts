@@ -126,6 +126,17 @@ export const blankEvidence = (source: Source, fetchedAt: string) => ({
   values: {},
 })
 
+/** A finite number inside the source's range, from a number or numeric string. */
+const valueOf = (raw: unknown, source: Source): number | null => {
+  const value = typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : raw
+  return typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value >= source.range.min &&
+    value <= source.range.max
+    ? value
+    : null
+}
+
 /** Interpret a successful HTTP body. Shape problems are reported, never guessed around. */
 export const interpretBody = (
   source: Source,
@@ -144,27 +155,30 @@ export const interpretBody = (
       status: 'ERROR',
       message: `제공처 응답 상태 ${body.status} · 신청 승인·키 상태 확인 필요`,
     }
-  const record = latestRecord(recordsWith(body, source.valueField), source)
-  if (!record)
+  const records = recordsWith(body, source.valueField)
+  if (!records.length)
     return {
       ...blank,
       status: 'ERROR',
       message: '기대 필드를 찾지 못했어요. 실제 응답 계약 확인이 필요해요.',
     }
-  const raw = record[source.valueField]
-  const value = typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : raw
-  if (
-    typeof value !== 'number' ||
-    !Number.isFinite(value) ||
-    value < source.range.min ||
-    value > source.range.max
+  // The newest hour can arrive before it is aggregated (empty or null):
+  // use the newest record whose value is a usable number.
+  const record = latestRecord(
+    records.filter((r) => valueOf(r[source.valueField], source) !== null),
+    source,
   )
+  const value = record ? valueOf(record[source.valueField], source) : null
+  if (!record || value === null) {
+    const sample = JSON.stringify(
+      latestRecord(records, source)?.[source.valueField] ?? null,
+    ).slice(0, 40)
     return {
       ...blank,
       status: 'ERROR',
-      message:
-        '관측값의 수치 형식·범위를 확인할 수 없어요. 공급자 응답 계약 확인이 필요해요.',
+      message: `관측값의 수치 형식·범위를 확인할 수 없어요(받은 값: ${sample}, ${records.length}건). 공급자 응답 계약 확인이 필요해요.`,
     }
+  }
   const observedAt = normalizeTime(record[source.timeField], source.timezone)
   const values = Object.fromEntries(
     source.keepFields.map((key) => {
