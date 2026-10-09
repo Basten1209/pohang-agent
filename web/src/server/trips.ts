@@ -29,6 +29,8 @@ export const tripMetaSchema = z.object({
   ingested: z.array(z.string()).default([]),
   /** Recent previews by id (bounded). */
   previews: z.record(z.string(), storedPreviewSchema).default({}),
+  /** When live observations were last pulled into the plan (ISO). */
+  liveSyncedAt: z.string().nullable().default(null),
 })
 export type TripMeta = z.infer<typeof tripMetaSchema>
 
@@ -39,7 +41,11 @@ export type TripRecord = {
   meta: TripMeta
 }
 
-const emptyMeta = (): TripMeta => ({ ingested: [], previews: {} })
+const emptyMeta = (): TripMeta => ({
+  ingested: [],
+  previews: {},
+  liveSyncedAt: null,
+})
 
 /**
  * A row from an older state version starts over as a whole: a fresh state

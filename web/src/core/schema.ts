@@ -73,8 +73,25 @@ export type Plan = z.infer<typeof planSchema>
 
 // ── Observations: a bag of named readings with provenance ───────────────
 export const freshnessSchema = z.enum(['FRESH', 'STALE', 'UNKNOWN'])
+
+/**
+ * Where one reading came from: a live provider response, a demo scenario, or
+ * the seed's simulated value. Shown next to every number the plan uses.
+ */
+export const readingSourceSchema = z.object({
+  provenance: z.enum(['LIVE', 'SNAPSHOT', 'SIMULATED', 'DEMO']),
+  sourceId: z.string().nullable().default(null),
+  observedAt: z.string().nullable().default(null),
+  fetchedAt: z.string().nullable().default(null),
+  /** Why a live value is not used, e.g. the provider could not be reached. */
+  note: z.string().nullable().default(null),
+})
+export type ReadingSource = z.infer<typeof readingSourceSchema>
+
 export const observationsSchema = z.object({
   readings: z.record(z.string(), z.number().finite().nullable()),
+  /** Per-reading provenance; a reading without an entry is the seed's simulated value. */
+  sources: z.record(z.string(), readingSourceSchema).default({}),
   freshness: freshnessSchema,
   routeAvailable: z.boolean(),
   provenance: z.enum(['SIMULATED', 'LIVE', 'SNAPSHOT']),
@@ -280,6 +297,8 @@ export const sourceSchema = z.object({
   keepFields: z.array(z.string()),
   timeoutMs: z.number().int().positive().default(3000),
   maxAgeSeconds: z.number().int().positive().nullable(),
+  /** A live, fresh value of this source replaces the simulated reading in the plan. */
+  decision: z.boolean().default(false),
   meta: z.record(z.string(), z.unknown()).default({}),
 })
 export type Source = z.infer<typeof sourceSchema>

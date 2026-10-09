@@ -227,7 +227,10 @@ describe('코스 다변화와 귀가 방식', () => {
     expect(r.reasons[0]).toContain('구룡포는 지금 조건으로 다녀오기 어려워')
   })
   it('코스를 직접 고르면 그 코스, 다른 가능한 코스는 대안으로', () => {
-    const r = calculate({ ...plan, course: 'homigot', interests: ['food', 'view'] }, obs)
+    const r = calculate(
+      { ...plan, course: 'homigot', interests: ['food', 'view'] },
+      obs,
+    )
     expect(r.course).toBe('homigot')
     expect(r.alternatives).not.toContain('homigot')
   })

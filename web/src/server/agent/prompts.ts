@@ -1,3 +1,4 @@
+import { readingLine } from '#/core/live'
 import { planner } from '#/core/planner'
 import { courseById, departLabel, hubOf } from '#/core/route'
 import { AUTO_COURSE } from '#/core/schema'
@@ -142,7 +143,7 @@ stage: ${stage}
 현재 일정: ${it.stops.map((s) => name(s.id)).join(' → ') || '없음'} (${it.decision}${it.planningArrival !== null ? `, ${hub.name} 도착 ${clock(it.planningArrival)}` : ''})
 하고 싶은 일: ${asked('interests') ? state.plan.interests.join(', ') || '없음(바로 귀가)' : '아직 안 정함'} · 출발: ${state.plan.origin}
 답한 질문: ${state.answered.join(', ') || '없음'} · 앱이 물어볼 차례: ${promptFor(config, state)?.question ?? '없음'}
-관측(${state.observations.provenance}): 혼잡 ${state.observations.readings.congestion ?? '—'}%, 초미세먼지 ${state.observations.readings.pm25 ?? '—'}
+판단에 쓰는 관측: ${readingLine(state.observations, 'congestion', '교통 혼잡', '%')} · 교통 여유 +${it.trafficReserve}분 (대기 pm25는 단위 확인 전이라 판단에 쓰지 않음)
 코스 id: ${config.courses
     .filter((c) => c.active)
     .map((c) => `${c.id}=${c.area}`)

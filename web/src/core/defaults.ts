@@ -115,10 +115,12 @@ export const seedConfig: TripConfig = {
       unit: '%',
       keepFields: ['cntPerc', 'hour'],
       timeoutMs: 3000,
-      maxAgeSeconds: null,
+      // Hourly values (2026-10-08: hour=20:00 fetched at 20:13 KST). Older than 2h = stale.
+      maxAgeSeconds: 7200,
+      decision: true,
       meta: {
         docs: 'https://pohang-eum.kr/data/list/detail/INT_S07_005',
-        note: '전체 장비 통합 혼잡율. 갱신 주기 미검증.',
+        note: '전체 장비 통합 혼잡율(%). 1시간 단위 관측. 실응답이 2시간 이내면 코스 판단에 반영.',
       },
     },
     {
@@ -136,6 +138,8 @@ export const seedConfig: TripConfig = {
       keepFields: ['pm25', 'pm10', 'temp', 'humi', 'logDateTime', 'devId'],
       timeoutMs: 3000,
       maxAgeSeconds: null,
+      // Unit unverified (provider says PPM): shown as evidence, never used to decide.
+      decision: false,
       meta: {
         docs: 'https://pohang-eum.kr/data/list/detail/INT_S01_004',
         note: '제공처 문서는 pm25 단위를 PPM으로 표기. μg/m³ 여부 확인 전까지 결정에 사용하지 않음.',
@@ -350,6 +354,7 @@ export const seedConfig: TripConfig = {
     },
     observations: {
       readings: { congestion: 42, pm25: 10 },
+      sources: {},
       freshness: 'FRESH',
       routeAvailable: true,
       provenance: 'SIMULATED',

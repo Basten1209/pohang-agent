@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { Evidence } from '#/core/evidence'
 import type { Changes } from '#/core/intents'
 import { knowledgeOf, searchKnowledge } from '#/core/knowledge'
+import { liveObservationEvents, readingLine } from '#/core/live'
 import { directionsUrl } from '#/core/links'
 import { canTravel, planEveryCourse, planner } from '#/core/planner'
 import { planContext, preview } from '#/core/preview'
@@ -262,20 +263,46 @@ export const makeTools = (ctx: TurnContext) => {
     }),
     check_live_conditions: tool({
       description:
-        'E-UM 디지털 트윈(교통 혼잡, 대기)의 실제 연결 상태와 값을 조회한다. "지금도 괜찮아?", "최신 상황" 같은 질문에 쓴다. 계획을 바꾸지 않으며, 일정 계산은 화면의 관측 입력 기준임을 함께 말한다. 입력은 없다.',
+        'E-UM 디지털 트윈(교통 혼잡, 대기)을 지금 조회하고, 2시간 이내의 교통 혼잡 실측값은 일정 계산에 반영한 뒤 결과를 돌려준다. "지금도 괜찮아?", "시간 돼?", "최신 상황" 같은 질문에 쓴다. 답은 verdict의 도착 시각과 여유(분)로 결론부터 말하고, 관측값은 provenance(LIVE=실측, DEMO=시연 조건, SIMULATED=시연값)와 관측 시각을 함께 말한다. 대기(pm25)는 단위 확인 전이라 판단에 쓰지 않는다. 입력은 없다.',
       inputSchema: z.object({}).strict(),
-      execute: async () => ({
-        evidence: (await ctx.observe()).map((e) => ({
-          source: e.sourceId,
-          label: e.label,
-          status: e.status,
-          value: e.value,
-          unit: e.unit,
-          observedAt: e.observedAt,
-          freshness: e.freshness,
-        })),
-        decisionInputs: ctx.trip().state.observations,
-      }),
+      execute: async () => {
+        const evidence = await ctx.observe()
+        const before = ctx.trip().state
+        await ctx.commit(
+          liveObservationEvents(config, before.observations, evidence),
+          'check_live_conditions',
+        )
+        const { state, it } = now()
+        const obs = state.observations
+        const hub = hubOf(config, state.plan)
+        return {
+          verdict: {
+            decision: it.decision,
+            hub: hub.name,
+            depart: departLabel(config, state.plan),
+            arrival:
+              it.planningArrival === null ? null : clock(it.planningArrival),
+            slackMin: it.slack,
+            trafficReserveMin: it.trafficReserve,
+          },
+          usedInPlan: {
+            congestion: readingLine(obs, 'congestion', '교통 혼잡', '%'),
+            provenance: obs.sources.congestion?.provenance ?? 'SIMULATED',
+          },
+          evidence: evidence.map((e) => ({
+            source: e.sourceId,
+            label: e.label,
+            status: e.status,
+            value: e.value,
+            unit: e.unit,
+            observedAt: e.observedAt,
+            freshness: e.freshness,
+            usedInPlan:
+              config.sources.find((s) => s.id === e.sourceId)?.decision ??
+              false,
+          })),
+        }
+      },
     }),
     compare_transport: tool({
       description:

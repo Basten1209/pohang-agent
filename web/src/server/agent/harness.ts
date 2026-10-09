@@ -22,6 +22,7 @@ import { tripView } from '#/core/view'
 import { initialTrip } from '#/core/trip'
 import type { Db } from '../db/client'
 import type { TripRecord } from '../trips'
+import { syncLive } from '../live'
 import { commit, openTrip, rememberPreview, saveConversation } from '../trips'
 import {
   answerToEvents,
@@ -305,6 +306,11 @@ export const runTurn = async (
     )
 
   const stageNow = stageOf(record.state)
+  // Before a course is (re)computed, let fresh live observations into the plan.
+  if (stageNow === 'PLANNING' || stageNow === 'JOURNEY') {
+    record = (await syncLive(db, config, record, deps.observe)).record
+    await saveConversation(db, { id: record.id, messages, meta: record.meta })
+  }
   if (chipApplied && answeredByApp.includes(stageNow)) {
     const done = record
     return createUIMessageStream<AgentUIMessage>({

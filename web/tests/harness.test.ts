@@ -338,6 +338,50 @@ describe('정보 질문은 프롬프트가 아니라 도구로 답함', () => {
   })
 })
 
+describe('E-UM 실측이 코스 계산에 들어감', () => {
+  const live = {
+    sourceId: 'INT_S07_005',
+    label: 'E-UM 시간대별 교통 혼잡율',
+    reading: 'congestion',
+    status: 'LIVE' as const,
+    observedAt: new Date(Date.now() - 10 * 60_000).toISOString(),
+    fetchedAt: new Date().toISOString(),
+    freshness: 'FRESH' as const,
+    value: 82,
+    unit: '%',
+    values: {},
+    message: '',
+  }
+
+  it('완주 후 코스를 만들 때 실측 혼잡을 반영하고 출처를 남김', async () => {
+    deps = { ...deps, observe: async () => [live] }
+    await finishRace()
+    await checkIn()
+    const { state } = await load()
+    expect(state.observations.readings.congestion).toBe(82)
+    expect(state.observations.sources.congestion?.provenance).toBe('LIVE')
+    const it = planner(seedConfig)(state.plan, state.observations)
+    expect(it.trafficReserve).toBe(20)
+  })
+
+  it('"지금도 괜찮아?"는 실측을 다시 반영하고 도착·여유로 답함', async () => {
+    await finishRace()
+    await checkIn()
+    deps = { ...deps, observe: async () => [live] }
+    const turn = await say('지금도 시간 괜찮아?')
+    expect(
+      turn.some(
+        (c) =>
+          c.type === 'tool-input-available' &&
+          c.toolName === 'check_live_conditions',
+      ),
+    ).toBe(true)
+    expect(
+      (await load()).state.observations.sources.congestion?.provenance,
+    ).toBe('LIVE')
+  })
+})
+
 describe('채팅 하네스 (규칙 모델 + PGlite)', () => {
   it('전체 흐름: 완주 → 컨디션 → 코스 → 변경 승인 → 출발 → 도착', async () => {
     await finishRace()

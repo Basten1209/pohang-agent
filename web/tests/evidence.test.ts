@@ -42,7 +42,8 @@ describe('E-UM 응답 해석 (문서 샘플 형식)', () => {
     expect(e.status).toBe('LIVE')
     expect(e.value).toBe(37.76)
     expect(e.observedAt).toBe('2026-10-13T01:00:00.000Z')
-    expect(e.freshness).toBe('UNKNOWN') // maxAgeSeconds not configured yet
+    // Hourly source, 2h window: the 10:00 value is fresh shortly after.
+    expect(e.freshness).toBe('FRESH')
   })
   it('대기: 단일 객체, 문자열 수치도 범위 검증 후 허용', () => {
     const body = {

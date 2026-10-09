@@ -5,10 +5,13 @@ import { openingFor, tripView } from '#/server/agent/harness'
 import { getConfig } from '#/server/config'
 import { getDb } from '#/server/db/client'
 import { json, parseBody } from '#/server/http'
-import { commit, openTrip } from '#/server/trips'
+import { syncLive } from '#/server/live'
+import { observeAll } from '#/server/sources/observe'
+import { commit, openTrip, saveConversation } from '#/server/trips'
 
 /**
  * GET  → the trip (created on first visit) and its conversation.
+ *        `?live=1` refreshes live observations first (throttled to 1/min).
  * POST → apply validated events on the server and return the new trip.
  *        Used by the demo menu and the classic screens.
  */
@@ -28,10 +31,24 @@ const load = async (tripId: string) => {
 export const Route = createFileRoute('/api/trips/$tripId')({
   server: {
     handlers: {
-      GET: async ({ params }) => {
+      /** `?live=1` (the 관광 tab) first pulls fresh live observations into the plan. */
+      GET: async ({ params, request }) => {
         if (!z.uuid().safeParse(params.tripId).success)
           return json({ error: 'INVALID_TRIP' }, { status: 400 })
-        const { config, record } = await load(params.tripId)
+        const loaded = await load(params.tripId)
+        const { config, db } = loaded
+        let { record } = loaded
+        if (
+          new URL(request.url).searchParams.get('live') === '1' &&
+          record.state.phase >= 3
+        ) {
+          record = (
+            await syncLive(db, config, record, () => observeAll(config), {
+              minIntervalMs: 60_000,
+            })
+          ).record
+          await saveConversation(db, record)
+        }
         return json({
           trip: tripView(config, record.state),
           messages: record.messages,
