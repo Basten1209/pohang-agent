@@ -208,6 +208,24 @@ describe('열차 시각 읽기', () => {
   })
 })
 
+describe('계단 있는 장소', () => {
+  it('지쳤거나 15분만 걸으면 계단 오르는 과메기문화관은 빼고 이유를 남김', () => {
+    const r = calculate(
+      { ...plan, condition: 'TIRED', interests: ['food', 'indoor'] },
+      obs,
+    )
+    expect(r.stops.map((s) => s.id)).toEqual(['food'])
+    expect(r.excluded.find((e) => e.id === 'gp-museum')?.reason).toBe(
+      '계단 있는 동선이라 제외',
+    )
+    const ok = calculate(
+      { ...plan, condition: 'OK', interests: ['food', 'indoor'] },
+      obs,
+    )
+    expect(ok.stops.map((s) => s.id)).toContain('gp-museum')
+  })
+})
+
 describe('코스 다변화와 귀가 방식', () => {
   const auto: Plan = { ...plan, course: 'auto' }
 

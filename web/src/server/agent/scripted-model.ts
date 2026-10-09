@@ -186,6 +186,14 @@ const infoCall = (
   // Before the race, "코스" means the race course.
   const raceCourse =
     /코스/.test(text) && (stage === 'ONBOARDING' || stage === 'PRE_RACE')
+  // Weather first: "대회날 날씨" is a weather question, not a race one.
+  if (/날씨|비\s*(와|오)|바람|기온|추워|더워|예보/.test(text))
+    return pick('get_weather', {
+      near: where,
+      date: /대회\s*날|대회일|당일/.test(text)
+        ? (systemText(prompt).match(/대회일: (\d{4}-\d{2}-\d{2})/)?.[1] ?? null)
+        : null,
+    })
   if (
     raceCourse ||
     /대회|레이스|배번|급수|셔틀|준비물|물품보관|출발\s*시간|제한\s*시간/.test(
@@ -193,8 +201,6 @@ const infoCall = (
     )
   )
     return pick('get_race_info', { topic: raceTopic(text) })
-  if (/날씨|비\s*(와|오)|바람|기온|추워|더워/.test(text))
-    return pick('get_weather', { near: where, date: null })
   if (
     /기차|열차|KTX|SRT|ktx|srt/.test(text) &&
     /시간|몇\s*시|있어|막차/.test(text)
@@ -361,6 +367,7 @@ const decideFromResult = (
   if (r.denied) return { text: '기존 계획을 그대로 둘게요.' }
   switch (r.toolName) {
     case 'plan_course':
+      if (typeof v.noEffect === 'string') return { text: v.noEffect }
       return v.isChange && has('apply_plan_change')
         ? {
             text: `${describePlan(v)} 적용할지 골라 주세요.`,
@@ -381,16 +388,32 @@ const decideFromResult = (
       }
     case 'explain_plan':
       return {
-        text: Array.isArray(v.reasons) ? (v.reasons as string[]).join(' ') : '',
+        text:
+          typeof v.summary === 'string'
+            ? v.summary
+            : Array.isArray(v.reasons)
+              ? (v.reasons as string[]).join(' ')
+              : '',
       }
     case 'compare_transport':
       return {
         text: `${v.from ?? '코스'}에서 ${v.to}까지 대중교통은 시연 기준 ${(v.transit as Json)?.minutes ?? '—'}분이에요. 택시 시간·요금은 아직 연결된 데이터가 없어 카카오T 앱에서 확인해 주세요.`,
       }
-    case 'check_live_conditions':
-      return {
-        text: '디지털 트윈 연결 상태를 확인했어요. 일정 계산은 화면의 관측 입력 기준이에요.',
-      }
+    case 'check_live_conditions': {
+      const verdict = (v.verdict ?? {}) as Json
+      const used = (v.usedInPlan ?? {}) as Json
+      const ok = ['GO', 'SHORTEN', 'INDOOR'].includes(String(verdict.decision))
+      const head = ok
+        ? `네, 지금 일정이면 ${verdict.hub} ${verdict.arrival} 도착이라 ${verdict.depart} 기준 여유가 ${verdict.slackMin}분 있어요.`
+        : '지금 조건으로는 관광 일정을 유지하기 어려워요.'
+      const basis =
+        used.provenance === 'LIVE'
+          ? `${used.congestion}을 반영했어요.`
+          : used.provenance === 'DEMO'
+            ? `시연용 관측 기준이에요(${used.congestion}).`
+            : '최신 관측을 확인하지 못해 기본 여유로 계산했어요.'
+      return { text: `${head} ${basis}` }
+    }
     case 'record_race_progress':
       if (v.milestone === 'FINISHED') return { text: '완주 축하해요!' }
       return {
@@ -517,7 +540,7 @@ const decideFromResult = (
       if (v.status !== 'LIVE') {
         const fb = (v.fallback as Json[] | undefined) ?? []
         return {
-          text: `실시간 관광정보를 쓸 수 없어요(${v.message ?? v.status}).${fb.length ? `\n${listed(fb, (r) => `**${r.title}** ${String(r.text).slice(0, 100)}`, 3)}` : ''}`,
+          text: `${v.message ?? '실시간 정보를 불러오지 못했어요.'}${fb.length ? ` 앱에 정리된 근처 장소예요:\n${listed(fb, (r) => `**${r.title}** ${String(r.text).slice(0, 80)}`, 3)}` : ''}`,
         }
       }
       const rows = (v.results as Json[] | undefined) ?? []
@@ -596,8 +619,9 @@ const decideFromResult = (
       }
     }
     case 'get_weather': {
+      if (typeof v.note === 'string') return { text: v.note }
       if (v.status !== 'LIVE')
-        return { text: `날씨를 가져오지 못했어요(${v.message ?? v.status}).` }
+        return { text: String(v.message ?? '날씨를 불러오지 못했어요.') }
       const hours = (v.hours as Json[] | undefined) ?? []
       return {
         text: hours.length

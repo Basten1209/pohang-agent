@@ -388,6 +388,7 @@ export const runTurn = async (
     instructions: baseInstructions,
     stopWhen: isStepCount(config.agent.maxSteps + 2),
     maxOutputTokens: config.agent.maxOutputTokens,
+    temperature: config.agent.temperature ?? undefined,
     maxRetries: 0,
     experimental_toolApprovalSecret: approvalSecret(),
     toolApproval: {

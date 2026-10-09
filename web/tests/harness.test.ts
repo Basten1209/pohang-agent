@@ -338,6 +338,95 @@ describe('정보 질문은 프롬프트가 아니라 도구로 답함', () => {
   })
 })
 
+describe('테스트 대화에서 발견한 문제 (지시서 8장)', () => {
+  const said = (chunks: { type: string; [k: string]: unknown }[]) =>
+    chunks.flatMap((c) => (c.type === 'text-delta' ? [c.delta] : [])).join('')
+  const called = (chunks: { type: string; [k: string]: unknown }[]) =>
+    chunks.flatMap((c) =>
+      c.type === 'tool-input-available' ? [String(c.toolName)] : [],
+    )
+
+  it('1. "대회날 날씨 어때?"는 대회 정보가 아니라 날씨를 조회', async () => {
+    await onboard()
+    const turn = await say('대회날 날씨 어때?')
+    expect(called(turn)).toContain('get_weather')
+    expect(called(turn)).not.toContain('get_race_info')
+  })
+
+  it('2. "30분 더 쉴래요"는 휴식 변경으로 이해', async () => {
+    await finishRace()
+    await checkIn()
+    const turn = await say('30분 더 쉴래요')
+    expect(turn.some((c) => c.type === 'tool-approval-request')).toBe(true)
+    expect(said(turn)).not.toContain('바꿀 조건을 알려주세요')
+  })
+
+  it('3. 일정에 없는 카페를 빼 달라면 승인 없이 이미 없다고 답함', async () => {
+    await load()
+    await choose('departMode', 'TRAIN', '기차 타고 가요')
+    await choose('departTime', '18:30', '18시 30분 기차예요')
+    await choose('course', 'guryongpo', '구룡포 가 보고 싶어요')
+    await choose('interests', ['food', 'walk'], '점심, 산책 할래요')
+    await choose('origin', 'RACE', '대회장에서 바로 갈게요')
+    await say('완주했어요')
+    await checkIn()
+    const turn = await say('카페는 빼 줘')
+    expect(turn.some((c) => c.type === 'tool-approval-request')).toBe(false)
+    expect(said(turn)).toContain('이미 일정에 없어요')
+  })
+
+  it('4. "왜 이 코스야?"는 남은 시간과 뺀 이유로 답함', async () => {
+    await finishRace()
+    await checkIn()
+    const turn = await say('왜 이 코스야?')
+    expect(said(turn)).toMatch(/남아 구룡포에서 \d곳을 넣었어요/)
+    expect(said(turn)).toContain('뺐어요')
+  })
+
+  it('5. "지금도 시간 괜찮아?"는 도착 시각과 여유로 결론부터', async () => {
+    await finishRace()
+    await checkIn()
+    const turn = await say('지금도 시간 괜찮아?')
+    expect(said(turn)).toMatch(/^네, 지금 일정이면 포항역 \d{2}:\d{2} 도착/)
+    expect(said(turn)).toContain('최신 관측을 확인하지 못해')
+  })
+
+  it('6. 근처 맛집은 지금 권역 장소만, 운영 메모 없이', async () => {
+    await finishRace()
+    await checkIn()
+    await say('이 코스로 갈게요')
+    const turn = await say('근처 맛집 알려줘')
+    const text = said(turn)
+    expect(called(turn)).toContain('find_nearby')
+    expect(text).not.toMatch(/호미곶|설머리|죽도/)
+    expect(text).not.toContain('선정 전')
+    expect(text).not.toContain('인증키')
+  })
+})
+
+describe('안전 게이트 표현 (지시서 5-5)', () => {
+  it.each([
+    '어지러워요',
+    '토할 것 같아요',
+    '숨이 차요',
+    '가슴이 답답해요',
+    '다리에 쥐가 났어요',
+    '너무 더워요',
+    '쓰러질 것 같아요',
+  ])('%s → 안전 단계', async (text) => {
+    await finishRace()
+    await say(text)
+    expect(await stage()).toBe('SAFETY')
+  })
+
+  it('"괜찮아졌어요"라고 해도 관광을 바로 재개하지 않음', async () => {
+    await finishRace()
+    await say('어지러워요')
+    await say('이제 괜찮아졌어요')
+    expect(await stage()).toBe('SAFETY')
+  })
+})
+
 describe('E-UM 실측이 코스 계산에 들어감', () => {
   const live = {
     sourceId: 'INT_S07_005',

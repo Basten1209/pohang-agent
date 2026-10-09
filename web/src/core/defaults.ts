@@ -11,8 +11,9 @@ import { places } from './seed/places'
  * health standard.
  */
 export const seedConfig: TripConfig = {
-  // 2: courses, ways home, race event (see seed/). Older seeded rows are replaced.
-  version: 2,
+  // 2: courses, ways home, race event (see seed/). 3: featured course, live
+  // decision source, stairs, user-facing place text. Older seeded rows are replaced.
+  version: 3,
   event,
   courses,
   modes,
@@ -73,6 +74,7 @@ export const seedConfig: TripConfig = {
       excludedOutdoor: '야외 체류 제한',
       excludedByTime: '귀가 시간과 걷기 조건 반영',
       excludedByInterest: '고른 활동이 아님',
+      excludedStairs: '계단 있는 동선이라 제외',
     },
   },
   places,
@@ -148,6 +150,7 @@ export const seedConfig: TripConfig = {
   ],
   agent: {
     model: 'gpt-6-luna',
+    temperature: 0.2,
     maxSteps: 5,
     maxToolCalls: 4,
     timeoutMs: 20000,

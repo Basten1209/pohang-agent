@@ -259,9 +259,15 @@ type Candidate =
   | { kind: 'infeasible' }
   | { kind: 'empty' }
 
+/** Stairs (e.g. up to 과메기문화관) are left out for a tired runner or a short walk. */
+const avoidsStairs = (plan: Plan) =>
+  plan.condition === 'TIRED' || plan.walkingLimit <= 15
+const hasStairs = (p: Place) => p.attrs.stairs === true
+
 const allowedIn = (ctx: Context) => (id: PlaceId) =>
   id in ctx.places &&
   ctx.plan.interests.includes(ctx.places[id].attrs.interest) &&
+  !(avoidsStairs(ctx.plan) && hasStairs(ctx.places[id])) &&
   !ctx.plan.excluded.includes(id) &&
   !ctx.plan.completed.includes(id) &&
   !(ctx.effect.outdoorBlocked && ctx.places[id].attrs.outdoor)
@@ -316,9 +322,11 @@ const evaluate =
           ? copy(ctx, 'excludedByUser')
           : !plan.interests.includes(p.attrs.interest)
             ? copy(ctx, 'excludedByInterest')
-            : p.attrs.outdoor && effect.outdoorBlocked
-              ? copy(ctx, 'excludedOutdoor')
-              : copy(ctx, 'excludedByTime'),
+            : avoidsStairs(plan) && hasStairs(p)
+              ? copy(ctx, 'excludedStairs')
+              : p.attrs.outdoor && effect.outdoorBlocked
+                ? copy(ctx, 'excludedOutdoor')
+                : copy(ctx, 'excludedByTime'),
       }))
 
     const reasons = [

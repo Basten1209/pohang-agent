@@ -305,6 +305,8 @@ export type Source = z.infer<typeof sourceSchema>
 
 export const agentConfigSchema = z.object({
   model: z.string(),
+  /** Low for a stable demo. Reasoning models ignore it (the SDK drops it with a warning). */
+  temperature: z.number().min(0).max(1).nullable().default(null),
   maxSteps: z.number().int().min(1).max(8),
   maxToolCalls: z.number().int().min(1).max(8),
   timeoutMs: z.number().int().positive(),

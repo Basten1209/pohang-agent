@@ -29,7 +29,7 @@ export type Intent =
   | { kind: 'CHANGE'; changes: Changes }
 
 export const symptomPattern =
-  /어지|메스꺼|통증|아파|아프|몸이\s*안\s*좋|숨이\s*차|가슴이/
+  /어지|메스꺼|토할|구역질|통증|아파|아프|몸이\s*안\s*좋|숨이\s*차|가슴이|답답|쥐가|경련|너무\s*더워|쓰러질|정신이\s*없/
 const contextPattern = /왜|이유|어째서/
 const comparePattern = /택시/
 const refreshPattern = /최신|지금도|괜찮아|새로/
@@ -90,10 +90,13 @@ const walking: Extractor = (message) => {
   return m ? { walkingLimit: Number(m[1]) as 15 | 30 } : 'CLARIFY'
 }
 
+/** "30분 더 쉴래요", "좀 쉴게요", "더 쉬고 싶어": minutes as said, otherwise 30. */
 const rest: Extractor = (message) => {
-  if (!/쉬|휴식/.test(message)) return {}
-  const m = message.match(/(\d+)분/)
-  return m && Number(m[1]) <= 60 ? { extraRestMin: Number(m[1]) } : 'CLARIFY'
+  // Not 쉽(게)/쉬워: "쉽게 갈 수 있어?" is not a request to rest.
+  if (!/쉬(?!워|운)|쉴|휴식/.test(message)) return {}
+  const m = message.match(/(\d+)\s*분/)
+  if (!m) return { extraRestMin: 30 }
+  return Number(m[1]) <= 60 ? { extraRestMin: Number(m[1]) } : 'CLARIFY'
 }
 
 type CourseName = { id: string; area: string }
