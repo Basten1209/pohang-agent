@@ -18,6 +18,8 @@ export const seedConfig: TripConfig = {
   modes,
   guide,
   policy: {
+    // The service is about Guryongpo; other courses are the fallback.
+    featuredCourse: 'guryongpo',
     restCapMin: 180,
     local: { firstApproach: 5, lastApproach: 5 },
     signals: [
@@ -65,6 +67,8 @@ export const seedConfig: TripConfig = {
       cancel:
         '{area}는 가장 짧은 코스도 {noun} 시간이나 걷기 조건에 맞추기 어려워요. 관광 대신 {hub}(으)로 가는 길을 확인해 주세요.',
       noInterest: '{area}에는 고른 활동에 맞는 장소가 없어요.',
+      featuredSkipped:
+        '{featured}는 지금 조건으로 다녀오기 어려워 {area} 코스를 골랐어요.',
       excludedByUser: '직접 제외한 장소',
       excludedOutdoor: '야외 체류 제한',
       excludedByTime: '귀가 시간과 걷기 조건 반영',

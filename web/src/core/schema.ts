@@ -150,6 +150,8 @@ export const variantSchema = z.object({
 export type Variant = z.infer<typeof variantSchema>
 
 export const policySchema = z.object({
+  /** Tried first when the course is `auto`; others only if it cannot be done. */
+  featuredCourse: courseIdSchema.nullable().default(null),
   restCapMin: z.number().int().min(0),
   local: z.object({
     firstApproach: z.number().int().min(0),
