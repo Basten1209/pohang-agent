@@ -1,4 +1,5 @@
 import type { Interest, Place } from '../schema'
+import { images } from './images'
 
 /**
  * Place catalogue. Descriptions are written for the demo; hours, prices and
@@ -26,6 +27,7 @@ type Attrs = {
   /** Reached by stairs: left out for a tired runner or a 15-minute walk. */
   stairs?: boolean
 }
+/** A seeded TourAPI photo wins over a missing one; its source goes to `meta`. */
 const at =
   (course: string, sortBase: number) =>
   (
@@ -33,14 +35,28 @@ const at =
     i: number,
     attrs: Attrs,
     meta: Record<string, unknown> = {},
-  ): Place => ({
-    id,
-    kind: attrs.interest.toUpperCase(),
-    sort: sortBase + i * 10,
-    active: true,
-    attrs: { ...attrs, course },
-    meta: { provenance: 'PLACEHOLDER', verified: false, ...meta },
-  })
+  ): Place => {
+    const photo = attrs.image ? null : images[id]
+    return {
+      id,
+      kind: attrs.interest.toUpperCase(),
+      sort: sortBase + i * 10,
+      active: true,
+      attrs: { ...attrs, course, ...(photo && { image: photo.url }) },
+      meta: {
+        provenance: 'PLACEHOLDER',
+        verified: false,
+        ...meta,
+        ...(photo && {
+          image: {
+            source: '한국관광공사 TourAPI',
+            contentId: photo.contentId,
+            license: photo.license,
+          },
+        }),
+      },
+    }
+  }
 
 const gp = at('guryongpo', 0)
 const hm = at('homigot', 100)

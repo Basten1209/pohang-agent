@@ -18,7 +18,8 @@
     "check": "npm run typecheck && npm test",
     "format": "prettier --write src tests",
     "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "seed:images": "node --env-file-if-exists=.env scripts/seed-images.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.86",

@@ -4,6 +4,8 @@
 
 ## 화면 (iPhone 13 기준, 실제 모델로 진행)
 
+처음 한 번 **프로필**(귀가 방법·시각·가고 싶은 곳(기본 구룡포)·하고 싶은 일·출발 장소)을 받고, 그다음은 **홈(대회 개요) · 레이스 · 관광 · 커뮤니티** 탭과 우측 하단 **에이전트 시트**로 움직입니다. 프로필은 채팅과 같은 `slots.filled` 이벤트로 기록되어 에이전트가 다시 묻지 않습니다. 관광 탭과 채팅은 같은 서버 여정(`TripView`)을 읽어 항상 같은 코스를 보여줍니다. 아래는 이전(채팅 단독) 화면 설명입니다.
+
 앱 전체가 하나의 대화입니다. 폼이 없습니다. 돌아가는 방법(기차·버스·비행기·자가용·포항 주민)·출발 시각·가고 싶은 코스(또는 추천)·하고 싶은 일·출발 장소·완주 후 상태를 앱이 한 번에 하나씩 묻고, 사용자는 말로 답하거나 답 버튼을 누릅니다(버튼은 그 문장을 대신 보내 줄 뿐입니다). 코스·변경 승인·다음 행동만 대화 안의 카드로 뜹니다.
 
 | 일정 만들기 | 완주 후 | 변경 승인 | 이동 중 | 도착 |
@@ -106,6 +108,10 @@ SELECT payload #>> '{patch,departTime}' FROM trip_events WHERE payload -> 'patch
 | `get_train_times` | 국토교통부 TAGO 열차 | 포항 출발 열차 시간표 |
 | `get_weather` | 기상청 단기예보 | 시간대별 기온·강수·바람 |
 
+**구룡포 우선.** 코스가 `auto`(추천)이면 `policy.featuredCourse`(구룡포)를 먼저 계산해 가능하면 고르고, 불가능할 때만 다른 코스 중 최선을 고르며 이유를 남깁니다. 같은 조건으로 갈 수 있는 다른 코스는 `itinerary.alternatives`로 내려가 관광 탭의 "다른 코스도 있어요" 칩이 됩니다.
+
+**디지털 트윈 실측을 판단에.** 관측값마다 출처(`observations.sources`: LIVE · DEMO · SIMULATED, 소스·관측·조회 시각)를 기록합니다. 판단 소스(`sources[].decision`, 현재 교통 혼잡 INT_S07_005 — 2시간 이내)만 LIVE·FRESH일 때 `observations.patched` 이벤트로 반영해 교통 여유가 바뀝니다. 실패·오래된 응답이면 시연값으로 되돌리고 "최신 관측 확인 불가"로 표시합니다. 대기(pm25)는 단위 확인 전이라 근거 패널에만 둡니다. 반영 시점은 계획·이동 단계 턴 시작(5분 간격), `check_live_conditions`, 관광 탭 진입(`GET /api/trips/:id?live=1`)입니다. 시연 시나리오 값은 DEMO로 표시되고 실측이 덮어쓰지 않습니다.
+
 공공데이터 도구는 `DATA_GO_KR_SERVICE_KEY`가 없거나 호출이 실패하면 `NOT_CONFIGURED`/`ERROR`를 돌려주고, 모델은 안내 자료와 길찾기 링크로 대신 답합니다.
 
 시연 조건은 채팅에 `/시연 혼잡만 82%로`처럼 보내거나 헤더 메뉴 → 시연 조건에서 고릅니다.
@@ -139,6 +145,16 @@ SELECT payload #>> '{patch,departTime}' FROM trip_events WHERE payload -> 'patch
 - 대기 장비 id는 1–24번이 응답하지만(일부는 오래된 값) 응답에 위치가 없습니다. 구룡포에서 가까운 장비는 대기 장비 목록 API(미신청)나 운영 측에 확인해야 하며, 그 전까지는 `EUM_AIR_DEVICE_ID=1`로 둡니다.
 - `npm run dev`와 `npm start` 모두 `web/.env`를 읽습니다(git에는 올라가지 않음).
 
+## 썸네일
+
+장소 사진은 운영자 작업으로 한국관광공사 TourAPI의 대표 이미지를 받아 둡니다(출처·공공누리 유형을 함께 저장).
+
+```sh
+npm run seed:images   # web/.env의 DATA_GO_KR_SERVICE_KEY 사용 → src/core/seed/images.ts 생성
+```
+
+사진이 없는 장소는 아이콘으로 표시됩니다.
+
 ## 배포
 
 - **Vercel**: 프로젝트 Root Directory를 `web`으로 지정합니다(빌드 `npm run build`, 리전 `icn1`). 서버리스에서는 PGlite가 인스턴스마다 메모리라 기록이 남지 않으니, 이벤트를 보존하려면 `DATABASE_URL`(Neon/Supabase)을 설정하세요.
@@ -151,7 +167,8 @@ src/core/        순수 함수: schema · defaults · seed/(대회·코스·귀�
 src/server/      DB(drizzle·PGlite/pg·repo) · trips(여정 저장·commit) · config(시드⊕jsonb⊕env) · sources(E-UM · datagokr: 관광공사·TAGO·기상청)
 src/server/agent harness(턴 루프) · tools(Ask/Read/Commit) · ingest(카드 답→이벤트) · prompts · scripted-model · model
 src/routes/      / (채팅) · /classic (화면) · /api/chat · /api/trips/$tripId · /api/config · /api/evidence · /api/status
-src/chat/        chat(useChat·헤더·입력) · cards(도구별 카드)
+src/home/        shell(탭·에이전트 시트) · profile(프로필 폼) · home-tab · tour-tab · community · thumb
+src/chat/        chat(useAgent·ChatPanel) · cards(도구별 카드)
 src/app/         classic 화면 · trip-client(여정 id·서버 호출·오프라인 캐시) · use-trip
 src/components/  shadcn/ui · ai-elements (레지스트리 원본, 수정 없음)
 tests/           planner(D01–D08) · trip · db(PGlite jsonb) · evidence · harness(대화 전체 e2e·도구 통제·대체 모델)

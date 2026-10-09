@@ -1,4 +1,5 @@
 import type { RaceEvent } from '../schema'
+import { images } from './images'
 
 /**
  * The race, as data. Name, date, schedule, course and the FAQ are demo
@@ -8,7 +9,7 @@ import type { RaceEvent } from '../schema'
  */
 export const event: RaceEvent = {
   name: '2026 포항 영일만 해변런',
-  image: '',
+  image: images.event?.url ?? '',
   category: '10km · 5km',
   date: '2026-10-25',
   dateLabel: '2026년 10월 25일 (일)',
