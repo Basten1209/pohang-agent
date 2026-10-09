@@ -10,7 +10,8 @@ import { seed } from '#/server/db/repo'
 import type { AgentUIMessage, HarnessDeps } from '#/server/agent/harness'
 import { openingFor, runTurn } from '#/server/agent/harness'
 import { scriptedModel } from '#/server/agent/scripted-model'
-import { openTrip } from '#/server/trips'
+import { commit, openTrip } from '#/server/trips'
+import { fillSlots, pendingSlot } from '#/core/slots'
 
 /**
  * The whole conversation, end to end, through the real harness and a real
@@ -139,12 +140,34 @@ const checkIn = async () => {
 }
 
 describe('대화로 여정 만들기', () => {
-  it('새 여정은 인사와 첫 질문(귀가 방법), 답 버튼으로 시작', async () => {
+  it('새 여정은 인사로 시작하고 질문은 프로필 폼이 받음', async () => {
     const { messages, state } = await load()
     expect(stageOf(state)).toBe('ONBOARDING')
     const [first] = messages as UIMessage[]
     expect(toolParts(first)).toEqual([])
-    expect(await openQuestion()).toMatchObject({ slot: 'departMode' })
+    expect(await openQuestion()).toBeUndefined()
+  })
+
+  it('프로필 폼은 채팅과 같은 이벤트로 저장되고 채팅에서 다시 묻지 않음', async () => {
+    const { state } = await load()
+    const events = fillSlots(
+      seedConfig,
+      state,
+      {
+        departMode: 'TRAIN',
+        departTime: '18:30',
+        course: 'guryongpo',
+        interests: ['food', 'walk'],
+        origin: 'RACE',
+      },
+      ['departMode', 'departTime', 'course', 'interests', 'origin'],
+    )
+    const record = await load()
+    await commit(db, record, events)
+    const after = (await load()).state
+    expect(after.created).toBe(true)
+    expect(stageOf(after)).toBe('PRE_RACE')
+    expect(pendingSlot(seedConfig, after)).toBeNull()
   })
 
   it('버튼 답은 모델 없이 저장되고 다음 질문이 이어짐', async () => {

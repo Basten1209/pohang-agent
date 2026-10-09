@@ -62,9 +62,10 @@ export const Choices = ({
   prompt: ChoicePrompt
   interactive: boolean
 }) => {
-  const { config, choose } = useChatContext()
+  const { config, choose, view } = useChatContext()
   const [picked, setPicked] = useState<string[]>([])
-  if (!interactive) return null
+  // A question already answered elsewhere (the profile form) is not asked again.
+  if (!interactive || view.state.answered.includes(prompt.slot)) return null
   const icon = (value: unknown) => {
     const place = config.places.find((p) => p.id === value)
     return place ? <PlaceIcon name={place.attrs.icon} /> : null
@@ -466,7 +467,11 @@ const toolTitle: Record<string, string> = {
   get_weather: '날씨 예보 (기상청)',
 }
 
-const GenericTool = ({ part }: CardProps<ToolPart>) => (
+/** Lookups show only in presentation mode; the answer text says what they found. */
+const GenericTool = ({ part }: CardProps<ToolPart>) =>
+  useChatContext().showTools ? <ToolDetails part={part} /> : null
+
+const ToolDetails = ({ part }: { part: ToolPart }) => (
   <Tool>
     <ToolHeader
       type={part.type}

@@ -214,6 +214,8 @@ export type Course = z.infer<typeof courseSchema>
 /** The race itself: what a participant asks about. Served by the agent's tools and the 대회 개요 tab. */
 export const raceEventSchema = z.object({
   name: z.string(),
+  /** Representative photo (optional). */
+  image: z.string().default(''),
   category: z.string(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   dateLabel: z.string(),

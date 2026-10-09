@@ -105,7 +105,7 @@ type CourseName = { id: string; area: string }
 const course =
   (courses: CourseName[]): Extractor =>
   (message) => {
-    if (!/바꿔|바꾸|갈래|가고\s*싶|대신|로\s*가/.test(message)) return {}
+    if (!/바꿔|바꾸|갈래|가고\s*싶|대신|로\s*가|보여/.test(message)) return {}
     if (/추천/.test(message)) return { course: 'auto' }
     const hit = courses.find((c) => message.includes(c.area))
     return hit ? { course: hit.id } : {}

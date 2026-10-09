@@ -6,7 +6,7 @@ import { cachedView, currentTripId, fetchTrip } from '#/app/trip-client'
 import { clock } from '#/core/time'
 import type { TripView } from '#/core/view'
 import type { AgentUIMessage } from '#/server/agent/harness'
-import { Chat } from '#/chat/chat'
+import { Shell } from '#/home/shell'
 
 export const Route = createFileRoute('/')({
   // The device only knows its trip id (localStorage), so render on the client.
@@ -62,5 +62,5 @@ function Home() {
 
   if (loaded === null) return <Loading />
   if (loaded === 'offline') return <Offline />
-  return <Chat config={config} tripId={tripId} initial={loaded} />
+  return <Shell config={config} tripId={tripId} initial={loaded} />
 }

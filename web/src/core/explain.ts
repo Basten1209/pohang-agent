@@ -18,6 +18,14 @@ export const josa = (word: string, withFinal: string, without: string) => {
   return `${word}${code % 28 ? withFinal : without}`
 }
 
+/** "포항역으로", "대회장으로", "구룡포로" (ㄹ-final takes 로). */
+export const toward = (word: string) => {
+  const code = word.charCodeAt(word.length - 1) - 0xac00
+  if (code < 0 || code > 11171) return `${word}(으)로`
+  const final = code % 28
+  return `${word}${final && final !== 8 ? '으로' : '로'}`
+}
+
 export const interestNoun: Record<Interest, string> = {
   food: '식사',
   walk: '산책',

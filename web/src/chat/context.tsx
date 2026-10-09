@@ -20,6 +20,8 @@ export type ChatContext = {
   /** Approve or decline a proposed change. */
   approve: (approvalId: string, approved: boolean) => void
   send: (text: string) => void
+  /** Show lookup tool calls (presentation mode); otherwise only their answers. */
+  showTools: boolean
   /** Reply with a chip: its sentence as the user's message, plus its value. */
   choose: (slot: SlotId, value: ChipAnswer['value'], say: string) => void
 }
