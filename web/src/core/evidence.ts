@@ -179,7 +179,8 @@ export const interpretBody = (
     freshness: freshnessOf(observedAt, source.maxAgeSeconds, now),
     value,
     values,
-    message:
-      '실응답 조회 성공. 단위·갱신 주기 검증 전에는 시연 계산과 분리해서 표시해요.',
+    message: source.decision
+      ? '실응답 조회 성공. 2시간 이내 관측이면 코스 판단에 반영해요.'
+      : '실응답 조회 성공. 단위·갱신 주기 검증 전에는 시연 계산과 분리해서 표시해요.',
   }
 }

@@ -47,6 +47,8 @@ export type Itinerary = {
   executionMode: 'DEMO'
   /** The course this itinerary is for (chosen, or picked by `auto`). */
   course: string | null
+  /** Other courses that can be done under the same conditions (at most 3). */
+  alternatives: string[]
   hub: HubId
   variant: string | null
   revision: number
@@ -117,6 +119,7 @@ const contextOf = (
       calculationStatus: 'NOT_RUN',
       executionMode: 'DEMO',
       course: course.id,
+      alternatives: [],
       hub: hub.id,
       variant: null,
       revision: plan.revision,
@@ -256,9 +259,15 @@ type Candidate =
   | { kind: 'infeasible' }
   | { kind: 'empty' }
 
+/** Stairs (e.g. up to 과메기문화관) are left out for a tired runner or a short walk. */
+const avoidsStairs = (plan: Plan) =>
+  plan.condition === 'TIRED' || plan.walkingLimit <= 15
+const hasStairs = (p: Place) => p.attrs.stairs === true
+
 const allowedIn = (ctx: Context) => (id: PlaceId) =>
   id in ctx.places &&
   ctx.plan.interests.includes(ctx.places[id].attrs.interest) &&
+  !(avoidsStairs(ctx.plan) && hasStairs(ctx.places[id])) &&
   !ctx.plan.excluded.includes(id) &&
   !ctx.plan.completed.includes(id) &&
   !(ctx.effect.outdoorBlocked && ctx.places[id].attrs.outdoor)
@@ -313,9 +322,11 @@ const evaluate =
           ? copy(ctx, 'excludedByUser')
           : !plan.interests.includes(p.attrs.interest)
             ? copy(ctx, 'excludedByInterest')
-            : p.attrs.outdoor && effect.outdoorBlocked
-              ? copy(ctx, 'excludedOutdoor')
-              : copy(ctx, 'excludedByTime'),
+            : avoidsStairs(plan) && hasStairs(p)
+              ? copy(ctx, 'excludedStairs')
+              : p.attrs.outdoor && effect.outdoorBlocked
+                ? copy(ctx, 'excludedOutdoor')
+                : copy(ctx, 'excludedByTime'),
       }))
 
     const reasons = [
@@ -404,11 +415,47 @@ export const planEveryCourse = (
 ): Itinerary[] =>
   activeCourses(config).map((c) => decide(contextOf(config, plan, obs, c)))
 
+/**
+ * `auto`: the featured course whenever it can be done, otherwise the best
+ * other course, saying why the featured one was passed over.
+ */
+const chooseAuto = (config: TripConfig, all: Itinerary[]): Itinerary => {
+  const featuredId = config.policy.featuredCourse
+  const featured = all.find((i) => i.course === featuredId)
+  if (featured && canTravel(featured)) return featured
+  const best = bestOf(all)
+  if (!featured || best === featured || !canTravel(best)) return best
+  const fill = (key: string, vars: Record<string, string>) =>
+    Object.entries(vars).reduce(
+      (text, [k, v]) => text.replaceAll(`{${k}}`, v),
+      config.policy.copy[key] ?? key,
+    )
+  return {
+    ...best,
+    reasons: [
+      fill('featuredSkipped', {
+        featured: courseById(config, featuredId)?.area ?? '',
+        area: courseById(config, best.course)?.area ?? '',
+      }),
+      ...best.reasons,
+    ],
+  }
+}
+
 export const planner =
   (config: TripConfig) =>
   (plan: Plan, obs: Observations): Itinerary => {
+    const all = planEveryCourse(config, plan, obs)
     const fixed =
       plan.course === AUTO_COURSE ? undefined : courseById(config, plan.course)
-    if (fixed) return decide(contextOf(config, plan, obs, fixed))
-    return bestOf(planEveryCourse(config, plan, obs))
+    const pick =
+      (fixed && all.find((i) => i.course === fixed.id)) ??
+      chooseAuto(config, all)
+    return {
+      ...pick,
+      alternatives: all
+        .filter((i) => i.course !== pick.course && canTravel(i))
+        .slice(0, 3)
+        .map((i) => i.course!),
+    }
   }

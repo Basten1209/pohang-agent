@@ -10,7 +10,8 @@ import { seed } from '#/server/db/repo'
 import type { AgentUIMessage, HarnessDeps } from '#/server/agent/harness'
 import { openingFor, runTurn } from '#/server/agent/harness'
 import { scriptedModel } from '#/server/agent/scripted-model'
-import { openTrip } from '#/server/trips'
+import { commit, openTrip } from '#/server/trips'
+import { fillSlots, pendingSlot } from '#/core/slots'
 
 /**
  * The whole conversation, end to end, through the real harness and a real
@@ -139,12 +140,34 @@ const checkIn = async () => {
 }
 
 describe('대화로 여정 만들기', () => {
-  it('새 여정은 인사와 첫 질문(귀가 방법), 답 버튼으로 시작', async () => {
+  it('새 여정은 인사로 시작하고 질문은 프로필 폼이 받음', async () => {
     const { messages, state } = await load()
     expect(stageOf(state)).toBe('ONBOARDING')
     const [first] = messages as UIMessage[]
     expect(toolParts(first)).toEqual([])
-    expect(await openQuestion()).toMatchObject({ slot: 'departMode' })
+    expect(await openQuestion()).toBeUndefined()
+  })
+
+  it('프로필 폼은 채팅과 같은 이벤트로 저장되고 채팅에서 다시 묻지 않음', async () => {
+    const { state } = await load()
+    const events = fillSlots(
+      seedConfig,
+      state,
+      {
+        departMode: 'TRAIN',
+        departTime: '18:30',
+        course: 'guryongpo',
+        interests: ['food', 'walk'],
+        origin: 'RACE',
+      },
+      ['departMode', 'departTime', 'course', 'interests', 'origin'],
+    )
+    const record = await load()
+    await commit(db, record, events)
+    const after = (await load()).state
+    expect(after.created).toBe(true)
+    expect(stageOf(after)).toBe('PRE_RACE')
+    expect(pendingSlot(seedConfig, after)).toBeNull()
   })
 
   it('버튼 답은 모델 없이 저장되고 다음 질문이 이어짐', async () => {
@@ -335,6 +358,139 @@ describe('정보 질문은 프롬프트가 아니라 도구로 답함', () => {
     expect(calledTool(turn, 'get_directions')).toBeTruthy()
     expect(said(turn)).toContain('map.kakao.com')
     expect(said(turn)).not.toMatch(/\d+번/)
+  })
+})
+
+describe('테스트 대화에서 발견한 문제 (지시서 8장)', () => {
+  const said = (chunks: { type: string; [k: string]: unknown }[]) =>
+    chunks.flatMap((c) => (c.type === 'text-delta' ? [c.delta] : [])).join('')
+  const called = (chunks: { type: string; [k: string]: unknown }[]) =>
+    chunks.flatMap((c) =>
+      c.type === 'tool-input-available' ? [String(c.toolName)] : [],
+    )
+
+  it('1. "대회날 날씨 어때?"는 대회 정보가 아니라 날씨를 조회', async () => {
+    await onboard()
+    const turn = await say('대회날 날씨 어때?')
+    expect(called(turn)).toContain('get_weather')
+    expect(called(turn)).not.toContain('get_race_info')
+  })
+
+  it('2. "30분 더 쉴래요"는 휴식 변경으로 이해', async () => {
+    await finishRace()
+    await checkIn()
+    const turn = await say('30분 더 쉴래요')
+    expect(turn.some((c) => c.type === 'tool-approval-request')).toBe(true)
+    expect(said(turn)).not.toContain('바꿀 조건을 알려주세요')
+  })
+
+  it('3. 일정에 없는 카페를 빼 달라면 승인 없이 이미 없다고 답함', async () => {
+    await load()
+    await choose('departMode', 'TRAIN', '기차 타고 가요')
+    await choose('departTime', '18:30', '18시 30분 기차예요')
+    await choose('course', 'guryongpo', '구룡포 가 보고 싶어요')
+    await choose('interests', ['food', 'walk'], '점심, 산책 할래요')
+    await choose('origin', 'RACE', '대회장에서 바로 갈게요')
+    await say('완주했어요')
+    await checkIn()
+    const turn = await say('카페는 빼 줘')
+    expect(turn.some((c) => c.type === 'tool-approval-request')).toBe(false)
+    expect(said(turn)).toContain('이미 일정에 없어요')
+  })
+
+  it('4. "왜 이 코스야?"는 남은 시간과 뺀 이유로 답함', async () => {
+    await finishRace()
+    await checkIn()
+    const turn = await say('왜 이 코스야?')
+    expect(said(turn)).toMatch(/남아 구룡포에서 \d곳을 넣었어요/)
+    expect(said(turn)).toContain('뺐어요')
+  })
+
+  it('5. "지금도 시간 괜찮아?"는 도착 시각과 여유로 결론부터', async () => {
+    await finishRace()
+    await checkIn()
+    const turn = await say('지금도 시간 괜찮아?')
+    expect(said(turn)).toMatch(/^네, 지금 일정이면 포항역 \d{2}:\d{2} 도착/)
+    expect(said(turn)).toContain('최신 관측을 확인하지 못해')
+  })
+
+  it('6. 근처 맛집은 지금 권역 장소만, 운영 메모 없이', async () => {
+    await finishRace()
+    await checkIn()
+    await say('이 코스로 갈게요')
+    const turn = await say('근처 맛집 알려줘')
+    const text = said(turn)
+    expect(called(turn)).toContain('find_nearby')
+    expect(text).not.toMatch(/호미곶|설머리|죽도/)
+    expect(text).not.toContain('선정 전')
+    expect(text).not.toContain('인증키')
+  })
+})
+
+describe('안전 게이트 표현 (지시서 5-5)', () => {
+  it.each([
+    '어지러워요',
+    '토할 것 같아요',
+    '숨이 차요',
+    '가슴이 답답해요',
+    '다리에 쥐가 났어요',
+    '너무 더워요',
+    '쓰러질 것 같아요',
+  ])('%s → 안전 단계', async (text) => {
+    await finishRace()
+    await say(text)
+    expect(await stage()).toBe('SAFETY')
+  })
+
+  it('"괜찮아졌어요"라고 해도 관광을 바로 재개하지 않음', async () => {
+    await finishRace()
+    await say('어지러워요')
+    await say('이제 괜찮아졌어요')
+    expect(await stage()).toBe('SAFETY')
+  })
+})
+
+describe('E-UM 실측이 코스 계산에 들어감', () => {
+  const live = {
+    sourceId: 'INT_S07_005',
+    label: 'E-UM 시간대별 교통 혼잡율',
+    reading: 'congestion',
+    status: 'LIVE' as const,
+    observedAt: new Date(Date.now() - 10 * 60_000).toISOString(),
+    fetchedAt: new Date().toISOString(),
+    freshness: 'FRESH' as const,
+    value: 82,
+    unit: '%',
+    values: {},
+    message: '',
+  }
+
+  it('완주 후 코스를 만들 때 실측 혼잡을 반영하고 출처를 남김', async () => {
+    deps = { ...deps, observe: async () => [live] }
+    await finishRace()
+    await checkIn()
+    const { state } = await load()
+    expect(state.observations.readings.congestion).toBe(82)
+    expect(state.observations.sources.congestion?.provenance).toBe('LIVE')
+    const it = planner(seedConfig)(state.plan, state.observations)
+    expect(it.trafficReserve).toBe(20)
+  })
+
+  it('"지금도 괜찮아?"는 실측을 다시 반영하고 도착·여유로 답함', async () => {
+    await finishRace()
+    await checkIn()
+    deps = { ...deps, observe: async () => [live] }
+    const turn = await say('지금도 시간 괜찮아?')
+    expect(
+      turn.some(
+        (c) =>
+          c.type === 'tool-input-available' &&
+          c.toolName === 'check_live_conditions',
+      ),
+    ).toBe(true)
+    expect(
+      (await load()).state.observations.sources.congestion?.provenance,
+    ).toBe('LIVE')
   })
 })
 

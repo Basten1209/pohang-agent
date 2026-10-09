@@ -80,8 +80,8 @@ export const call = async (
     return {
       status: 'NOT_CONFIGURED',
       data: null,
-      message:
-        '공공데이터포털 인증키(DATA_GO_KR_SERVICE_KEY)가 설정되지 않았어요.',
+      // Said to users as is: no internal names (keys, env vars).
+      message: '지금은 실시간 정보를 불러오지 못했어요.',
     }
   const url = new URL(`${BASE}/${path}`)
   url.searchParams.set('serviceKey', decodedKey(key))
@@ -93,9 +93,18 @@ export const call = async (
     })
     const text = await response.text()
     if (!response.ok)
-      return { status: 'ERROR', data: null, message: `HTTP ${response.status}` }
+      return {
+        status: 'ERROR',
+        data: null,
+        message: `실시간 정보를 불러오지 못했어요(제공처 응답 ${response.status}).`,
+      }
     const error = errorOf(text)
-    if (error) return { status: 'ERROR', data: null, message: error }
+    if (error)
+      return {
+        status: 'ERROR',
+        data: null,
+        message: `실시간 정보를 불러오지 못했어요(${error}).`,
+      }
     return {
       status: 'LIVE',
       data: itemsOf(JSON.parse(text)),
@@ -105,7 +114,7 @@ export const call = async (
     return {
       status: 'ERROR',
       data: null,
-      message: '응답 시간 초과 또는 연결 오류',
+      message: '실시간 정보를 불러오지 못했어요(응답 지연).',
     }
   }
 }

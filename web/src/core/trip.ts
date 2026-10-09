@@ -89,16 +89,32 @@ const bump = (state: TripState, plan: Partial<Plan> = {}): TripState => ({
   plan: { ...state.plan, ...plan, revision: state.plan.revision + 1 },
 })
 
+const demoSources = (readings: Record<string, unknown>) =>
+  Object.fromEntries(
+    Object.keys(readings).map((k) => [
+      k,
+      {
+        provenance: 'DEMO' as const,
+        sourceId: null,
+        observedAt: null,
+        fetchedAt: null,
+        note: null,
+      },
+    ]),
+  )
+
 const handlers: Handlers = {
   'plan.patched': (s, e) => bump(s, e.patch),
   'observations.patched': (s, e) =>
     bump({ ...s, observations: { ...s.observations, ...e.patch } }),
+  // Readings set by hand (the demo menu) are demo values, never live ones.
   'readings.patched': (s, e) =>
     bump({
       ...s,
       observations: {
         ...s.observations,
         readings: { ...s.observations.readings, ...e.readings },
+        sources: { ...s.observations.sources, ...demoSources(e.readings) },
       },
     }),
   'screen.changed': (s, e) => ({ ...s, screen: e.screen }),
@@ -307,6 +323,7 @@ export const runScenario = (
     ...baseObs,
     ...scenario.observations,
     readings: { ...baseObs.readings, ...scenario.readings },
+    sources: { ...baseObs.sources, ...demoSources(scenario.readings) },
   }
   return {
     events: [

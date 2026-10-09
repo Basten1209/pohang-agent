@@ -2,11 +2,19 @@ import { tool } from 'ai'
 import { z } from 'zod'
 import type { Evidence } from '#/core/evidence'
 import type { Changes } from '#/core/intents'
+import { explainPlan, interestNoun, josa } from '#/core/explain'
 import { knowledgeOf, searchKnowledge } from '#/core/knowledge'
+import { liveObservationEvents, readingLine } from '#/core/live'
 import { directionsUrl } from '#/core/links'
 import { canTravel, planEveryCourse, planner } from '#/core/planner'
 import { planContext, preview } from '#/core/preview'
-import { activeCourses, courseById, departLabel, hubOf } from '#/core/route'
+import {
+  activeCourses,
+  courseById,
+  departLabel,
+  hubOf,
+  placesOf,
+} from '#/core/route'
 import type { TripConfig } from '#/core/schema'
 import { AUTO_COURSE, interestSchema, timeSchema } from '#/core/schema'
 import { clock } from '#/core/time'
@@ -142,6 +150,22 @@ export const makeTools = (ctx: TurnContext) => {
   const placeName = (id: string) =>
     config.places.find((p) => p.id === id)?.attrs.short ?? id
   const docs = knowledgeOf(config)
+  /** Catalogue places (and guide notes) of the area `near` points at, best first. */
+  const nearbyDocs = (near: string) => {
+    const { state } = ctx.trip()
+    const it = planner(config)(state.plan, state.observations)
+    const area =
+      near === 'HERE' || near === 'COURSE'
+        ? courseById(config, it.course)
+        : config.courses.find((c) => near.includes(c.area) || c.id === near)
+    if (!area) return searchKnowledge(docs, near, 4)
+    const refs = new Set(placesOf(config, area.id).map((p) => p.id))
+    return docs.filter(
+      (d) =>
+        (d.kind === 'place' && d.ref && refs.has(d.ref)) ||
+        (d.kind === 'guide' && d.text.includes(area.area)),
+    )
+  }
   const kst = () => new Date(Date.now() + 9 * 3600_000).toISOString()
   const now = () => {
     const { state } = ctx.trip()
@@ -207,14 +231,39 @@ export const makeTools = (ctx: TurnContext) => {
         },
       ],
       execute: async ({ changes }) => {
-        const { state } = ctx.trip()
+        const { state, it: current } = now()
         const request = (changes as Changes | null) ?? noChanges
         const p = preview(config, state.plan, state.observations, request)
+        // "카페는 빼 줘" when there is no cafe: nothing to approve.
+        const onlyRemovals =
+          !isEmpty(request) &&
+          request.departTime === null &&
+          request.course === null &&
+          request.walkingLimit === null &&
+          request.extraRestMin === null
+        const same =
+          p.itinerary.stops.map((s) => s.id).join() ===
+          current.stops.map((s) => s.id).join()
+        if (onlyRemovals && same) {
+          const names = [
+            ...(request.dropInterests ?? []).map((i) => interestNoun[i]),
+            ...(request.excludePlaces ?? []).map(placeName),
+          ]
+          return {
+            previewId: null,
+            isChange: false,
+            noEffect: `${josa(names.join('·') || '그 장소', '은', '는')} 이미 일정에 없어요. 일정은 그대로예요.`,
+            revision: p.revision,
+            changes: {},
+            itinerary: current,
+          }
+        }
         const id = ctx.newId()
         ctx.remember({ id, revision: p.revision, changes: p.changes })
         return {
-          previewId: id,
+          previewId: id as string | null,
           isChange: !isEmpty(request),
+          noEffect: null as string | null,
           revision: p.revision,
           changes: p.changes,
           itinerary: p.itinerary,
@@ -225,6 +274,7 @@ export const makeTools = (ctx: TurnContext) => {
         value: {
           previewId: output.previewId,
           isChange: output.isChange,
+          noEffect: output.noEffect,
           course: courseById(config, output.itinerary.course)?.title ?? null,
           hub: hubOf(config, ctx.trip().state.plan).name,
           decision: output.itinerary.decision,
@@ -241,7 +291,7 @@ export const makeTools = (ctx: TurnContext) => {
     }),
     explain_plan: tool({
       description:
-        '현재 코스가 왜 이렇게 정해졌는지(시간 계산, 제외된 장소와 이유)를 조회한다. "왜", "이유" 같은 질문에 쓴다. 계획을 바꾸지 않는다. topic으로 설명할 내용을 고른다.',
+        '현재 코스가 왜 이렇게 정해졌는지(남은 시간, 걷기, 제외된 장소와 이유, 관측 영향)를 조회한다. "왜", "이유" 같은 질문에 쓴다. 답은 summary를 바탕으로 한두 문장. 계획을 바꾸지 않는다.',
       inputSchema: z
         .object({ topic: z.enum(['why_course', 'excluded', 'timing']) })
         .strict(),
@@ -249,6 +299,8 @@ export const makeTools = (ctx: TurnContext) => {
         const { state, it } = now()
         return {
           topic,
+          /** Quote this: the reasons, computed from the plan itself. */
+          summary: explainPlan(config, state.plan, it, state.observations),
           ...planContext(config, state.plan, state.observations),
           breakdown: {
             readyTime: state.plan.readyTime,
@@ -262,20 +314,46 @@ export const makeTools = (ctx: TurnContext) => {
     }),
     check_live_conditions: tool({
       description:
-        'E-UM 디지털 트윈(교통 혼잡, 대기)의 실제 연결 상태와 값을 조회한다. "지금도 괜찮아?", "최신 상황" 같은 질문에 쓴다. 계획을 바꾸지 않으며, 일정 계산은 화면의 관측 입력 기준임을 함께 말한다. 입력은 없다.',
+        'E-UM 디지털 트윈(교통 혼잡, 대기)을 지금 조회하고, 2시간 이내의 교통 혼잡 실측값은 일정 계산에 반영한 뒤 결과를 돌려준다. "지금도 괜찮아?", "시간 돼?", "최신 상황" 같은 질문에 쓴다. 답은 verdict의 도착 시각과 여유(분)로 결론부터 말하고, 관측값은 provenance(LIVE=실측, DEMO=시연 조건, SIMULATED=시연값)와 관측 시각을 함께 말한다. 대기(pm25)는 단위 확인 전이라 판단에 쓰지 않는다. 입력은 없다.',
       inputSchema: z.object({}).strict(),
-      execute: async () => ({
-        evidence: (await ctx.observe()).map((e) => ({
-          source: e.sourceId,
-          label: e.label,
-          status: e.status,
-          value: e.value,
-          unit: e.unit,
-          observedAt: e.observedAt,
-          freshness: e.freshness,
-        })),
-        decisionInputs: ctx.trip().state.observations,
-      }),
+      execute: async () => {
+        const evidence = await ctx.observe()
+        const before = ctx.trip().state
+        await ctx.commit(
+          liveObservationEvents(config, before.observations, evidence),
+          'check_live_conditions',
+        )
+        const { state, it } = now()
+        const obs = state.observations
+        const hub = hubOf(config, state.plan)
+        return {
+          verdict: {
+            decision: it.decision,
+            hub: hub.name,
+            depart: departLabel(config, state.plan),
+            arrival:
+              it.planningArrival === null ? null : clock(it.planningArrival),
+            slackMin: it.slack,
+            trafficReserveMin: it.trafficReserve,
+          },
+          usedInPlan: {
+            congestion: readingLine(obs, 'congestion', '교통 혼잡', '%'),
+            provenance: obs.sources.congestion?.provenance ?? 'SIMULATED',
+          },
+          evidence: evidence.map((e) => ({
+            source: e.sourceId,
+            label: e.label,
+            status: e.status,
+            value: e.value,
+            unit: e.unit,
+            observedAt: e.observedAt,
+            freshness: e.freshness,
+            usedInPlan:
+              config.sources.find((s) => s.id === e.sourceId)?.decision ??
+              false,
+          })),
+        }
+      },
     }),
     compare_transport: tool({
       description:
@@ -465,11 +543,10 @@ export const makeTools = (ctx: TurnContext) => {
           return {
             status: live.status,
             message: live.message,
-            fallback: searchKnowledge(
-              docs,
-              `${near} ${keyword ?? ''} ${type ?? ''}`,
-              3,
-            ).map((d) => ({ title: d.title, text: d.text.slice(0, 300) })),
+            // The curated guide, kept to the area asked about.
+            fallback: nearbyDocs(near)
+              .slice(0, 4)
+              .map((d) => ({ title: d.title, text: d.text.slice(0, 200) })),
           }
         return {
           status: 'LIVE' as const,
@@ -694,12 +771,37 @@ export const makeTools = (ctx: TurnContext) => {
         const p =
           resolvePoint(config, state.plan, near ?? 'RACE', it.course) ??
           resolvePoint(config, state.plan, 'RACE')!
+        // The short-term forecast reaches about 3 days ahead: say when to ask.
+        const want = date ?? kst().slice(0, 10)
+        const daysAhead = Math.round(
+          (Date.parse(`${want}T00:00:00Z`) -
+            Date.parse(`${kst().slice(0, 10)}T00:00:00Z`)) /
+            86_400_000,
+        )
+        if (daysAhead > 3) {
+          const from = new Date(
+            Date.parse(`${want}T00:00:00Z`) - 3 * 86_400_000,
+          )
+            .toISOString()
+            .slice(0, 10)
+          return {
+            status: 'OUT_OF_RANGE' as const,
+            date: want,
+            note: `${want} 예보는 아직 없어요. 기상청 단기예보는 3일 뒤까지라 ${from}부터 확인할 수 있어요.`,
+          }
+        }
         const live = await forecast(p)
         if (live.status !== 'LIVE')
           return { status: live.status, message: live.message }
         const day = date ?? kst().slice(0, 10)
         const hours = live.data.filter((h) => h.date === day)
+        const from = new Date(Date.parse(`${day}T00:00:00Z`) - 3 * 86_400_000)
+          .toISOString()
+          .slice(0, 10)
         return {
+          note: hours.length
+            ? null
+            : `${day} 예보는 아직 없어요. 단기예보는 3일 뒤까지라 ${from}부터 확인할 수 있어요.`,
           status: 'LIVE' as const,
           source: '기상청 단기예보',
           near: p.name,

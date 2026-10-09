@@ -73,8 +73,25 @@ export type Plan = z.infer<typeof planSchema>
 
 // ── Observations: a bag of named readings with provenance ───────────────
 export const freshnessSchema = z.enum(['FRESH', 'STALE', 'UNKNOWN'])
+
+/**
+ * Where one reading came from: a live provider response, a demo scenario, or
+ * the seed's simulated value. Shown next to every number the plan uses.
+ */
+export const readingSourceSchema = z.object({
+  provenance: z.enum(['LIVE', 'SNAPSHOT', 'SIMULATED', 'DEMO']),
+  sourceId: z.string().nullable().default(null),
+  observedAt: z.string().nullable().default(null),
+  fetchedAt: z.string().nullable().default(null),
+  /** Why a live value is not used, e.g. the provider could not be reached. */
+  note: z.string().nullable().default(null),
+})
+export type ReadingSource = z.infer<typeof readingSourceSchema>
+
 export const observationsSchema = z.object({
   readings: z.record(z.string(), z.number().finite().nullable()),
+  /** Per-reading provenance; a reading without an entry is the seed's simulated value. */
+  sources: z.record(z.string(), readingSourceSchema).default({}),
   freshness: freshnessSchema,
   routeAvailable: z.boolean(),
   provenance: z.enum(['SIMULATED', 'LIVE', 'SNAPSHOT']),
@@ -150,6 +167,8 @@ export const variantSchema = z.object({
 export type Variant = z.infer<typeof variantSchema>
 
 export const policySchema = z.object({
+  /** Tried first when the course is `auto`; others only if it cannot be done. */
+  featuredCourse: courseIdSchema.nullable().default(null),
   restCapMin: z.number().int().min(0),
   local: z.object({
     firstApproach: z.number().int().min(0),
@@ -195,6 +214,8 @@ export type Course = z.infer<typeof courseSchema>
 /** The race itself: what a participant asks about. Served by the agent's tools and the 대회 개요 tab. */
 export const raceEventSchema = z.object({
   name: z.string(),
+  /** Representative photo (optional). */
+  image: z.string().default(''),
   category: z.string(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   dateLabel: z.string(),
@@ -278,12 +299,16 @@ export const sourceSchema = z.object({
   keepFields: z.array(z.string()),
   timeoutMs: z.number().int().positive().default(3000),
   maxAgeSeconds: z.number().int().positive().nullable(),
+  /** A live, fresh value of this source replaces the simulated reading in the plan. */
+  decision: z.boolean().default(false),
   meta: z.record(z.string(), z.unknown()).default({}),
 })
 export type Source = z.infer<typeof sourceSchema>
 
 export const agentConfigSchema = z.object({
   model: z.string(),
+  /** Low for a stable demo. Reasoning models ignore it (the SDK drops it with a warning). */
+  temperature: z.number().min(0).max(1).nullable().default(null),
   maxSteps: z.number().int().min(1).max(8),
   maxToolCalls: z.number().int().min(1).max(8),
   timeoutMs: z.number().int().positive(),

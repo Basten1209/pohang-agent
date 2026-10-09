@@ -11,13 +11,16 @@ import { places } from './seed/places'
  * health standard.
  */
 export const seedConfig: TripConfig = {
-  // 2: courses, ways home, race event (see seed/). Older seeded rows are replaced.
-  version: 2,
+  // 2: courses, ways home, race event (see seed/). 3: featured course, live
+  // decision source, stairs, user-facing place text. Older seeded rows are replaced.
+  version: 3,
   event,
   courses,
   modes,
   guide,
   policy: {
+    // The service is about Guryongpo; other courses are the fallback.
+    featuredCourse: 'guryongpo',
     restCapMin: 180,
     local: { firstApproach: 5, lastApproach: 5 },
     signals: [
@@ -65,10 +68,13 @@ export const seedConfig: TripConfig = {
       cancel:
         '{area}는 가장 짧은 코스도 {noun} 시간이나 걷기 조건에 맞추기 어려워요. 관광 대신 {hub}(으)로 가는 길을 확인해 주세요.',
       noInterest: '{area}에는 고른 활동에 맞는 장소가 없어요.',
+      featuredSkipped:
+        '{featured}는 지금 조건으로 다녀오기 어려워 {area} 코스를 골랐어요.',
       excludedByUser: '직접 제외한 장소',
       excludedOutdoor: '야외 체류 제한',
       excludedByTime: '귀가 시간과 걷기 조건 반영',
       excludedByInterest: '고른 활동이 아님',
+      excludedStairs: '계단 있는 동선이라 제외',
     },
   },
   places,
@@ -111,10 +117,12 @@ export const seedConfig: TripConfig = {
       unit: '%',
       keepFields: ['cntPerc', 'hour'],
       timeoutMs: 3000,
-      maxAgeSeconds: null,
+      // Hourly values (2026-10-08: hour=20:00 fetched at 20:13 KST). Older than 2h = stale.
+      maxAgeSeconds: 7200,
+      decision: true,
       meta: {
         docs: 'https://pohang-eum.kr/data/list/detail/INT_S07_005',
-        note: '전체 장비 통합 혼잡율. 갱신 주기 미검증.',
+        note: '전체 장비 통합 혼잡율(%). 1시간 단위 관측. 실응답이 2시간 이내면 코스 판단에 반영.',
       },
     },
     {
@@ -132,6 +140,8 @@ export const seedConfig: TripConfig = {
       keepFields: ['pm25', 'pm10', 'temp', 'humi', 'logDateTime', 'devId'],
       timeoutMs: 3000,
       maxAgeSeconds: null,
+      // Unit unverified (provider says PPM): shown as evidence, never used to decide.
+      decision: false,
       meta: {
         docs: 'https://pohang-eum.kr/data/list/detail/INT_S01_004',
         note: '제공처 문서는 pm25 단위를 PPM으로 표기. μg/m³ 여부 확인 전까지 결정에 사용하지 않음.',
@@ -140,6 +150,7 @@ export const seedConfig: TripConfig = {
   ],
   agent: {
     model: 'gpt-6-luna',
+    temperature: 0.2,
     maxSteps: 5,
     maxToolCalls: 4,
     timeoutMs: 20000,
@@ -346,6 +357,7 @@ export const seedConfig: TripConfig = {
     },
     observations: {
       readings: { congestion: 42, pm25: 10 },
+      sources: {},
       freshness: 'FRESH',
       routeAvailable: true,
       provenance: 'SIMULATED',

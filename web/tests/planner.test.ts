@@ -208,14 +208,49 @@ describe('열차 시각 읽기', () => {
   })
 })
 
+describe('계단 있는 장소', () => {
+  it('지쳤거나 15분만 걸으면 계단 오르는 과메기문화관은 빼고 이유를 남김', () => {
+    const r = calculate(
+      { ...plan, condition: 'TIRED', interests: ['food', 'indoor'] },
+      obs,
+    )
+    expect(r.stops.map((s) => s.id)).toEqual(['food'])
+    expect(r.excluded.find((e) => e.id === 'gp-museum')?.reason).toBe(
+      '계단 있는 동선이라 제외',
+    )
+    const ok = calculate(
+      { ...plan, condition: 'OK', interests: ['food', 'indoor'] },
+      obs,
+    )
+    expect(ok.stops.map((s) => s.id)).toContain('gp-museum')
+  })
+})
+
 describe('코스 다변화와 귀가 방식', () => {
   const auto: Plan = { ...plan, course: 'auto' }
 
-  it('추천(auto)은 전체 코스를 계산해 가장 잘 맞는 코스를 고름', () => {
-    // 16:00 열차면 구룡포는 단축되지만 가까운 코스는 그대로 갈 수 있음.
+  it('추천(auto)이고 구룡포가 가능하면 구룡포를 고름 (단축이어도)', () => {
     const r = calculate({ ...auto, departTime: '16:00' }, obs)
-    expect(r.decision).toBe('GO')
-    expect(['yeongildae', 'jukdo']).toContain(r.course)
+    expect(r.course).toBe('guryongpo')
+    expect(r.decision).toBe('SHORTEN')
+    // Other feasible courses are offered, never the chosen one.
+    expect(r.alternatives.length).toBeGreaterThan(0)
+    expect(r.alternatives).not.toContain('guryongpo')
+    expect(r.alternatives.length).toBeLessThanOrEqual(3)
+  })
+  it('추천(auto)인데 구룡포가 귀가 시각 때문에 불가능하면 다른 코스와 이유', () => {
+    const r = calculate({ ...auto, departTime: '14:00' }, obs)
+    expect(r.course).not.toBe('guryongpo')
+    expect(['GO', 'SHORTEN', 'INDOOR']).toContain(r.decision)
+    expect(r.reasons[0]).toContain('구룡포는 지금 조건으로 다녀오기 어려워')
+  })
+  it('코스를 직접 고르면 그 코스, 다른 가능한 코스는 대안으로', () => {
+    const r = calculate(
+      { ...plan, course: 'homigot', interests: ['food', 'view'] },
+      obs,
+    )
+    expect(r.course).toBe('homigot')
+    expect(r.alternatives).not.toContain('homigot')
   })
   it('모든 활성 코스를 한 번에 비교', () => {
     const all = planEveryCourse(seedConfig, auto, obs)

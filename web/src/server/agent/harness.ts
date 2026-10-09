@@ -19,9 +19,9 @@ import type { Stage } from '#/core/stage'
 import { stageOf } from '#/core/stage'
 import type { TripView } from '#/core/view'
 import { tripView } from '#/core/view'
-import { initialTrip } from '#/core/trip'
 import type { Db } from '../db/client'
 import type { TripRecord } from '../trips'
+import { syncLive } from '../live'
 import { commit, openTrip, rememberPreview, saveConversation } from '../trips'
 import {
   answerToEvents,
@@ -98,30 +98,17 @@ const textParts = (...texts: (string | undefined)[]) =>
     .filter((t): t is string => !!t)
     .map((text) => ({ type: 'text' as const, text }))
 
-/** The app's question for the next unanswered slot: a sentence and its chips. */
-const questionParts = (prompt: ChoicePrompt | null) =>
-  prompt
-    ? [
-        ...textParts(prompt.question),
-        {
-          type: 'data-choices' as const,
-          id: `c_${crypto.randomUUID()}`,
-          data: prompt,
-        },
-      ]
-    : []
-
-/** The first message of every trip: a greeting and the first question. */
-export const openingFor = (config: TripConfig) => (): AgentUIMessage[] => [
+/** The first message of every trip: a greeting (the profile form asks the rest). */
+export const openingFor = (_config: TripConfig) => (): AgentUIMessage[] => [
   {
     id: `m_${crypto.randomUUID()}`,
     role: 'assistant',
     metadata: { mode: 'DEMO', stage: 'ONBOARDING', revision: 0 },
     parts: [
+      // The profile form collects the trip details; the chat starts open-ended.
       ...textParts(
-        '안녕하세요! 대회 끝나고 포항을 둘러본 뒤 제시간에 돌아가는 하루를 같이 짤게요. 대회 코스·준비물·맛집·버스처럼 궁금한 것도 언제든 물어보세요.',
+        '안녕하세요! 대회 코스·준비물·맛집·버스처럼 궁금한 건 언제든 물어보세요. 완주하면 그때 컨디션에 맞춰 코스를 다시 계산해 드려요.',
       ),
-      ...questionParts(promptFor(config, initialTrip(config))),
     ],
   },
 ]
@@ -305,6 +292,11 @@ export const runTurn = async (
     )
 
   const stageNow = stageOf(record.state)
+  // Before a course is (re)computed, let fresh live observations into the plan.
+  if (stageNow === 'PLANNING' || stageNow === 'JOURNEY') {
+    record = (await syncLive(db, config, record, deps.observe)).record
+    await saveConversation(db, { id: record.id, messages, meta: record.meta })
+  }
   if (chipApplied && answeredByApp.includes(stageNow)) {
     const done = record
     return createUIMessageStream<AgentUIMessage>({
@@ -382,6 +374,7 @@ export const runTurn = async (
     instructions: baseInstructions,
     stopWhen: isStepCount(config.agent.maxSteps + 2),
     maxOutputTokens: config.agent.maxOutputTokens,
+    temperature: config.agent.temperature ?? undefined,
     maxRetries: 0,
     experimental_toolApprovalSecret: approvalSecret(),
     toolApproval: {

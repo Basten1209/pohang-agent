@@ -139,6 +139,20 @@ describe('결정적 의도 해석', () => {
       },
     })
   })
+  it.each([
+    ['30분 더 쉴래요', 30],
+    ['더 쉬고 싶어', 30],
+    ['좀 쉴게요', 30],
+    ['30분만 쉬다 갈게', 30],
+    ['20분 휴식할래', 20],
+  ])('휴식: %s → %i분', (text, min) =>
+    expect(interpret(text)).toMatchObject({
+      kind: 'CHANGE',
+      changes: { extraRestMin: min },
+    }),
+  )
+  it('"쉽게 갈 수 있어?"는 휴식 요청이 아님', () =>
+    expect(interpret('쉽게 갈 수 있어?').kind).not.toBe('CHANGE'))
   it('코스 바꾸기와 추천 요청', () => {
     const courses = config.courses.map((c) => ({ id: c.id, area: c.area }))
     expect(interpret('호미곶으로 바꿔줘', courses)).toMatchObject({

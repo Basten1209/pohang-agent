@@ -1,4 +1,5 @@
 import type { Interest, Place } from '../schema'
+import { images } from './images'
 
 /**
  * Place catalogue. Descriptions are written for the demo; hours, prices and
@@ -23,7 +24,10 @@ type Attrs = {
   address: string
   /** One practical tip for a tired runner; '' when there is none. */
   tips: string
+  /** Reached by stairs: left out for a tired runner or a 15-minute walk. */
+  stairs?: boolean
 }
+/** A seeded TourAPI photo wins over a missing one; its source goes to `meta`. */
 const at =
   (course: string, sortBase: number) =>
   (
@@ -31,14 +35,28 @@ const at =
     i: number,
     attrs: Attrs,
     meta: Record<string, unknown> = {},
-  ): Place => ({
-    id,
-    kind: attrs.interest.toUpperCase(),
-    sort: sortBase + i * 10,
-    active: true,
-    attrs: { ...attrs, course },
-    meta: { provenance: 'PLACEHOLDER', verified: false, ...meta },
-  })
+  ): Place => {
+    const photo = attrs.image ? null : images[id]
+    return {
+      id,
+      kind: attrs.interest.toUpperCase(),
+      sort: sortBase + i * 10,
+      active: true,
+      attrs: { ...attrs, course, ...(photo && { image: photo.url }) },
+      meta: {
+        provenance: 'PLACEHOLDER',
+        verified: false,
+        ...meta,
+        ...(photo && {
+          image: {
+            source: '한국관광공사 TourAPI',
+            contentId: photo.contentId,
+            license: photo.license,
+          },
+        }),
+      },
+    }
+  }
 
 const gp = at('guryongpo', 0)
 const hm = at('homigot', 100)
@@ -48,13 +66,14 @@ const jd = at('jukdo', 300)
 export const places: Place[] = [
   // ── 구룡포 ──────────────────────────────────────────────────────────
   gp('food', 1, {
+    // ops: 식당 미선정. 구룡포시장 권역을 목적지로 사용.
     title: '구룡포에서 든든한 한 끼',
     short: '항구 앞 점심',
     subtitle: '구룡포시장 · 식당 후보',
     category: 'LOCAL FOOD',
     desc: '달린 뒤 찾아온 반가운 허기. 구룡포시장 근처에서 여유 있게 점심을 먹으며 여행을 시작해요.',
     detail:
-      '식당은 아직 선정 전이에요. 구룡포시장 권역을 목적지로 써요. 겨울엔 과메기, 사계절 대게·물회·모리국수가 유명하지만 1인 식사 가능 여부, 메뉴와 가격, 영업시간은 현지 확인이 필요해요.',
+      '겨울엔 과메기, 사계절 대게·물회·모리국수가 유명해요. 1인 식사 가능 여부와 메뉴·가격·영업시간은 가게마다 달라요.',
     icon: 'utensils',
     image: '/images/guryongpo-harbor.jpg',
     actionLabel: '식사',
@@ -75,7 +94,7 @@ export const places: Place[] = [
       category: 'SLOW WALK',
       desc: '항구 마을의 시간이 남아 있는 일본인 가옥거리. 짧게 둘러보고 오늘의 사진 한 장을 남겨요.',
       detail:
-        '근대 시기 가옥이 이어진 약 450m 거리의 짧은 구간을 둘러봐요. 구룡포공원으로 오르는 돌계단은 코스에서 뺐어요. 실제 보행 구간의 경사와 접근성은 확인이 필요해요.',
+        '근대 시기 가옥이 이어진 약 450m 거리의 짧은 구간을 둘러봐요. 구룡포공원으로 오르는 돌계단은 코스에서 뺐어요.',
       icon: 'footprints',
       image: '/images/guryongpo-street.jpg',
       actionLabel: '구경',
@@ -98,7 +117,7 @@ export const places: Place[] = [
     category: 'INDOOR',
     desc: '구룡포를 대표하는 과메기의 역사와 어촌 생활을 보여주는 실내 전시관. 바람이 차거나 공기가 나쁜 날의 대안이에요.',
     detail:
-      '가옥거리 끝 구룡포공원 계단 위에 있어 오르막 걷기가 있어요. 관람료·휴관일은 확인이 필요해요. 걷기를 15분 이내로 정했다면 빼는 게 좋아요.',
+      '가옥거리 끝 구룡포공원 돌계단 위에 있어 오르막을 걸어야 해요. 관람료·휴관일은 방문 전에 확인하세요.',
     icon: 'landmark',
     image: '',
     actionLabel: '관람',
@@ -108,6 +127,7 @@ export const places: Place[] = [
     geo: { lat: 35.9916, lng: 129.5585 },
     address: '경북 포항시 남구 구룡포읍 구룡포공원 일대',
     tips: '계단 대신 차도로 돌아가는 길은 더 길어요.',
+    stairs: true,
   }),
   gp('cafe', 4, {
     title: '서두르지 않는 커피 한 잔',
@@ -116,7 +136,7 @@ export const places: Place[] = [
     category: 'COFFEE BREAK',
     desc: '여행의 마지막은 느긋하게. 항구 마을의 분위기를 느끼며 앉아서 잠깐 쉬어 가요.',
     detail:
-      '카페는 아직 선정 전이에요. 가옥거리 인근 후보를 가정한 체류 시간이라 상호·영업시간·가격·출입 동선 확인 후 실제 목적지를 등록해야 해요.',
+      '가옥거리 주변에 작은 카페가 여럿 있어요. 영업시간과 좌석은 가게마다 달라요.',
     icon: 'coffee',
     image: '/images/guryongpo-street.jpg',
     actionLabel: '휴식',
@@ -136,7 +156,7 @@ export const places: Place[] = [
     category: 'LOCAL FOOD',
     desc: '광장 앞 식당가에서 시원한 물회나 해물 칼국수로 허기를 달래요.',
     detail:
-      '식당은 아직 선정 전이에요. 광장 주변 식당가를 목적지로 써요. 메뉴·가격·영업시간은 현지 확인이 필요해요.',
+      '광장 주변에 물회·해물 식당이 모여 있어요. 메뉴·가격·영업시간은 가게마다 달라요.',
     icon: 'utensils',
     image: '',
     actionLabel: '식사',
@@ -172,7 +192,7 @@ export const places: Place[] = [
     category: 'INDOOR',
     desc: '우리나라 등대의 역사와 장비를 모은 박물관. 광장 바로 옆이라 동선이 짧아요.',
     detail:
-      '실내 전시 위주라 날씨 영향이 적어요. 관람료·휴관일은 확인이 필요해요.',
+      '실내 전시 위주라 날씨 영향이 적어요. 관람료·휴관일은 방문 전에 확인하세요.',
     icon: 'landmark',
     image: '',
     actionLabel: '관람',
@@ -189,7 +209,8 @@ export const places: Place[] = [
     subtitle: '해맞이광장 주변 · 카페 후보',
     category: 'COFFEE BREAK',
     desc: '창밖으로 동해가 보이는 카페에서 다리를 쉬게 해요.',
-    detail: '카페는 아직 선정 전이에요. 영업시간·좌석은 확인이 필요해요.',
+    detail:
+      '광장 주변 카페에서 바다를 보며 쉴 수 있어요. 영업시간은 가게마다 달라요.',
     icon: 'coffee',
     image: '',
     actionLabel: '휴식',
@@ -209,7 +230,7 @@ export const places: Place[] = [
     category: 'LOCAL FOOD',
     desc: '대회장에서 북쪽으로 조금만 가면 물회 집이 모여 있어요. 달린 뒤 시원한 포항식 물회 한 그릇.',
     detail:
-      '포항식 물회는 고추장 양념에 물을 조금씩 부어 먹는 방식이 많아요. 식당은 아직 선정 전이라 메뉴·가격·영업시간은 확인이 필요해요.',
+      '포항식 물회는 고추장 양념에 물을 조금씩 부어 먹는 방식이 많아요. 메뉴·가격·영업시간은 가게마다 달라요.',
     icon: 'utensils',
     image: '',
     actionLabel: '식사',
@@ -244,7 +265,7 @@ export const places: Place[] = [
     category: 'SEA VIEW',
     desc: '롤러코스터처럼 휘어진 계단 트랙을 직접 걸어 오르는 조형물. 꼭대기에서 영일만이 한눈에 보여요.',
     detail:
-      '트랙은 약 333m, 계단과 경사가 이어져 다리가 지친 날엔 부담이 될 수 있어요. 강풍·우천 땐 운영을 멈춰요. 운영시간·인원 제한은 확인이 필요해요.',
+      '트랙은 약 333m, 계단과 경사가 이어져 다리가 지친 날엔 부담이 될 수 있어요. 강풍·우천 땐 운영을 멈춰요. 운영시간·인원 제한은 방문 전에 확인하세요.',
     icon: 'waves',
     image: '',
     actionLabel: '체험',
@@ -254,6 +275,7 @@ export const places: Place[] = [
     geo: { lat: 36.0663, lng: 129.3916 },
     address: '경북 포항시 북구 환호동 환호공원',
     tips: '공원 입구에서 트랙까지 오르막이 있어요.',
+    stairs: true,
   }),
   yd('yd-art', 4, {
     title: '공원 속 미술관',
@@ -261,7 +283,7 @@ export const places: Place[] = [
     subtitle: '환호공원 안 · 실내 전시',
     category: 'INDOOR',
     desc: '스페이스워크와 같은 공원 안에 있는 시립미술관. 쉬어 가며 전시를 봐요.',
-    detail: '전시 일정·휴관일은 확인이 필요해요.',
+    detail: '전시 일정·휴관일은 방문 전에 확인하세요.',
     icon: 'palette',
     image: '',
     actionLabel: '관람',
@@ -278,7 +300,8 @@ export const places: Place[] = [
     subtitle: '해수욕장 따라 늘어선 카페',
     category: 'COFFEE BREAK',
     desc: '해변을 따라 카페가 이어져 있어요. 바다를 보며 완주의 여운을 즐겨요.',
-    detail: '특정 카페는 정하지 않았어요. 영업시간·좌석은 확인이 필요해요.',
+    detail:
+      '해변을 따라 카페가 이어져 있어요. 영업시간·좌석은 가게마다 달라요.',
     icon: 'coffee',
     image: '',
     actionLabel: '휴식',
@@ -315,7 +338,7 @@ export const places: Place[] = [
     subtitle: '운하 시작점 · 실내 전시',
     category: 'INDOOR',
     desc: '막혔던 물길을 다시 이어 만든 포항운하의 이야기를 보여주는 전시관. 크루즈 타는 곳 바로 옆이에요.',
-    detail: '관람 시간·휴관일은 확인이 필요해요.',
+    detail: '관람 시간·휴관일은 방문 전에 확인하세요.',
     icon: 'landmark',
     image: '',
     actionLabel: '관람',
@@ -333,7 +356,7 @@ export const places: Place[] = [
     category: 'SEA VIEW',
     desc: '앉아서 운하와 내항, 바다 쪽 풍경을 둘러보는 유람선. 다리가 무거운 날 걷지 않고 구경할 수 있어요.',
     detail:
-      '배 위는 바람이 강해요. 운항 시간·요금·기상 결항은 확인이 필요해요.',
+      '배 위는 바람이 강해요. 운항 시간·요금·기상 결항은 방문 전에 확인하세요.',
     icon: 'ship',
     image: '',
     actionLabel: '승선',
@@ -367,7 +390,7 @@ export const places: Place[] = [
     subtitle: '운하 인근 · 카페 후보',
     category: 'COFFEE BREAK',
     desc: '물길이 보이는 카페에서 다음 이동 전에 잠깐 쉬어요.',
-    detail: '카페는 아직 선정 전이에요. 영업시간은 확인이 필요해요.',
+    detail: '운하를 따라 카페가 있어요. 영업시간은 가게마다 달라요.',
     icon: 'coffee',
     image: '',
     actionLabel: '휴식',
