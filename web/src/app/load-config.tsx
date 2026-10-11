@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Gull } from '#/brand/brand'
+import { Gull, GullPose } from '#/brand/brand'
 import { seedConfig } from '#/core/defaults'
 import { configSchema } from '#/core/schema'
 import { fetchConfig } from './config-fn'
@@ -41,17 +41,20 @@ export const Loading = () => {
     return () => clearTimeout(id)
   }, [])
   return (
-    <div className="grid min-h-dvh place-items-center bg-background p-6">
+    <div className="grid min-h-dvh place-items-center launch-sea p-6">
       <div
         role="status"
         aria-live="polite"
         className="flex max-w-xs flex-col items-center gap-4 text-center"
       >
-        <Gull className="brand-pulse size-28" />
+        <Gull className="size-16 rounded-2xl" />
+        <h1 className="brand-heading text-4xl">RUN2구룡포</h1>
+        <p className="text-lg text-[#102a43]">달리고, 구룡포를 만나다</p>
+        <GullPose className="brand-pulse w-48" />
         <span className="text-xs font-semibold tracking-[.25em] text-primary">
           RUN2 GURYONGPO
         </span>
-        <h1 className="text-2xl font-semibold">달리기 다음은, 구룡포.</h1>
+        <span className="sr-only">앱을 불러오는 중</span>
         <p className="text-sm text-muted-foreground">
           {slow
             ? '연결이 평소보다 오래 걸리고 있어요.'

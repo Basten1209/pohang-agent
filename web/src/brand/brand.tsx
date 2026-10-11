@@ -1,10 +1,35 @@
 export const Gull = ({ className = 'size-10' }: { className?: string }) => (
   <img
-    src="/images/runner-gull.svg"
+    src="/icons/icon-192.png"
     width="128"
     height="128"
     alt="갈매기 여행 친구"
-    className={className}
+    className={`rounded-full ${className}`}
+  />
+)
+
+/** Display the supplied four-pose sheet without altering the approved artwork. */
+export const GullPose = ({
+  pose = 'wave',
+  className = '',
+}: {
+  pose?: 'wave' | 'think' | 'map' | 'cheer'
+  className?: string
+}) => (
+  <div
+    role="img"
+    aria-label={
+      {
+        wave: '반겨 주는 갈매기',
+        think: '생각하는 갈매기',
+        map: '여행 지도를 보는 갈매기',
+        cheer: '완주를 축하하는 갈매기',
+      }[pose]
+    }
+    className={`gull-pose ${className}`}
+    style={{
+      backgroundPosition: `${{ wave: 0, think: 33.333, map: 66.667, cheer: 100 }[pose]}% 52%`,
+    }}
   />
 )
 

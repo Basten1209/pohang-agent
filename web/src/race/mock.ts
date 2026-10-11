@@ -31,6 +31,3 @@ const field: Runner[] = Array.from({ length: 1239 }, (_, i) => {
 })
 
 export const race: Race = { distance: 10, me, field, checkpoints }
-
-/** Where the demo clock starts: just past 6 km. */
-export const demoStart = 2240

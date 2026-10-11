@@ -24,7 +24,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { BrandHero, Gull, AssetCredits } from '#/brand/brand'
+import { Gull, AssetCredits } from '#/brand/brand'
 import { newTripId, postEvents } from '#/app/trip-client'
 import type { TripConfig } from '#/core/schema'
 import type { Stage } from '#/core/stage'
@@ -36,6 +36,7 @@ import { CommunityTab } from './community'
 import { FinishSheet } from './finish'
 import { HomeTab } from './home-tab'
 import { ProfileForm } from './profile'
+import { InstallApp } from './install'
 import { TourTab } from './tour-tab'
 
 /**
@@ -128,21 +129,9 @@ export const Shell = ({
 
   if (!view.state.created)
     return (
-      <div className="mx-auto flex min-h-dvh max-w-xl flex-col gap-6 p-4 pt-safe pb-safe">
-        <BrandHero />
-        <div className="flex flex-col gap-1">
-          <span className="text-sm text-muted-foreground">RUN2구룡포</span>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            나만의 여행을 준비해요
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {config.event.name} · {config.event.dateLabel}
-          </p>
-        </div>
-        <p className="text-xs text-primary">
-          발표용 가상 대회 · 10/13 오전 일정 재현 · 실제 관측 시각은 별도 표시
-        </p>
+      <div className="mx-auto flex min-h-dvh max-w-lg flex-col gap-6 px-5 py-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-safe">
         <ProfileForm
+          onboarding
           config={config}
           view={view}
           tripId={tripId}
@@ -168,19 +157,22 @@ export const Shell = ({
         <header className="sticky top-0 z-30 border-b bg-background pt-safe">
           <div className="mx-auto flex h-14 max-w-2xl items-center gap-2 px-4">
             <Gull className="size-8" />
-            <span className="font-semibold tracking-tight text-primary">
+            <span className="whitespace-nowrap font-bold tracking-tight text-[#102a43]">
               RUN2구룡포
             </span>
             <Badge variant="secondary">{stageLabel[view.stage]}</Badge>
             {showTools && agent.mode && (
               <Badge variant="outline">{modeLabel[agent.mode]}</Badge>
             )}
+            <div className="ml-auto hidden sm:block">
+              <InstallApp compact />
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   size="icon"
                   variant="ghost"
-                  className="ml-auto"
+                  className="ml-auto shrink-0 sm:ml-0"
                   aria-label="메뉴"
                 >
                   <Ellipsis />
@@ -239,7 +231,7 @@ export const Shell = ({
             </DropdownMenu>
           </div>
           <div className="mx-auto max-w-2xl px-4 pb-2">
-            <TabsList className="w-full">
+            <TabsList className="h-11 w-full">
               <TabsTrigger value="home">
                 <House />홈
               </TabsTrigger>
@@ -264,6 +256,10 @@ export const Shell = ({
             config={config}
             view={view}
             onEditProfile={() => setProfileOpen(true)}
+            onRace={() => {
+              setTab('race')
+              window.scrollTo({ top: 0 })
+            }}
           />
         </TabsContent>
         {/* Kept mounted so the race clock keeps running on other tabs. */}
@@ -272,19 +268,11 @@ export const Shell = ({
           forceMount
           className="pb-24 data-[state=inactive]:hidden"
         >
-          <div className="mx-auto max-w-2xl px-4 pt-4">
-            <Button
-              className="w-full"
-              size="lg"
-              onClick={() => setFinishOpen(true)}
-            >
-              <Flag />
-              {view.state.phase < 3
-                ? '마라톤 완주! 구룡포 여행으로 떠나요'
-                : '완주의 순간 공유 · 여행 준비하기'}
-            </Button>
-          </div>
-          <RaceLive finished={view.state.phase >= 3} />
+          <RaceLive
+            tripId={tripId}
+            finished={view.state.phase >= 3}
+            onFinish={() => setFinishOpen(true)}
+          />
         </TabsContent>
         <TabsContent value="tour" className="pb-24">
           <TourTab

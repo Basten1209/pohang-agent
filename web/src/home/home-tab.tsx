@@ -1,5 +1,5 @@
-import { AssetCredits } from '#/brand/brand'
-import { Pencil } from 'lucide-react'
+import { AssetCredits, GullPose } from '#/brand/brand'
+import { Pencil, ArrowRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -19,6 +19,7 @@ import { clock, duration } from '#/core/time'
 import type { TripView } from '#/core/view'
 import { RaceDetails, RaceHeadline } from '#/race/overview'
 import { PlaceThumb } from './thumb'
+import { InstallApp } from './install'
 
 const MyPlan = ({
   config,
@@ -116,12 +117,37 @@ export const HomeTab = ({
   config,
   view,
   onEditProfile,
+  onRace,
 }: {
   config: TripConfig
   view: TripView
   onEditProfile: () => void
+  onRace: () => void
 }) => (
   <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4">
+    <section className="flex items-center gap-3 overflow-hidden rounded-3xl border bg-white px-5 py-3">
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <span className="text-xs font-semibold text-primary">
+          RUN2 GURYONGPO
+        </span>
+        <h1 className="brand-heading text-2xl">
+          달리고,
+          <br />
+          구룡포를 만나다
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {view.state.plan.nickname || '러너'}님의 레이스부터 바다 여행까지.
+        </p>
+      </div>
+      <GullPose pose="map" className="w-28 shrink-0 sm:w-36" />
+    </section>
+    <Button size="lg" className="min-h-12" onClick={onRace}>
+      {view.state.phase >= 3 ? '나의 완주 기록 보기' : '레이스 준비하기'}
+      <ArrowRight />
+    </Button>
+    <div className="flex justify-end">
+      <InstallApp compact />
+    </div>
     <RaceHeadline event={config.event} />
     <MyPlan config={config} view={view} onEdit={onEditProfile} />
     <AfterRace config={config} view={view} />

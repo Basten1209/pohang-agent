@@ -1,4 +1,4 @@
-import { Camera, Check, Medal, Upload } from 'lucide-react'
+import { Camera, Check, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -10,6 +10,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { GullPose } from '#/brand/brand'
 import type { CommunityPost, CommunityPostInput } from '#/core/community'
 
 /** Decode and re-encode locally: bounded uploads, consistent orientation, no EXIF. */
@@ -139,9 +140,7 @@ export function FinishSheet({
         className="mx-auto max-w-2xl rounded-t-3xl data-[side=bottom]:max-h-[94dvh]"
       >
         <SheetHeader className="pb-0">
-          <div className="mb-2 flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-            <Medal className="size-7" />
-          </div>
+          <GullPose pose="cheer" className="w-20" />
           <SheetTitle className="text-2xl">완주 축하해요!</SheetTitle>
           <SheetDescription>
             메달의 순간을 남기고, 구룡포에서 오늘의 기쁨을 이어가요.
