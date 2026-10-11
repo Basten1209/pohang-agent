@@ -515,6 +515,11 @@ describe('채팅 하네스 (규칙 모델 + PGlite)', () => {
     expect(proposed.some((c) => c.type === 'tool-approval-request')).toBe(true)
     expect((await load()).state.plan.departTime).toBe('18:30')
     expect((await load()).state.plan.revision).toBe(revision)
+    expect(
+      toolParts(await lastAssistant()).find(
+        (p) => p.type === 'tool-plan_course',
+      )?.output,
+    ).toMatchObject({ depart: '16:00 열차' })
 
     await approve(true)
     expect((await load()).state.plan.departTime).toBe('16:00')

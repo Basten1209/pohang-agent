@@ -456,7 +456,12 @@ export const runTurn = async (
             ok: e.status === 'LIVE' && e.freshness === 'FRESH',
           })) ??
           Object.entries(current.state.observations.sources).map(
-            ([name, s]) => ({ label: name, ok: s.freshness === 'FRESH' }),
+            ([name, s]) => ({
+              label:
+                config.sources.find((source) => source.reading === name)
+                  ?.label ?? name,
+              ok: s.freshness === 'FRESH',
+            }),
           )
         await saveConversation(db, {
           id: current.id,

@@ -259,6 +259,7 @@ export const makeTools = (ctx: TurnContext) => {
             revision: p.revision,
             changes: {},
             itinerary: current,
+            depart: departLabel(config, state.plan),
           }
         }
         const id = ctx.newId()
@@ -270,6 +271,7 @@ export const makeTools = (ctx: TurnContext) => {
           revision: p.revision,
           changes: p.changes,
           itinerary: p.itinerary,
+          depart: departLabel(config, { ...state.plan, ...p.changes }),
         }
       },
       toModelOutput: ({ output }) => ({
@@ -278,6 +280,7 @@ export const makeTools = (ctx: TurnContext) => {
           previewId: output.previewId,
           isChange: output.isChange,
           noEffect: output.noEffect,
+          depart: output.depart,
           course: courseById(config, output.itinerary.course)?.title ?? null,
           hub: hubOf(config, ctx.trip().state.plan).name,
           decision: output.itinerary.decision,

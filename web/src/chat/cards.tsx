@@ -274,13 +274,17 @@ const decisionLabel: Record<Decision, string> = {
 export const CourseSummary = ({
   it,
   title,
+  depart,
 }: {
   it: Itinerary
   title: string
+  depart?: string
 }) => {
   const { config, view } = useChatContext()
   const course = courseById(config, it.course)
-  const hub = hubOf(config, view.state.plan)
+  const hub =
+    config.anchors.find((anchor) => anchor.id === it.hub) ??
+    hubOf(config, view.state.plan)
   return (
     <Card size="sm">
       <CardHeader>
@@ -296,7 +300,7 @@ export const CourseSummary = ({
         <div className="flex flex-wrap gap-1">
           <Badge variant="secondary">{decisionLabel[it.decision]}</Badge>
           <Badge variant="outline">
-            {departLabel(config, view.state.plan)}
+            {depart ?? `귀가 거점 도착 목표 ${clock(it.stationTarget)}`}
           </Badge>
         </div>
       </CardHeader>
@@ -333,6 +337,7 @@ const PlanCourseCard = ({ part }: CardProps<PartOf<'plan_course'>>) => {
   return (
     <CourseSummary
       it={part.output.itinerary}
+      depart={part.output.depart}
       title={part.output.isChange ? '바꾸면 이렇게 돼요' : '지금 조건의 코스'}
     />
   )
