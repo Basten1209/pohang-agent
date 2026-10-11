@@ -20,18 +20,19 @@ export function InstallApp({ compact = false }: { compact?: boolean }) {
   const [open, setOpen] = useState(false)
   const [prompt, setPrompt] = useState<InstallPrompt | null>(null)
   const [installed, setInstalled] = useState(false)
+  const [standalone, setStandalone] = useState(false)
   const [busy, setBusy] = useState(false)
   const [platform, setPlatform] = useState<'iphone' | 'chrome'>('iphone')
   const [error, setError] = useState('')
   useEffect(() => {
     const display = window.matchMedia('(display-mode: standalone)')
-    const sync = () =>
-      setInstalled(
+    const sync = () => {
+      const runningAsApp =
         display.matches ||
-          Boolean(
-            (navigator as Navigator & { standalone?: boolean }).standalone,
-          ),
-      )
+        Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+      setStandalone(runningAsApp)
+      if (runningAsApp) setInstalled(true)
+    }
     const offer = (event: Event) => {
       event.preventDefault()
       setPrompt(event as InstallPrompt)
@@ -77,7 +78,11 @@ export function InstallApp({ compact = false }: { compact?: boolean }) {
         onClick={() => setOpen(true)}
       >
         {installed ? <Check /> : <Download />}
-        {installed ? '앱으로 실행 중' : '홈 화면에 추가'}
+        {standalone
+          ? '앱으로 실행 중'
+          : installed
+            ? '설치 완료'
+            : '홈 화면에 추가'}
       </Button>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
@@ -97,7 +102,9 @@ export function InstallApp({ compact = false }: { compact?: boolean }) {
                 role="status"
                 className="rounded-xl bg-secondary p-4 font-medium"
               >
-                지금 독립된 앱 화면으로 실행하고 있어요.
+                {standalone
+                  ? '지금 독립된 앱 화면으로 실행하고 있어요.'
+                  : '설치했어요. 앱 아이콘을 눌러 독립된 앱 화면으로 열어 주세요.'}
               </p>
             ) : (
               <>

@@ -1,28 +1,12 @@
-/**
- * Race standing as a pure function of the race clock. Every runner is a list
- * of per-km paces (seconds per km); distance, splits and rank all follow from
- * `t` (seconds since the gun), so the live tab only has to advance `t`.
- */
-
-export type Runner = {
-  bib: string
-  name: string
-  /** Seconds per km, one entry per km of the course. */
-  paces: readonly number[]
-}
-
-export type Checkpoint = { km: number; label: string }
-
+/** Personal demo metrics, derived only from this runner's simulation clock. */
 export type Race = {
   distance: number
-  me: Runner
-  field: readonly Runner[]
-  checkpoints: readonly Checkpoint[]
+  /** Seconds per km, one entry per km of the demo course. */
+  paces: readonly number[]
 }
 
 const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0)
 
-/** Seconds a runner needs to reach `km`. */
 export const timeAt = (paces: readonly number[], km: number) => {
   const whole = Math.floor(km)
   const part = km - whole
@@ -31,7 +15,7 @@ export const timeAt = (paces: readonly number[], km: number) => {
 
 /** Kilometres covered after `t` seconds, capped at the course length. */
 export const distanceAt = (paces: readonly number[], t: number) => {
-  let left = t
+  let left = Math.max(0, t)
   for (let km = 0; km < paces.length; km++) {
     if (left < paces[km]) return km + left / paces[km]
     left -= paces[km]
@@ -39,93 +23,22 @@ export const distanceAt = (paces: readonly number[], t: number) => {
   return paces.length
 }
 
-export type Standing = {
-  bib: string
-  name: string
-  distance: number
-  /** Finish time in seconds, once across the line. */
-  finish: number | null
-  rank: number
-}
-
-/** Finished runners by finish time, then everyone else by distance. */
-export const standings = (
-  runners: readonly Runner[],
-  distance: number,
-  t: number,
-): Standing[] =>
-  runners
-    .map((r) => {
-      const total = timeAt(r.paces, distance)
-      return {
-        bib: r.bib,
-        name: r.name,
-        distance: distanceAt(r.paces, t),
-        finish: total <= t ? total : null,
-      }
-    })
-    .sort((a, b) =>
-      a.finish !== null || b.finish !== null
-        ? (a.finish ?? Infinity) - (b.finish ?? Infinity)
-        : b.distance - a.distance,
-    )
-    .map((s, i) => ({ ...s, rank: i + 1 }))
-
-export type Split = { km: number; time: number }
-
-export type Snapshot = {
-  t: number
-  distance: number
-  finished: boolean
-  /** Pace of the km being run now (the last one once finished). */
-  currentPace: number
-  avgPace: number
-  /** Finish time: actual once finished, else at the average pace so far. */
-  projected: number
-  rank: number
-  total: number
-  splits: Split[]
-  /** Distance to the runner just ahead, if any. */
-  gapAhead: number | null
-  next: (Checkpoint & { inKm: number }) | null
-  board: Standing[]
-}
-
-/** Top `top` runners, then the runner and their neighbours. */
-const boardOf = (all: Standing[], bib: string, top: number) => {
-  const i = all.findIndex((s) => s.bib === bib)
-  const near = all.slice(Math.max(0, i - 1), i + 2)
-  const head = all.slice(0, top)
-  return [...head, ...near.filter((s) => s.rank > top)]
-}
-
-export const snapshot = (race: Race, t: number, top = 3): Snapshot => {
-  const { me } = race
-  const all = standings([me, ...race.field], race.distance, t)
-  const mine = all.find((s) => s.bib === me.bib)!
-  const distance = mine.distance
-  const finished = mine.finish !== null
-  const elapsed = finished ? mine.finish! : t
-  const avgPace = distance > 0 ? elapsed / distance : me.paces[0]
-  const ahead = all[mine.rank - 2]
+export const snapshot = (race: Race, t: number) => {
+  const total = timeAt(race.paces, race.distance)
+  const elapsed = Math.min(total, Math.max(0, t))
+  const distance = distanceAt(race.paces, elapsed)
+  const finished = elapsed >= total
+  const avgPace = distance > 0 ? elapsed / distance : null
   return {
-    t,
+    elapsed,
     distance,
     finished,
-    currentPace: me.paces[Math.min(Math.floor(distance), me.paces.length - 1)],
     avgPace,
-    projected: finished ? mine.finish! : Math.round(avgPace * race.distance),
-    rank: mine.rank,
-    total: all.length,
-    splits: me.paces
-      .slice(0, Math.floor(distance))
-      .map((time, i) => ({ km: i + 1, time })),
-    gapAhead: ahead && !finished ? ahead.distance - distance : null,
-    next:
-      race.checkpoints
-        .filter((c) => c.km > distance)
-        .map((c) => ({ ...c, inKm: c.km - distance }))[0] ?? null,
-    board: boardOf(all, me.bib, top),
+    projected: finished
+      ? total
+      : avgPace === null
+        ? null
+        : Math.round(avgPace * race.distance),
   }
 }
 

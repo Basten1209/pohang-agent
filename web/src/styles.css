@@ -176,8 +176,13 @@
   font-weight: 800;
   letter-spacing: -0.055em;
 }
-.race-track {
-  background: linear-gradient(145deg, #e4f6f5, #e7f0fc);
+.race-map {
+  font-family: inherit;
+}
+.race-map .leaflet-control-zoom a {
+  width: 36px;
+  height: 36px;
+  line-height: 36px;
 }
 .brand-pulse {
   animation: brand-pulse 1.6s ease-in-out infinite;

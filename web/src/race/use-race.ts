@@ -10,7 +10,7 @@ import { timeAt } from '#/core/race'
 import { race } from './mock'
 
 export const useRace = (tripId: string, finished: boolean) => {
-  const total = timeAt(race.me.paces, race.distance)
+  const total = timeAt(race.paces, race.distance)
   const key = `run2-race-v1:${tripId}`
   const [session, setSession] = useState(() => {
     try {
@@ -34,7 +34,7 @@ export const useRace = (tripId: string, finished: boolean) => {
       setNow(at)
       if (elapsedAt(session, at, total) >= total)
         setSession((s) =>
-          advanceRace(s, 'FINISH', at, total, race.me.paces.at(-1)!),
+          advanceRace(s, 'FINISH', at, total, race.paces.at(-1)!),
         )
     }
     const timer = setInterval(tick, 500)
@@ -47,7 +47,7 @@ export const useRace = (tripId: string, finished: boolean) => {
   const act = (action: RaceAction) => {
     const at = Date.now()
     setNow(at)
-    setSession((s) => advanceRace(s, action, at, total, race.me.paces.at(-1)!))
+    setSession((s) => advanceRace(s, action, at, total, race.paces.at(-1)!))
   }
   return { session, elapsed: elapsedAt(session, now, total), total, act }
 }

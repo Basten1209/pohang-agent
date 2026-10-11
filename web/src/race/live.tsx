@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { Flag, Pause, Play, SkipForward } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { GullPose } from '#/brand/brand'
@@ -6,35 +5,36 @@ import { useRace } from './use-race'
 import { Badge } from '@/components/ui/badge'
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { pace, raceClock, snapshot, timeAt } from '#/core/race'
 import { bib, category, race } from './mock'
+import { RaceRouteMap } from './route-map'
 
-const km = (d: number) => d.toFixed(2)
-
-const Stat = ({ label, value }: { label: string; value: string }) => (
-  <div className="flex flex-col gap-0.5 rounded-lg bg-muted/50 p-3">
+const Stat = ({
+  label,
+  value,
+  prominent = false,
+}: {
+  label: string
+  value: string
+  prominent?: boolean
+}) => (
+  <div className="flex min-w-0 flex-col gap-1 rounded-xl bg-muted/50 p-3">
     <span className="text-xs text-muted-foreground">{label}</span>
-    <span className="text-lg font-semibold tabular-nums">{value}</span>
+    <span
+      className={`${prominent ? 'text-2xl sm:text-3xl' : 'text-lg'} font-bold tabular-nums text-[#102a43]`}
+    >
+      {value}
+    </span>
   </div>
 )
 
-/** A deliberately simulated start → tracking → finish, scoped to this trip. */
+/** Personal route + metrics; all data is explicitly simulated, trip-scoped. */
 export const RaceLive = ({
   finished = false,
   tripId,
@@ -45,10 +45,9 @@ export const RaceLive = ({
   onFinish: () => void
 }) => {
   const { session, elapsed, act } = useRace(tripId, finished)
-  const s = useMemo(
-    () =>
-      snapshot(race, finished ? timeAt(race.me.paces, race.distance) : elapsed),
-    [elapsed, finished],
+  const s = snapshot(
+    race,
+    finished ? timeAt(race.paces, race.distance) : elapsed,
   )
   const ready = session.status === 'READY' && !finished
   const paused = session.status === 'PAUSED' && !finished
@@ -56,9 +55,6 @@ export const RaceLive = ({
     act('FINISH')
     onFinish()
   }
-  const avg = s.splits.length
-    ? s.splits.reduce((a, b) => a + b.time, 0) / s.splits.length
-    : null
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4">
@@ -70,10 +66,10 @@ export const RaceLive = ({
               ? '끝까지 달린 나에게'
               : '나의 레이스'}
         </h1>
-        <Badge variant="secondary">시연 트래킹 · GPS 미사용</Badge>
+        <Badge variant="secondary">가상 GPS 시연</Badge>
       </div>
       <p className="text-xs leading-relaxed text-muted-foreground">
-        거리·페이스·순위는 더미 데이터예요. 실제 위치나 기록칩을 측정하지
+        경로·거리·기록은 발표용 가상 데이터예요. 실제 GPS 위치를 수집하지
         않아요.
       </p>
       {ready ? (
@@ -88,17 +84,9 @@ export const RaceLive = ({
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-4">
             <GullPose className="w-48" />
-            <div className="flex w-full justify-around rounded-2xl bg-muted p-4 text-center">
-              <div>
-                <p className="text-2xl font-bold tabular-nums">
-                  0.00 <span className="text-sm font-normal">km</span>
-                </p>
-                <span className="text-xs text-muted-foreground">달린 거리</span>
-              </div>
-              <div>
-                <p className="text-2xl font-bold tabular-nums">0:00</p>
-                <span className="text-xs text-muted-foreground">경과 시간</span>
-              </div>
+            <div className="grid w-full grid-cols-2 gap-2 text-center">
+              <Stat label="달린 거리" value="0.00 km" prominent />
+              <Stat label="경과 시간" value="0:00" prominent />
             </div>
             <Button
               size="lg"
@@ -108,109 +96,71 @@ export const RaceLive = ({
               <Play />
               마라톤 시작하기
             </Button>
-            <p className="text-xs text-muted-foreground">
-              시작한 뒤 60배속·마지막 1km 시연으로 빠르게 볼 수 있어요.
+            <p className="text-center text-xs text-muted-foreground">
+              시작하면 지도 위에 나의 이동 경로가 쌓여요.
             </p>
           </CardContent>
         </Card>
       ) : (
         <>
-          <Card className="overflow-hidden border-primary/20">
-            <CardHeader>
+          <Card className="gap-3 overflow-hidden border-primary/20">
+            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
               <CardDescription>
                 {category} · 배번 {bib}
               </CardDescription>
-              <CardTitle className="text-5xl font-extrabold tabular-nums">
-                {km(s.distance)}{' '}
-                <span className="text-lg font-medium text-muted-foreground">
-                  km
-                </span>
-              </CardTitle>
-              <CardAction>
-                <Badge variant={s.finished ? 'default' : 'secondary'}>
-                  {s.finished ? '완주' : paused ? '일시정지' : '달리는 중'}
-                </Badge>
-              </CardAction>
+              <Badge variant={s.finished ? 'default' : 'secondary'}>
+                {s.finished ? '완주' : paused ? '일시정지' : '달리는 중'}
+              </Badge>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <div className="race-track rounded-2xl px-3 py-4">
-                <div className="flex justify-between text-xs font-medium">
-                  <span>시연 코스 진행도</span>
-                  <span>{Math.round((s.distance / race.distance) * 100)}%</span>
-                </div>
-                <svg
-                  viewBox="0 0 320 100"
-                  className="w-full"
-                  role="img"
-                  aria-label={`10km 코스 중 ${km(s.distance)}km 진행. 실제 위치 지도가 아닙니다.`}
-                >
-                  <path
-                    d="M 20 50 H 300"
-                    stroke="#c4d8e4"
-                    strokeWidth="10"
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d={`M 20 50 H ${20 + (s.distance / race.distance) * 280}`}
-                    stroke="#00a6b4"
-                    strokeWidth="10"
-                    strokeLinecap="round"
-                  />
-                  {[0, 2.5, 5, 7.5, 10].map((d) => (
-                    <g key={d}>
-                      <circle
-                        cx={20 + d * 28}
-                        cy="50"
-                        r="5"
-                        fill={s.distance >= d ? '#005cb9' : '#fff'}
-                      />
-                      <text
-                        x={20 + d * 28}
-                        y="79"
-                        textAnchor="middle"
-                        fontSize="11"
-                        fill="#526579"
-                      >
-                        {d === 0 ? '출발' : d === 10 ? '완주' : `${d}km`}
-                      </text>
-                    </g>
-                  ))}
-                  <circle
-                    cx={20 + (s.distance / race.distance) * 280}
-                    cy="50"
-                    r="10"
-                    fill="#102a43"
-                    stroke="#fff"
-                    strokeWidth="3"
-                  />
-                </svg>
-                <p className="text-xs text-muted-foreground">
-                  {s.next && !s.finished
-                    ? `${s.next.label}까지 ${km(s.next.inKm)}km`
-                    : '결승선에 도착했어요!'}
-                </p>
+              <RaceRouteMap progress={s.distance / race.distance} />
+              <div className="grid grid-cols-2 gap-2">
+                <Stat
+                  label="달린 거리"
+                  value={`${s.distance.toFixed(2)} km`}
+                  prominent
+                />
+                <Stat
+                  label={s.finished ? '완주 기록' : '경과 시간'}
+                  value={raceClock(s.elapsed)}
+                  prominent
+                />
+                <Stat
+                  label="내 평균 페이스"
+                  value={s.avgPace === null ? '—' : `${pace(s.avgPace)}/km`}
+                />
+                <Stat
+                  label={s.finished ? '완주 시간' : '예상 완주시간'}
+                  value={s.projected === null ? '—' : raceClock(s.projected)}
+                />
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {s.finished ? '완주 기록' : '경과 시간'}
-                </span>
-                <strong className="text-2xl tabular-nums">
-                  {raceClock(s.finished ? s.projected : s.t)}
-                </strong>
-              </div>
-              <Progress
-                value={(s.distance / race.distance) * 100}
-                aria-label="완주 진행률"
-              />
+              <p className="text-xs text-muted-foreground">
+                {s.finished
+                  ? '10km 시연을 마쳤어요.'
+                  : '예상 완주시간은 지금까지의 평균 페이스로 계산한 총 소요시간이에요.'}
+              </p>
               {!s.finished && (
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => act(paused ? 'RESUME' : 'PAUSE')}
-                  >
-                    {paused ? <Play /> : <Pause />}
-                    {paused ? '이어서 달리기' : '일시정지'}
-                  </Button>
+                <Button
+                  variant="outline"
+                  className="min-h-11 w-full"
+                  onClick={() => act(paused ? 'RESUME' : 'PAUSE')}
+                >
+                  {paused ? <Play /> : <Pause />}
+                  {paused ? '이어서 달리기' : '일시정지'}
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+          {!s.finished && (
+            <details className="rounded-xl border bg-muted/30 px-4">
+              <summary className="cursor-pointer py-3 text-sm font-medium">
+                발표용 시연 조작
+              </summary>
+              <div className="flex flex-col gap-3 pb-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    재생 속도
+                  </span>
                   <ToggleGroup
                     type="single"
                     size="sm"
@@ -225,18 +175,16 @@ export const RaceLive = ({
                     <ToggleGroupItem value="60">60×</ToggleGroupItem>
                   </ToggleGroup>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-          {!s.finished && (
-            <Button
-              variant="outline"
-              onClick={() => act('FINAL_KM')}
-              disabled={s.distance >= 9}
-            >
-              <SkipForward />
-              마지막 1km로 이동 · 시연
-            </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => act('FINAL_KM')}
+                  disabled={s.distance >= 9}
+                >
+                  <SkipForward />
+                  마지막 1km로 이동 · 시연
+                </Button>
+              </div>
+            </details>
           )}
           {s.finished && (
             <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-2">
@@ -264,120 +212,6 @@ export const RaceLive = ({
               완주 버튼으로 시연을 마치고 다음 단계를 볼 수 있어요.
             </p>
           )}
-          <div className="grid grid-cols-2 gap-2">
-            <Stat
-              label={s.finished ? '마지막 1km 페이스' : '현재 페이스'}
-              value={`${pace(s.currentPace)}/km`}
-            />
-            <Stat label="평균 페이스" value={`${pace(s.avgPace)}/km`} />
-            <Stat
-              label="전체 순위"
-              value={`${s.rank.toLocaleString()} / ${s.total.toLocaleString()}`}
-            />
-            <Stat
-              label={s.finished ? '완주 기록' : '예상 완주'}
-              value={raceClock(s.projected)}
-            />
-          </div>
-          <p className="px-1 text-xs text-muted-foreground tabular-nums">
-            상위 {Math.max(1, Math.round((s.rank / s.total) * 100))}%
-            {s.gapAhead !== null &&
-              (s.gapAhead < 0.001
-                ? ' · 앞 주자와 나란히'
-                : ` · 앞 주자와 ${Math.round(s.gapAhead * 1000)}m`)}
-          </p>
-
-          <details className="flex flex-col gap-4">
-            <summary className="cursor-pointer py-3 text-sm font-semibold">
-              시연 순위 · 구간 기록 보기
-            </summary>
-            <Card>
-              <CardHeader>
-                <CardTitle>순위</CardTitle>
-                <CardDescription>상위 3명과 내 주변</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">순위</TableHead>
-                      <TableHead>이름</TableHead>
-                      <TableHead className="text-right">기록·거리</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody className="tabular-nums">
-                    {s.board.map((r, i) => (
-                      <TableRow
-                        key={r.bib}
-                        data-state={r.bib === bib ? 'selected' : undefined}
-                        className={
-                          i > 0 && r.rank - s.board[i - 1].rank > 1
-                            ? 'border-t-4'
-                            : undefined
-                        }
-                      >
-                        <TableCell>{r.rank}</TableCell>
-                        <TableCell className="font-medium">
-                          {r.bib === bib ? `나 (${r.bib})` : r.name}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {r.finish !== null
-                            ? raceClock(r.finish)
-                            : `${km(r.distance)} km`}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>구간 기록</CardTitle>
-                {avg !== null && (
-                  <CardDescription className="tabular-nums">
-                    구간 평균 {pace(avg)}/km
-                  </CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                {s.splits.length === 0 ? (
-                  <p className="text-muted-foreground">
-                    첫 1km를 달리는 중이에요.
-                  </p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>구간</TableHead>
-                        <TableHead className="text-right">페이스</TableHead>
-                        <TableHead className="text-right">평균 대비</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody className="tabular-nums">
-                      {s.splits.map((sp) => {
-                        const diff = Math.round(sp.time - avg!)
-                        return (
-                          <TableRow key={sp.km}>
-                            <TableCell>{sp.km} km</TableCell>
-                            <TableCell className="text-right">
-                              {pace(sp.time)}
-                            </TableCell>
-                            <TableCell className="text-right text-muted-foreground">
-                              {diff === 0
-                                ? '±0초'
-                                : `${diff > 0 ? '+' : ''}${diff}초`}
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-          </details>
         </>
       )}
     </div>
