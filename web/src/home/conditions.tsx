@@ -44,11 +44,15 @@ export const ConditionsCard = ({
   view: TripView
 }) => {
   const obs = view.state.observations
+  const hasDemo = config.sources.some(
+    (source) =>
+      source.enabled && obs.sources[source.reading]?.provenance === 'DEMO',
+  )
   return (
     <Card className="border-primary/25 bg-secondary/40">
       <CardHeader>
         <CardDescription className="font-semibold tracking-wider text-primary">
-          E-UM · 구룡포의 지금
+          {hasDemo ? 'E-UM · 구룡포 조건 시연' : 'E-UM · 구룡포의 지금'}
         </CardDescription>
         <CardTitle>이 코스를 추천한 이유</CardTitle>
       </CardHeader>
@@ -143,8 +147,11 @@ export const ConditionsCard = ({
             </p>
           )}
         <p className="text-xs text-muted-foreground">
-          대회는 {config.event.date} 오전 일정 재현입니다. E-UM은 실제 조회
-          시점의 관측이며 포항 전역의 상태를 의미하지 않습니다.
+          대회는 {config.event.date} 오전 일정 재현입니다.{' '}
+          {hasDemo
+            ? '시연 조건은 발표용 가상값이며, 실응답 표시가 있는 값만 실제 E-UM 관측입니다. '
+            : 'E-UM은 실제 조회 시점의 관측입니다. '}
+          구룡포 관측은 포항 전역의 상태를 의미하지 않습니다.{' '}
           이동시간·여유시간은 앱의 시연 정책입니다.
         </p>
       </CardContent>

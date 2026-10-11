@@ -41,7 +41,7 @@ export const recommendTransport = (
     )
   if (congestion !== null && congestion >= 50)
     reasons.push(
-      `구룡포 혼잡도 ${congestion}%예요. 버스와 택시 모두 지연될 수 있어요.`,
+      `${obs.sources.congestion?.provenance === 'DEMO' ? '시연 조건의 ' : ''}구룡포 혼잡도 ${congestion}%예요. 버스와 택시 모두 지연될 수 있어요.`,
     )
   if (it.course === 'guryongpo' && congestion === null)
     reasons.push(
