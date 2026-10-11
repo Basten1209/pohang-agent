@@ -298,6 +298,8 @@ export const makeTools = (ctx: TurnContext) => {
               : clock(output.itinerary.planningArrival),
           stationTarget: clock(output.itinerary.stationTarget),
           slackMin: output.itinerary.slack,
+          slackBasis:
+            'stationTarget(거점 도착 목표) 대비 여유. 열차 출발까지의 시간이 아님.',
           reasons: output.itinerary.reasons,
         },
       }),
@@ -347,6 +349,9 @@ export const makeTools = (ctx: TurnContext) => {
             arrival:
               it.planningArrival === null ? null : clock(it.planningArrival),
             slackMin: it.slack,
+            stationTarget: clock(it.stationTarget),
+            slackBasis:
+              'stationTarget(거점 도착 목표) 대비 여유. 열차 출발까지의 시간이 아님.',
             trafficReserveMin: it.trafficReserve,
           },
           usedInPlan: {

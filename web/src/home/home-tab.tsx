@@ -130,7 +130,7 @@ export const HomeTab = ({
         <span className="text-xs font-semibold text-primary">
           RUN2 GURYONGPO
         </span>
-        <h1 className="brand-heading text-2xl">
+        <h1 className="brand-heading text-xl sm:text-2xl">
           달리고,
           <br />
           구룡포를 만나다
@@ -139,7 +139,7 @@ export const HomeTab = ({
           {view.state.plan.nickname || '러너'}님의 레이스부터 바다 여행까지.
         </p>
       </div>
-      <GullPose pose="map" className="w-28 shrink-0 sm:w-36" />
+      <GullPose pose="map" className="w-20 shrink-0 min-[380px]:w-24 sm:w-36" />
     </section>
     <Button size="lg" className="min-h-12" onClick={onRace}>
       {view.state.phase >= 3 ? '나의 완주 기록 보기' : '레이스 준비하기'}
