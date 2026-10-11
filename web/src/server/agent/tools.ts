@@ -344,6 +344,9 @@ export const makeTools = (ctx: TurnContext) => {
         return {
           verdict: {
             decision: it.decision,
+            decisionScope:
+              '관광 코스의 가능 여부. 귀가 일정이나 열차 예약을 취소하는 상태가 아님.',
+            reasons: it.reasons,
             hub: hub.name,
             depart: departLabel(config, state.plan),
             arrival:
