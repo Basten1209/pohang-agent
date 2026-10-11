@@ -166,8 +166,8 @@ export const ProfileForm = ({
       )}
       {onboarding && step === 0 && (
         <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-center rounded-3xl bg-white">
-            <GullPose className="w-44" />
+          <div className="flex justify-center">
+            <GullPose className="w-52" />
           </div>
           <button
             type="button"

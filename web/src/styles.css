@@ -153,6 +153,13 @@
 }
 
 /* App-owned brand tokens; shadcn primitives remain reusable. */
+.gull-cutout {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
 .gull-pose {
   aspect-ratio: 1 / 1.15;
   background-image: url('/images/brand/gull-poses.png');

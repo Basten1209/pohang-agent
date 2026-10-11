@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Gull, GullPose } from '#/brand/brand'
+import { GullPose } from '#/brand/brand'
 import { seedConfig } from '#/core/defaults'
 import { configSchema } from '#/core/schema'
 import { fetchConfig } from './config-fn'
@@ -47,10 +47,9 @@ export const Loading = () => {
         aria-live="polite"
         className="flex max-w-xs flex-col items-center gap-4 text-center"
       >
-        <Gull className="size-16 rounded-2xl" />
         <h1 className="brand-heading text-4xl">RUN2구룡포</h1>
         <p className="text-lg text-[#102a43]">달리고, 구룡포를 만나다</p>
-        <GullPose className="brand-pulse w-48" />
+        <GullPose className="brand-pulse w-56 sm:w-64" />
         <span className="text-xs font-semibold tracking-[.25em] text-primary">
           RUN2 GURYONGPO
         </span>

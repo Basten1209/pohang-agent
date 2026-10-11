@@ -8,30 +8,38 @@ export const Gull = ({ className = 'size-10' }: { className?: string }) => (
   />
 )
 
-/** Display the supplied four-pose sheet without altering the approved artwork. */
+/** The welcome pose has its own transparent asset so no sprite crop can cut it. */
 export const GullPose = ({
   pose = 'wave',
   className = '',
 }: {
   pose?: 'wave' | 'think' | 'map' | 'cheer'
   className?: string
-}) => (
-  <div
-    role="img"
-    aria-label={
-      {
-        wave: '반겨 주는 갈매기',
-        think: '생각하는 갈매기',
-        map: '여행 지도를 보는 갈매기',
-        cheer: '완주를 축하하는 갈매기',
-      }[pose]
-    }
-    className={`gull-pose ${className}`}
-    style={{
-      backgroundPosition: `${{ wave: 0, think: 33.333, map: 66.667, cheer: 100 }[pose]}% 52%`,
-    }}
-  />
-)
+}) =>
+  pose === 'wave' ? (
+    <img
+      src="/images/brand/gull-wave-transparent.png"
+      width="1254"
+      height="1254"
+      alt="반겨 주는 갈매기"
+      className={`gull-cutout ${className}`}
+    />
+  ) : (
+    <div
+      role="img"
+      aria-label={
+        {
+          think: '생각하는 갈매기',
+          map: '여행 지도를 보는 갈매기',
+          cheer: '완주를 축하하는 갈매기',
+        }[pose]
+      }
+      className={`gull-pose ${className}`}
+      style={{
+        backgroundPosition: `${{ think: 33.333, map: 66.667, cheer: 100 }[pose]}% 52%`,
+      }}
+    />
+  )
 
 export const BrandHero = () => (
   <div className="brand-hero relative isolate overflow-hidden rounded-2xl bg-primary text-white">

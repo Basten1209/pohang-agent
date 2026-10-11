@@ -31,7 +31,11 @@ export const Route = createRootRoute({
         type: 'image/png',
         sizes: '192x192',
       },
-      { rel: 'preload', href: '/icons/icon-192.png', as: 'image' },
+      {
+        rel: 'preload',
+        href: '/images/brand/gull-wave-transparent.png',
+        as: 'image',
+      },
       { rel: 'apple-touch-icon', href: '/icons/apple-touch-icon.png' },
     ],
   }),

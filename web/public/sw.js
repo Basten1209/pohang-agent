@@ -8,13 +8,14 @@
  *   - images / icons    → stale-while-revalidate
  * Bump VERSION to drop old caches.
  */
-const VERSION = 'run2-v7'
+const VERSION = 'run2-v8'
 const SHELL = [
   '/',
   '/classic',
   '/manifest.webmanifest',
   '/icons/icon-192.png',
   '/icons/apple-touch-icon.png',
+  '/images/brand/gull-wave-transparent.png',
 ]
 
 self.addEventListener('install', (event) => {
