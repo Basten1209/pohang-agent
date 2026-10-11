@@ -33,9 +33,9 @@ export const courses: Course[] = [
         id: 'full',
         stops: [
           { place: 'food', dwell: 60, walk: 0 },
-          { place: 'street', dwell: 20, walk: 10 },
+          { place: 'street', dwell: 20, walk: 0, transferMin: 5 },
           { place: 'gp-museum', dwell: 30, walk: 5 },
-          { place: 'cafe', dwell: 40, walk: 0 },
+          { place: 'cafe', dwell: 40, walk: 0, transferMin: 5 },
         ],
         reason: null,
       },
@@ -53,7 +53,12 @@ export const courses: Course[] = [
         reason: '점심만 남겨 귀가 시간을 확보했어요.',
       },
     ],
-    meta: { provenance: 'DEMO_POLICY', verified: false },
+    meta: {
+      provenance: 'DEMO_POLICY',
+      verified: false,
+      trafficOutbound: true,
+      trafficReturn: true,
+    },
   },
   {
     id: 'homigot',
@@ -102,7 +107,7 @@ export const courses: Course[] = [
         reason: '상생의 손만 보고 바로 돌아오도록 줄였어요.',
       },
     ],
-    meta: { provenance: 'DEMO_POLICY', verified: false },
+    meta: { provenance: 'DEMO_POLICY', verified: false, trafficOutbound: true },
   },
   {
     id: 'yeongildae',

@@ -18,7 +18,12 @@ const connect = async (): Promise<Db> => {
   if (url) {
     const { drizzle } = await import('drizzle-orm/node-postgres')
     return drizzle({
-      connection: { connectionString: url, max: 3 },
+      connection: {
+        connectionString: url,
+        max: 3,
+        connectionTimeoutMillis: 5000,
+        statement_timeout: 10000,
+      },
       schema,
     }) as unknown as Db
   }

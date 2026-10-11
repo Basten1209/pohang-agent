@@ -34,7 +34,7 @@ npm run build && npm start   # 프로덕션(Nitro node 서버)
 | 영역 | 선택 |
 | --- | --- |
 | 프레임워크 | TanStack Start (Vite, file routes, server routes·server functions) + Nitro |
-| UI | shadcn/ui **Nova 프리셋 기본값 그대로**(radix, neutral 흑백, Geist). 컴포넌트는 레지스트리 원본을 수정 없이 사용하고 화면에서는 레이아웃용 className만 씀 |
+| UI | shadcn/ui Nova 구조(radix, Geist)를 유지하며 앱 CSS 토큰에 바다색 브랜드 테마 적용. 공용 컴포넌트 원본은 유지하고 지역 사진·자체 갈매기 캐릭터를 화면에서 조합 |
 | Agent | Vercel AI SDK v7 `ToolLoopAgent` + 단계별 도구(계획·지식 조회·실시간 공공데이터) → `useChat` + AI Elements(Conversation·Message·PromptInput·Tool·Suggestion) |
 | 모델 | `@ai-sdk/openai`, 기본 `gpt-6-luna`(설정값). `OPENAI_MODEL`로 덮어씀 |
 | 저장소 | Drizzle ORM + PostgreSQL(`DATABASE_URL`) 또는 PGlite(내장 Postgres/WASM) |

@@ -39,6 +39,16 @@ export type Decision =
   | 'NEEDS_DATA'
   | 'INCOMPLETE'
 
+export type TravelLeg = {
+  kind: 'OUTBOUND' | 'WALK' | 'RETURN'
+  label: string
+  start: number
+  end: number
+  baseMin: number
+  bufferMin: number
+  basis: string
+}
+
 export type Stop = { id: PlaceId; start: number; end: number; dwell: number }
 
 export type Itinerary = {
@@ -54,6 +64,7 @@ export type Itinerary = {
   revision: number
   start: number
   stops: Stop[]
+  legs: TravelLeg[]
   stationEta: number | null
   planningArrival: number | null
   stationTarget: number
@@ -109,7 +120,20 @@ const contextOf = (
     hubMin,
     start,
     target,
-    effect: assessSignals(policy, obs),
+    effect: assessSignals(
+      {
+        ...policy,
+        signals: policy.signals.filter((signal) =>
+          signal.kind === 'reserve-by-band'
+            ? course.meta.trafficReturn === true ||
+              (course.meta.trafficOutbound === true &&
+                plan.currentPlace !== 'COURSE' &&
+                plan.stage !== 'RETURN')
+            : course.id === 'guryongpo',
+        ),
+      },
+      obs,
+    ),
     places: indexBy(
       config.places.filter((p) => p.active && p.attrs.course === course.id),
       (p) => p.id,
@@ -125,6 +149,7 @@ const contextOf = (
       revision: plan.revision,
       start,
       stops: [],
+      legs: [],
       stationEta: null,
       planningArrival: null,
       stationTarget: target,
@@ -159,7 +184,7 @@ const copy = (
 /** The base with observation effects applied (reserve, partial status). */
 const observed = (ctx: Context): Itinerary => ({
   ...ctx.base,
-  trafficReserve: ctx.effect.reserveMin,
+  trafficReserve: 0,
   calculationStatus: ctx.effect.uncertain ? 'PARTIAL' : 'READY',
 })
 
@@ -231,14 +256,31 @@ const returnLeg: Rule<Context, Itinerary> = (ctx) => {
     }
   const departure = ctx.start + leg.stopAccess
   const eta = departure + legMin
-  const planned = eta + ctx.effect.reserveMin
+  const buffer =
+    ctx.course.meta.trafficReturn === true ? ctx.effect.reserveMin : 0
+  const planned = eta + buffer
   return {
     ...base,
     decision: planned <= ctx.target ? 'GO' : 'CANCEL',
     outbound: 0,
-    returnMin: leg.stopAccess + legMin,
-    stationEta: eta,
+    returnMin: leg.stopAccess + legMin + buffer,
+    trafficReserve: buffer,
+    stationEta: planned,
     planningArrival: planned,
+    legs: [
+      {
+        kind: 'RETURN',
+        label: `${ctx.course.area} → ${ctx.hub.name}`,
+        start: departure,
+        end: planned,
+        baseMin: legMin,
+        bufferMin: buffer,
+        basis:
+          buffer > 0
+            ? '구룡포 관측 + 앱 여유 정책 · 기본 시간은 시연'
+            : '기본 이동시간은 시연',
+      },
+    ],
     returnDeparture: departure,
     slack: ctx.target - planned,
     reasons: [
@@ -266,7 +308,9 @@ const hasStairs = (p: Place) => p.attrs.stairs === true
 
 const allowedIn = (ctx: Context) => (id: PlaceId) =>
   id in ctx.places &&
-  ctx.plan.interests.includes(ctx.places[id].attrs.interest) &&
+  (ctx.plan.interests.includes(ctx.places[id].attrs.interest) ||
+    (ctx.effect.outdoorBlocked &&
+      ctx.places[id].attrs.interest === 'indoor')) &&
   !(avoidsStairs(ctx.plan) && hasStairs(ctx.places[id])) &&
   !ctx.plan.excluded.includes(id) &&
   !ctx.plan.completed.includes(id) &&
@@ -286,26 +330,40 @@ const evaluate =
       : selected.length
         ? policy.local.firstApproach + policy.local.lastApproach
         : 0
-    const localMin = approach + sum(selected.map((s) => s.dwell))
+    const transfers = selected.map((s, i) =>
+      i > 0 || resumed ? (s.transferMin ?? 0) : 0,
+    )
+    const localMin =
+      approach + sum(selected.map((s) => s.dwell)) + sum(transfers)
+    const outBuffer =
+      base.outbound > 0 && ctx.course.meta.trafficOutbound === true
+        ? effect.reserveMin
+        : 0
+    const outbound = base.outbound + outBuffer
+    const returnBuffer =
+      ctx.course.meta.trafficReturn === true ? effect.reserveMin : 0
+    const trafficReserve = outBuffer + returnBuffer
     const walking =
       (base.outbound ? ctx.course.outbound.accessWalk : 0) +
       ctx.course.return.accessWalk +
-      sum(selected.map((s) => s.walk))
-    const returnDeparture = ctx.start + base.outbound + localMin
+      sum(selected.map((s) => s.walk)) +
+      sum(transfers)
+    const returnDeparture = ctx.start + outbound + localMin
     if (!within(ctx.course.return.window)(returnDeparture))
       return { kind: 'window-miss' }
 
     const eta = returnDeparture + base.returnMin
-    const planned = eta + effect.reserveMin
+    const planned = eta + returnBuffer
     if (planned > ctx.target || walking > plan.walkingLimit)
       return { kind: 'infeasible' }
 
     const firstAt =
       ctx.start +
-      base.outbound +
+      outbound +
       (selected.length && !resumed ? policy.local.firstApproach : 0)
-    const stops = selected.reduce<Stop[]>((acc, s) => {
-      const from = acc.length ? acc[acc.length - 1].end : firstAt
+    const stops = selected.reduce<Stop[]>((acc, s, i) => {
+      const from =
+        (acc.length ? acc[acc.length - 1].end : firstAt) + transfers[i]
       return [
         ...acc,
         { id: s.place, start: from, end: from + s.dwell, dwell: s.dwell },
@@ -341,21 +399,60 @@ const evaluate =
           index > 0 ? 'SHORTEN' : effect.outdoorBlocked ? 'INDOOR' : 'GO',
         variant: variant.id,
         stops,
-        stationEta: eta,
+        outbound,
+        trafficReserve,
+        returnMin: base.returnMin + returnBuffer,
+        legs: [
+          ...(outbound > 0
+            ? [
+                {
+                  kind: 'OUTBOUND' as const,
+                  label: `출발지 → ${ctx.course.area}`,
+                  start: ctx.start,
+                  end: ctx.start + outbound,
+                  baseMin: base.outbound,
+                  bufferMin: outBuffer,
+                  basis: '기본 시간은 시연 · 구룡포 도로 구간만 혼잡 여유 적용',
+                },
+              ]
+            : []),
+          ...stops.flatMap((stop, i) =>
+            transfers[i] > 0
+              ? [
+                  {
+                    kind: 'WALK' as const,
+                    label: `${ctx.places[stop.id].attrs.short}까지 도보`,
+                    start: stop.start - transfers[i],
+                    end: stop.start,
+                    baseMin: transfers[i],
+                    bufferMin: 0,
+                    basis: '시연 도보 이동 · 교통 혼잡 미적용',
+                  },
+                ]
+              : [],
+          ),
+          {
+            kind: 'RETURN' as const,
+            label: `${ctx.course.area} → ${ctx.hub.name}`,
+            start: returnDeparture,
+            end: planned,
+            baseMin: base.returnMin,
+            bufferMin: returnBuffer,
+            basis: '기본 시간은 시연 · 구룡포 도로 구간만 혼잡 여유 적용',
+          },
+        ],
+        stationEta: planned,
         planningArrival: planned,
         slack: ctx.target - planned,
         walking,
         localMin,
         returnDeparture,
-        reasons: reasons.length
-          ? reasons
-          : [
-              copy(
-                ctx,
-                ctx.mode.bufferMin > 0 ? 'fullCourse' : 'fullCourseBack',
-                { count: selected.length },
-              ),
-            ],
+        reasons: [
+          ...new Set(reasons),
+          copy(ctx, ctx.mode.bufferMin > 0 ? 'fullCourse' : 'fullCourseBack', {
+            count: selected.length,
+          }),
+        ],
         excluded,
       },
     }

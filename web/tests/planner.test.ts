@@ -14,19 +14,23 @@ const plan: Plan = {
   condition: 'TIRED',
   course: 'guryongpo',
 }
-const obs = seedConfig.defaults.observations
+// The D scenarios explicitly simulate readings; production defaults are unknown.
+const obs = {
+  ...seedConfig.defaults.observations,
+  readings: { congestion: 42, pm25: 10, uvIndex: 2 },
+}
 const withReadings = (readings: Observations['readings']): Observations => ({
   ...obs,
   readings: { ...obs.readings, ...readings },
 })
 
 describe('명세 D01–D08', () => {
-  it('D01: 18:30 열차, 16:20 도착, 100분 여유', () => {
+  it('D01: 18:30 열차, 16:30 도착, 90분 여유', () => {
     const r = calculate(plan, obs)
     expect(r.decision).toBe('GO')
-    expect(clock(r.stationEta!)).toBe('16:20')
-    expect(r.slack).toBe(100)
-    expect(r.localMin).toBe(130)
+    expect(clock(r.stationEta!)).toBe('16:30')
+    expect(r.slack).toBe(90)
+    expect(r.localMin).toBe(140)
     expect(r.stops).toHaveLength(3)
   })
   it('D02: 16시 열차이면 카페 제외, 구경 5분, 역 15:15', () => {
@@ -37,21 +41,21 @@ describe('명세 D01–D08', () => {
     expect(r.slack).toBe(15)
     expect(r.walking).toBe(25)
   })
-  it('D03: 혼잡만 82로 올리면 식사만 남고 교통 여유를 한 번 반영', () => {
+  it('D03: 혼잡만 82로 올리면 식사만 남고 각 도로 구간에 혼잡 여유를 반영', () => {
     const r = calculate(
       { ...plan, departTime: '16:00' },
       withReadings({ congestion: 82 }),
     )
     expect(r.stops.map((x) => x.id)).toEqual(['food'])
-    expect(clock(r.stationEta!)).toBe('15:10')
+    expect(clock(r.stationEta!)).toBe('15:30')
     expect(clock(r.planningArrival!)).toBe('15:30')
     expect(r.slack).toBe(0)
   })
-  it('D04: pm25 60이면 야외 20분 제외, 16:00 역 도착', () => {
+  it('D04: pm25 60이면 야외 20분 제외, 16:05 역 도착', () => {
     const r = calculate(plan, withReadings({ pm25: 60 }))
     expect(r.decision).toBe('INDOOR')
-    expect(clock(r.stationEta!)).toBe('16:00')
-    expect(r.localMin).toBe(110)
+    expect(clock(r.stationEta!)).toBe('16:05')
+    expect(r.localMin).toBe(115)
   })
   it('D05: 준비 완료가 10분 늦어지면 최소 코스도 불가', () => {
     const r = calculate(
@@ -90,7 +94,7 @@ describe('예외와 상태 변화', () => {
     ]) {
       const r = calculate(plan, o)
       expect(r.calculationStatus).toBe('PARTIAL')
-      expect(r.stops.some((x) => x.id === 'street')).toBe(false)
+      expect(r.stops.some((x) => x.id === 'street')).toBe(true) // 판단 보류, 양호로 단정하지 않음
       expect(r.trafficReserve).toBe(20)
     }
   })
@@ -111,7 +115,7 @@ describe('예외와 상태 변화', () => {
     )
     expect(r.outbound).toBe(0)
     expect(r.stops.some((x) => x.id === 'food')).toBe(false)
-    expect(r.stationEta).toBeLessThanOrEqual(980)
+    expect(r.stationEta).toBeLessThanOrEqual(990)
   })
   it('더 쉬면 남은 코스와 역 도착이 재계산됨', () => {
     const normal = calculate(plan, obs)
@@ -130,8 +134,9 @@ describe('예외와 상태 변화', () => {
       },
       withReadings({ congestion: 82 }),
     )
-    expect(clock(r.stationEta!)).toBe('15:10')
-    expect(clock(r.planningArrival!)).toBe('15:30')
+    expect(clock(r.stationEta!)).toBe('15:20')
+    expect(clock(r.planningArrival!)).toBe('15:20')
+    expect(r.trafficReserve).toBe(10)
   })
   it('입력 시각과 휴식 범위를 검증', () => {
     expect(planSchema.safeParse({ ...plan, departTime: '26:00' }).success).toBe(

@@ -63,6 +63,7 @@ export const ProfileForm = ({
   submitLabel?: string
 }) => {
   const [form, setForm] = useState(() => initialForm(config, view))
+  const [nickname, setNickname] = useState(view.state.plan.nickname ?? '')
   const [saving, setSaving] = useState(false)
   const [failed, setFailed] = useState(false)
   const set = <K extends keyof Form>(key: K, value: Form[K]) =>
@@ -77,10 +78,10 @@ export const ProfileForm = ({
     const details: Partial<Details> = { ...form }
     const slots = Object.keys(form) as SlotId[]
     try {
-      const { trip } = await postEvents(
-        tripId,
-        fillSlots(config, view.state, details, slots),
-      )
+      const { trip } = await postEvents(tripId, [
+        ...fillSlots(config, view.state, details, slots),
+        { type: 'plan.patched', patch: { nickname: nickname.trim() } },
+      ])
       onSaved(trip)
     } catch {
       setFailed(true)
@@ -98,6 +99,20 @@ export const ProfileForm = ({
       }}
     >
       <FieldGroup>
+        <Field>
+          <FieldLabel htmlFor="nickname">
+            어떻게 불러 드릴까요?{' '}
+            <span className="font-normal text-muted-foreground">(선택)</span>
+          </FieldLabel>
+          <Input
+            id="nickname"
+            placeholder="러너"
+            autoComplete="nickname"
+            maxLength={20}
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+          />
+        </Field>
         <FieldSet>
           <FieldLegend variant="label">
             대회 끝나고 어떻게 돌아가요?

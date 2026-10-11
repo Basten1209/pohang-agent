@@ -72,7 +72,17 @@ export const normalizeTime = (
   if (!m || !zone) return null
   const [, y, mo, d, h, mi, s] = m
   const asUtc = Date.UTC(+y, +mo - 1, +d, +h, +mi, +(s ?? 0))
-  if (!Number.isFinite(asUtc)) return null
+  const parsed = new Date(asUtc)
+  if (
+    !Number.isFinite(asUtc) ||
+    parsed.getUTCFullYear() !== +y ||
+    parsed.getUTCMonth() !== +mo - 1 ||
+    parsed.getUTCDate() !== +d ||
+    +h > 23 ||
+    +mi > 59 ||
+    +(s ?? 0) > 59
+  )
+    return null
   const offset = zoneOffsetMinutes(zone, new Date(asUtc))
   return offset === null
     ? null
@@ -179,6 +189,20 @@ export const interpretBody = (
       message: `관측값의 수치 형식·범위를 확인할 수 없어요(받은 값: ${sample}, ${records.length}건). 공급자 응답 계약 확인이 필요해요.`,
     }
   }
+  const normalizeUnit = (v: unknown) =>
+    String(v ?? '')
+      .normalize('NFKC')
+      .replaceAll('μ', 'µ')
+      .replaceAll(' ', '')
+  if (
+    source.meta.expectedUnit &&
+    normalizeUnit(record.unit) !== normalizeUnit(source.meta.expectedUnit)
+  )
+    return {
+      ...blank,
+      status: 'ERROR',
+      message: '응답 단위가 검증된 단위와 달라 추천에 반영하지 않아요.',
+    }
   const observedAt = normalizeTime(record[source.timeField], source.timezone)
   const values = Object.fromEntries(
     source.keepFields.map((key) => {
@@ -194,7 +218,46 @@ export const interpretBody = (
     value,
     values,
     message: source.decision
-      ? '실응답 조회 성공. 2시간 이내 관측이면 코스 판단에 반영해요.'
+      ? '실응답 조회 성공. 최신 관측과 구룡포 적용 범위를 확인해 반영해요.'
       : '실응답 조회 성공. 단위·갱신 주기 검증 전에는 시연 계산과 분리해서 표시해요.',
+  }
+}
+
+/** Hourly endpoints omit the date. Use only the date we actually requested,
+ * and the explicitly configured device; never aggregate arbitrary sensors. */
+export const hourlyAirBody = (
+  body: unknown,
+  requestedDate: string,
+  deviceId?: string,
+  now = Date.now(),
+) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate) || !deviceId)
+    return { data: [] }
+  const day = requestedDate
+  return {
+    data: recordsWith(body, 'hours')
+      .filter(
+        (r) =>
+          String(r.devId) === deviceId &&
+          String(r.type).toLowerCase() === 'pm25',
+      )
+      .filter(
+        (r) =>
+          r.hours !== null &&
+          String(r.hours).trim() !== '' &&
+          Number.isInteger(Number(r.hours)) &&
+          Number(r.hours) >= 0 &&
+          Number(r.hours) <= 23,
+      )
+      .filter(
+        (r) =>
+          Date.parse(
+            `${day}T${String(r.hours).padStart(2, '0')}:00:00+09:00`,
+          ) <= now,
+      )
+      .map((r) => ({
+        ...r,
+        observationTime: `${day}T${String(r.hours).padStart(2, '0')}:00:00`,
+      })),
   }
 }

@@ -41,7 +41,11 @@ export const fill = (
 
 /** A reading is usable only when fresh and present. Stale or null never becomes 0. */
 export const usableReading = (obs: Observations, name: string) =>
-  obs.freshness === 'FRESH' ? (obs.readings[name] ?? null) : null
+  obs.freshness === 'FRESH' &&
+  (obs.sources[name]?.freshness ?? 'FRESH') === 'FRESH' &&
+  obs.sources[name]?.eligible !== false
+    ? (obs.readings[name] ?? null)
+    : null
 
 type Interpreter<S extends Signal> = (
   signal: S,
@@ -86,7 +90,7 @@ const interpreters: {
       return {
         ...effectMonoid.empty,
         uncertain: true,
-        outdoorBlocked: true,
+        outdoorBlocked: false,
         reasons: reason(copy.outdoorUnknown),
       }
     return value >= signal.limit

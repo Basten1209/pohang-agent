@@ -7,12 +7,22 @@ import { images } from './images'
  * The agent reads this through `get_race_info` / `search_guide`, never from
  * its prompt.
  */
+const raceDate = '2026-10-13'
+const raceDay = new Date(`${raceDate}T00:00:00+09:00`)
+const dateLabel = new Intl.DateTimeFormat('ko-KR', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  weekday: 'short',
+}).format(raceDay)
+
 export const event: RaceEvent = {
   name: '2026 포항 영일만 해변런',
-  image: images.event?.url ?? '',
+  image: images.event?.url ?? '/images/yeongildae.jpg',
   category: '10km · 5km',
-  date: '2026-10-25',
-  dateLabel: '2026년 10월 25일 (일)',
+  date: raceDate,
+  dateLabel,
   gun: '08:30',
   venue: '영일대해수욕장 특설무대',
   address: '경북 포항시 북구 두호동 영일대해수욕장',
@@ -102,5 +112,10 @@ export const event: RaceEvent = {
       a: '대회장에는 샤워 시설이 없어요. 탈의실만 운영해요.',
     },
   ],
-  meta: { provenance: 'DEMO', verified: false },
+  meta: {
+    provenance: 'DEMO',
+    verified: false,
+    presentationAt: '2026-10-13T17:00:00+09:00',
+    scenarioAt: '2026-10-13T10:40:00+09:00',
+  },
 }

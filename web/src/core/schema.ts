@@ -51,6 +51,8 @@ export type AnchorId = z.infer<typeof anchorIdSchema>
 
 export const planSchema = z.object({
   revision: z.number().int().nonnegative(),
+  nickname: z.string().trim().max(20).optional(),
+  localTransport: z.enum(['TRANSIT', 'TAXI']).optional(),
   arrivalAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/),
   departMode: departModeSchema,
   /** Departure (train, bus, flight) or the time to be back (car, local). */
@@ -80,6 +82,11 @@ export const freshnessSchema = z.enum(['FRESH', 'STALE', 'UNKNOWN'])
  */
 export const readingSourceSchema = z.object({
   provenance: z.enum(['LIVE', 'SNAPSHOT', 'SIMULATED', 'DEMO']),
+  freshness: freshnessSchema.optional(),
+  unit: z.string().optional(),
+  value: z.number().nullable().optional(),
+  eligible: z.boolean().optional(),
+  scope: z.string().optional(),
   sourceId: z.string().nullable().default(null),
   observedAt: z.string().nullable().default(null),
   fetchedAt: z.string().nullable().default(null),
@@ -160,6 +167,7 @@ export const variantSchema = z.object({
       place: placeIdSchema,
       dwell: z.number().int().positive(),
       walk: z.number().int().min(0).default(0),
+      transferMin: z.number().int().min(0).optional(),
     }),
   ),
   reason: z.string().nullable(),
@@ -280,6 +288,7 @@ export type Anchor = z.infer<typeof anchorSchema>
 const paramValueSchema = z.union([
   z.object({ env: z.string() }),
   z.object({ value: z.string() }),
+  z.object({ clock: z.literal('today-kst') }),
 ])
 export const sourceSchema = z.object({
   id: z.string(),

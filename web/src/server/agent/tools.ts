@@ -32,7 +32,6 @@ import type { TourType } from '../sources/datagokr'
 import {
   arrivals,
   distanceM,
-  forecast,
   routesAt,
   stopsNear,
   tourDetail,
@@ -41,6 +40,8 @@ import {
   tourTypes,
   trains,
 } from '../sources/datagokr'
+import { recommendTransport } from '#/core/transport'
+import { forecastForDay } from '../sources/weather'
 import { knownPointNames, resolvePoint } from '#/core/where'
 
 /**
@@ -65,6 +66,7 @@ export type TurnContext = {
   remember: (preview: StoredPreview) => void
   observe: () => Promise<Evidence[]>
   newId: () => string
+  progress?: (phase: 'OBSERVE' | 'PLAN' | 'EXPLAIN') => void
 }
 
 // ── Answer schemas for Ask tools (what the cards send back) ─────────────
@@ -231,6 +233,7 @@ export const makeTools = (ctx: TurnContext) => {
         },
       ],
       execute: async ({ changes }) => {
+        ctx.progress?.('PLAN')
         const { state, it: current } = now()
         const request = (changes as Changes | null) ?? noChanges
         const p = preview(config, state.plan, state.observations, request)
@@ -349,8 +352,12 @@ export const makeTools = (ctx: TurnContext) => {
             observedAt: e.observedAt,
             freshness: e.freshness,
             usedInPlan:
-              config.sources.find((s) => s.id === e.sourceId)?.decision ??
-              false,
+              obs.sources[e.reading]?.eligible === true &&
+              obs.freshness === 'FRESH' &&
+              it.calculationStatus !== 'NOT_RUN' &&
+              (it.course === 'guryongpo' ||
+                (e.reading === 'congestion' &&
+                  it.legs.some((leg) => leg.bufferMin > 0))),
           })),
         }
       },
@@ -377,6 +384,11 @@ export const makeTools = (ctx: TurnContext) => {
             provenance: 'NOT_CONNECTED' as const,
             note: '택시 시간·요금은 연결된 데이터가 없어요. 카카오T 앱에서 확인하세요.',
           },
+          recommendation: recommendTransport(
+            state.plan,
+            state.observations,
+            it,
+          ),
           selectionChanged: false,
         }
       },
@@ -790,25 +802,16 @@ export const makeTools = (ctx: TurnContext) => {
             note: `${want} 예보는 아직 없어요. 기상청 단기예보는 3일 뒤까지라 ${from}부터 확인할 수 있어요.`,
           }
         }
-        const live = await forecast(p)
-        if (live.status !== 'LIVE')
-          return { status: live.status, message: live.message }
-        const day = date ?? kst().slice(0, 10)
-        const hours = live.data.filter((h) => h.date === day)
-        const from = new Date(Date.parse(`${day}T00:00:00Z`) - 3 * 86_400_000)
-          .toISOString()
-          .slice(0, 10)
+        const result = await forecastForDay(p, want)
+        const daytime = result.hours.filter(
+          (h) => h.time >= '06:00' && h.time <= '20:00',
+        )
         return {
-          note: hours.length
-            ? null
-            : `${day} 예보는 아직 없어요. 단기예보는 3일 뒤까지라 ${from}부터 확인할 수 있어요.`,
-          status: 'LIVE' as const,
-          source: '기상청 단기예보',
+          ...result,
           near: p.name,
-          date: day,
-          hours: hours.filter((_, i) => i % 2 === 0).slice(0, 12),
-          available: hours.length > 0,
-          lastForecastDate: live.data.at(-1)?.date ?? null,
+          hours: (daytime.length ? daytime : result.hours)
+            .filter((_, i) => i % 2 === 0)
+            .slice(0, 8),
         }
       },
     }),

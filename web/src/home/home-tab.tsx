@@ -1,3 +1,4 @@
+import { AssetCredits } from '#/brand/brand'
 import { Pencil } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -125,5 +126,6 @@ export const HomeTab = ({
     <MyPlan config={config} view={view} onEdit={onEditProfile} />
     <AfterRace config={config} view={view} />
     <RaceDetails event={config.event} />
+    <AssetCredits />
   </div>
 )

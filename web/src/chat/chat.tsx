@@ -24,6 +24,8 @@ import {
 } from '@/components/ai-elements/prompt-input'
 import { Shimmer } from '@/components/ai-elements/shimmer'
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion'
+import { Gull } from '#/brand/brand'
+import type { PlanProgress } from '#/server/agent/harness'
 import { cacheView } from '#/app/trip-client'
 import type { TripConfig } from '#/core/schema'
 import { suggestionsFor } from '#/core/stage'
@@ -77,6 +79,7 @@ export const useAgent = ({
   initial: { trip: TripView; messages: AgentUIMessage[] }
 }) => {
   const [view, setView] = useState(initial.trip)
+  const [progress, setProgress] = useState<PlanProgress | null>(null)
   const transport = useMemo(
     () =>
       new DefaultChatTransport<AgentUIMessage>({
@@ -93,9 +96,14 @@ export const useAgent = ({
     transport,
     sendAutomaticallyWhen: shouldContinue,
     onData: (part) => {
+      if (part.type === 'data-progress') setProgress(part.data)
       if (part.type === 'data-trip') {
-        setView(part.data)
-        cacheView(part.data)
+        setView((previous) => {
+          if (part.data.state.plan.revision < previous.state.plan.revision)
+            return previous
+          cacheView(part.data)
+          return part.data
+        })
       }
     },
   })
@@ -104,6 +112,7 @@ export const useAgent = ({
   const busy = chat.status === 'submitted' || chat.status === 'streaming'
   const send = (text: string) => {
     if (!text.trim() || busy) return
+    setProgress(null)
     chat.sendMessage({ text: text.trim() })
   }
   const mode: AgentMode | undefined = [...chat.messages]
@@ -133,11 +142,16 @@ export const useAgent = ({
     view,
     /** Replace the trip after a change made outside the chat (profile, refresh). */
     setView: (next: TripView) => {
-      setView(next)
-      cacheView(next)
+      setView((previous) => {
+        if (next.state.plan.revision < previous.state.plan.revision)
+          return previous
+        cacheView(next)
+        return next
+      })
     },
     chat,
     busy,
+    progress,
     send,
     mode,
     context,
@@ -187,6 +201,12 @@ export const ChatPanel = ({
           {messages.map((m) => (
             <Message from={m.role} key={m.id}>
               <MessageContent className="w-full max-w-full">
+                {m.role === 'assistant' && (
+                  <div className="mb-2 flex items-center gap-2 text-xs font-medium text-primary">
+                    <Gull className="size-7" />
+                    포항 여행 친구
+                  </div>
+                )}
                 {m.parts.map((p, i) => {
                   const key = `${m.id}-${i}`
                   if (p.type === 'text')
@@ -214,10 +234,52 @@ export const ChatPanel = ({
               </MessageContent>
             </Message>
           ))}
-          {status === 'submitted' && <Shimmer>생각하고 있어요…</Shimmer>}
+          {agent.busy && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="rounded-xl border bg-secondary/50 p-4"
+            >
+              <div className="flex items-center gap-3">
+                <Gull className="brand-pulse size-12 shrink-0" />
+                <div className="text-sm font-medium">
+                  {agent.progress ? (
+                    `${agent.progress.nickname}님을 위한 포항 여행코스를 짜는 중…`
+                  ) : (
+                    <Shimmer>답변을 준비하고 있어요…</Shimmer>
+                  )}
+                </div>
+              </div>
+              {agent.progress && (
+                <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground">
+                  <p className="font-medium text-primary">
+                    {
+                      {
+                        OBSERVE: '교통·대기·자외선 관측을 확인하고 있어요',
+                        PLAN: '컨디션과 귀가시간에 맞춰 코스를 계산하고 있어요',
+                        EXPLAIN: '추천 이유와 코스를 정리하고 있어요',
+                      }[agent.progress.phase]
+                    }
+                  </p>
+                  {agent.progress.checks?.map((check) => (
+                    <p key={check.label}>
+                      {check.ok ? '✓ 관측 확인' : '— 최신 관측 확인 불가'} ·{' '}
+                      {check.label}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {error && (
             <p role="alert" className="text-sm text-destructive">
-              연결이 끊겼어요. 다시 보내 주세요.
+              연결이 끊겼어요.{' '}
+              <button
+                className="underline"
+                onClick={() => agent.chat.regenerate()}
+              >
+                다시 시도
+              </button>
             </p>
           )}
         </ConversationContent>

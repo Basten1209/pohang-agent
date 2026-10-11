@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+<title>RUN2포항 여행 친구 갈매기</title>
+<circle cx="64" cy="64" r="62" fill="#DCF3F7"/>
+<path d="M26 86c-8-8-13-18-9-23 3-4 14 1 23 9m60 14c8-8 13-18 9-23-3-4-14 1-23 9" fill="#FFF" stroke="#176580" stroke-width="3" stroke-linejoin="round"/>
+<path d="M32 62c0-24 13-40 32-40s32 16 32 40v21c0 19-15 27-32 27s-32-8-32-27V62Z" fill="#FFF" stroke="#176580" stroke-width="3"/>
+<path d="m54 22 4-9 6 8 7-8 4 10" fill="#FFF" stroke="#176580" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<ellipse cx="51" cy="59" rx="3" ry="5" fill="#123A50"/><ellipse cx="78" cy="59" rx="3" ry="5" fill="#123A50"/>
+<path d="m57 68 8-5 9 5-9 8-8-8Z" fill="#FFBD59" stroke="#E29530" stroke-width="2" stroke-linejoin="round"/>
+<path d="M40 86c15 10 33 10 48 0l-3 9c-13 8-27 8-42 0l-3-9Z" fill="#087C9D"/>
+<path d="m77 98 10 14-16-3 1-12" fill="#087C9D"/>
+<path d="m49 110-4 6m30-6 4 6" stroke="#E29530" stroke-width="4" stroke-linecap="round"/>
+<path d="M17 100c6 0 7 4 13 4m68 0c6 0 7-4 13-4" stroke="#62BACA" stroke-width="3" stroke-linecap="round"/>
+</svg>

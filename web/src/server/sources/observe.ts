@@ -1,5 +1,5 @@
 import type { Evidence } from '#/core/evidence'
-import { blankEvidence, interpretBody } from '#/core/evidence'
+import { blankEvidence, interpretBody, hourlyAirBody } from '#/core/evidence'
 import type { Source, TripConfig } from '#/core/schema'
 import { getDb } from '../db/client'
 import { latestLiveSnapshot, saveSnapshot } from '../db/repo'
@@ -43,8 +43,12 @@ export const fetchSource = async (
     }
   const url = new URL(source.url)
   url.searchParams.set('serviceKey', decodedKey(key))
+  const date = new Date(now() + 9 * 3600_000).toISOString().slice(0, 10)
   for (const [name, p] of Object.entries(source.params))
-    url.searchParams.set(name, 'env' in p ? env[p.env]! : p.value)
+    url.searchParams.set(
+      name,
+      'env' in p ? env[p.env]! : 'clock' in p ? date : p.value,
+    )
   try {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(source.timeoutMs),
@@ -53,9 +57,20 @@ export const fetchSource = async (
       return {
         ...blank,
         status: 'ERROR',
-        message: `HTTP ${response.status} · 연결 확인 필요`,
+        message:
+          response.status === 401
+            ? 'E-UM 인증키 확인 필요 · 추천 미반영'
+            : `HTTP ${response.status} · 연결 확인 필요`,
       }
-    return interpretBody(source, await response.json(), fetchedAt, now())
+    const body: unknown = await response.json()
+    return interpretBody(
+      source,
+      source.id === 'INT_S01_012'
+        ? hourlyAirBody(body, date, env.EUM_AIR_DEVICE_ID, now())
+        : body,
+      fetchedAt,
+      now(),
+    )
   } catch {
     return {
       ...blank,

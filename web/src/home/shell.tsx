@@ -1,12 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import {
-  Ellipsis,
-  Flag,
-  House,
-  Map as MapIcon,
-  MessageCircle,
-  Users,
-} from 'lucide-react'
+import { Ellipsis, Flag, House, Map as MapIcon, Users } from 'lucide-react'
 import { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -31,7 +24,8 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { newTripId } from '#/app/trip-client'
+import { BrandHero, Gull, AssetCredits } from '#/brand/brand'
+import { newTripId, postEvents } from '#/app/trip-client'
 import type { TripConfig } from '#/core/schema'
 import type { Stage } from '#/core/stage'
 import type { TripView } from '#/core/view'
@@ -125,15 +119,19 @@ export const Shell = ({
   if (!view.state.created)
     return (
       <div className="mx-auto flex min-h-dvh max-w-xl flex-col gap-6 p-4 pt-safe pb-safe">
-        <div className="flex flex-col gap-1 pt-4">
+        <BrandHero />
+        <div className="flex flex-col gap-1">
           <span className="text-sm text-muted-foreground">RUN2포항</span>
           <h1 className="text-2xl font-semibold tracking-tight">
-            완주 후 하루를 같이 짤게요
+            나만의 여행을 준비해요
           </h1>
           <p className="text-sm text-muted-foreground">
             {config.event.name} · {config.event.dateLabel}
           </p>
         </div>
+        <p className="text-xs text-primary">
+          발표용 가상 대회 · 10/13 오전 일정 재현 · 실제 관측 시각은 별도 표시
+        </p>
         <ProfileForm
           config={config}
           view={view}
@@ -143,6 +141,7 @@ export const Shell = ({
             window.scrollTo({ top: 0 })
           }}
         />
+        <AssetCredits />
       </div>
     )
 
@@ -158,9 +157,12 @@ export const Shell = ({
       >
         <header className="sticky top-0 z-30 border-b bg-background pt-safe">
           <div className="mx-auto flex h-14 max-w-2xl items-center gap-2 px-4">
-            <span className="font-semibold">RUN2포항</span>
+            <Gull className="size-8" />
+            <span className="font-semibold tracking-tight text-primary">
+              RUN2포항
+            </span>
             <Badge variant="secondary">{stageLabel[view.stage]}</Badge>
-            {agent.mode && (
+            {showTools && agent.mode && (
               <Badge variant="outline">{modeLabel[agent.mode]}</Badge>
             )}
             <DropdownMenu>
@@ -281,6 +283,12 @@ export const Shell = ({
             active={tab === 'tour'}
             refresh={refresh}
             ask={ask}
+            selectTransport={async (mode) => {
+              const { trip } = await postEvents(tripId, [
+                { type: 'plan.patched', patch: { localTransport: mode } },
+              ])
+              agent.setView(trip)
+            }}
           />
         </TabsContent>
         <TabsContent value="community" className="pb-24">
@@ -294,7 +302,7 @@ export const Shell = ({
         aria-label="에이전트에게 묻기"
         onClick={() => ask()}
       >
-        <MessageCircle />
+        <Gull className="size-11" />
       </Button>
 
       <Sheet open={chatOpen} onOpenChange={setChatOpen}>
@@ -303,7 +311,10 @@ export const Shell = ({
           className="gap-0 p-0 data-[side=bottom]:h-[88dvh]"
         >
           <SheetHeader className="border-b">
-            <SheetTitle>에이전트</SheetTitle>
+            <SheetTitle className="flex items-center gap-2">
+              <Gull className="size-9" />
+              포항 여행 친구
+            </SheetTitle>
             <SheetDescription>
               대회·코스·맛집·버스, 무엇이든 물어보세요
             </SheetDescription>

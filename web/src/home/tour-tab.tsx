@@ -32,6 +32,8 @@ import { anchorOf, courseById, departLabel, hubOf } from '#/core/route'
 import type { TripConfig } from '#/core/schema'
 import { clock } from '#/core/time'
 import type { TripView } from '#/core/view'
+import { ConditionsCard, TransportCard } from './conditions'
+import { AssetCredits } from '#/brand/brand'
 import { PlaceThumb } from './thumb'
 
 const decisionLabel: Record<Decision, string> = {
@@ -51,6 +53,7 @@ export const TourTab = ({
   active,
   refresh,
   ask,
+  selectTransport,
 }: {
   config: TripConfig
   view: TripView
@@ -59,6 +62,7 @@ export const TourTab = ({
   refresh: () => void
   /** Open the agent with this message. */
   ask: (text: string) => void
+  selectTransport: (mode: 'TAXI' | 'TRANSIT') => Promise<void>
 }) => {
   const { state, itinerary: it, stage } = view
   const planned =
@@ -121,6 +125,24 @@ export const TourTab = ({
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4">
+      <div className="relative overflow-hidden rounded-xl bg-primary p-5 text-white">
+        <img
+          src="/images/guryongpo-sea.jpg"
+          alt=""
+          width="960"
+          height="576"
+          className="absolute inset-0 h-full w-full object-cover opacity-25"
+        />
+        <div className="relative">
+          <p className="text-xs tracking-widest">AFTER THE FINISH LINE</p>
+          <h1 className="mt-2 text-2xl font-semibold">
+            {state.plan.nickname || '러너'}님의 포항 여행
+          </h1>
+          <p className="mt-2 text-sm">
+            완주의 여운은 길게, 돌아가는 길은 여유롭게.
+          </p>
+        </div>
+      </div>
       <Card>
         <CardHeader>
           <CardDescription>{departLabel(config, state.plan)}</CardDescription>
@@ -166,6 +188,9 @@ export const TourTab = ({
         )}
       </Card>
 
+      <ConditionsCard config={config} view={view} />
+      <TransportCard config={config} view={view} select={selectTransport} />
+
       {travel && (
         <Card size="sm">
           <CardHeader>
@@ -176,6 +201,25 @@ export const TourTab = ({
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="mb-4 flex flex-col gap-2">
+              {it.legs?.map((leg, i) => (
+                <div key={i} className="rounded-md bg-secondary/60 p-3 text-sm">
+                  <div className="flex justify-between gap-2">
+                    <span className="font-medium">{leg.label}</span>
+                    <span className="text-xs tabular-nums">
+                      {clock(leg.start)}–{clock(leg.end)}
+                    </span>
+                  </div>
+                  <p className="mt-1">
+                    이동 {leg.baseMin}분
+                    {leg.bufferMin > 0 ? ` + 혼잡 여유 ${leg.bufferMin}분` : ''}
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {leg.basis}
+                  </p>
+                </div>
+              ))}
+            </div>
             <ol className="flex flex-col gap-2 text-sm">
               {timeline.map((row) => (
                 <li key={`${row.at}${row.what}`} className="flex gap-3">
@@ -191,7 +235,8 @@ export const TourTab = ({
             <p className="text-xs text-muted-foreground">
               근거:{' '}
               {readingLine(state.observations, 'congestion', '교통 혼잡', '%')}
-              {it.trafficReserve > 0 && ` · 귀가 여유 +${it.trafficReserve}분`}
+              {it.trafficReserve > 0 &&
+                ` · 구간 여유 합계 +${it.trafficReserve}분`}
             </p>
             <div className="grid grid-cols-2 gap-2">
               <Button asChild variant="outline">
@@ -230,6 +275,7 @@ export const TourTab = ({
           </div>
         </div>
       )}
+      <AssetCredits />
     </div>
   )
 }

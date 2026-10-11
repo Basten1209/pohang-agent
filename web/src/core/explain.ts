@@ -66,7 +66,7 @@ export const explainPlan = (
       ),
     ...(it.trafficReserve > 0 && obs
       ? [
-          `${readingLine(obs, 'congestion', '교통 혼잡', '%')} 때문에 귀가 여유를 ${it.trafficReserve}분 더 잡았어요.`,
+          `${readingLine(obs, 'congestion', '교통 혼잡', '%')} 기준으로 도로 구간의 여유 합계 ${it.trafficReserve}분을 시간표에 반영했어요.`,
         ]
       : []),
   ]

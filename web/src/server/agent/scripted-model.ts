@@ -397,7 +397,7 @@ const decideFromResult = (
       }
     case 'compare_transport':
       return {
-        text: `${v.from ?? '코스'}에서 ${v.to}까지 대중교통은 시연 기준 ${(v.transit as Json)?.minutes ?? '—'}분이에요. 택시 시간·요금은 아직 연결된 데이터가 없어 카카오T 앱에서 확인해 주세요.`,
+        text: `${(v.recommendation as Json)?.title ?? '이동수단을 확인해요'}. ${((v.recommendation as Json)?.reasons as string[] | undefined)?.join(' ') ?? ''} ${v.from ?? '코스'}에서 ${v.to}까지 대중교통은 시연 기준 ${(v.transit as Json)?.minutes ?? '—'}분이에요. 택시 시간·요금은 아직 연결된 데이터가 없어 카카오T 앱에서 확인해 주세요.`,
       }
     case 'check_live_conditions': {
       const verdict = (v.verdict ?? {}) as Json
@@ -619,13 +619,12 @@ const decideFromResult = (
       }
     }
     case 'get_weather': {
-      if (typeof v.note === 'string') return { text: v.note }
-      if (v.status !== 'LIVE')
+      if (v.status !== 'LIVE' && v.status !== 'SNAPSHOT')
         return { text: String(v.message ?? '날씨를 불러오지 못했어요.') }
       const hours = (v.hours as Json[] | undefined) ?? []
       return {
         text: hours.length
-          ? `${v.near} ${v.date} 예보(기상청):\n${listed(hours, (h) => `${h.time} ${h.tempC}°C ${h.precip || h.sky} 강수 ${h.popPct}% 바람 ${h.windMs}m/s`, 5)}`
+          ? `${v.near} ${v.date} 예보(기상청):\n${listed(hours, (h) => `${h.time} ${h.tempC}°C ${h.precip || h.sky} 강수 ${h.popPct}% 바람 ${h.windMs}m/s${h.provenance === 'SNAPSHOT' ? ` (저장 예보 · ${h.issuedAt} 발표)` : ''}`, 5)}${v.note ? `\n${v.note}` : ''}`
           : `${v.date} 예보는 아직 없어요(예보는 ${v.lastForecastDate}까지).`,
       }
     }

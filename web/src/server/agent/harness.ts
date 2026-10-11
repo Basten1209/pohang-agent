@@ -71,7 +71,16 @@ export type AgentMetadata = {
   revision?: number
   choice?: ChipAnswer
 }
-export type AgentData = { trip: TripView; choices: ChoicePrompt }
+export type PlanProgress = {
+  phase: 'OBSERVE' | 'PLAN' | 'EXPLAIN'
+  nickname: string
+  checks?: { label: string; ok: boolean }[]
+}
+export type AgentData = {
+  trip: TripView
+  choices: ChoicePrompt
+  progress: PlanProgress
+}
 export type AgentUIMessage = UIMessage<
   AgentMetadata,
   AgentData,
@@ -292,11 +301,6 @@ export const runTurn = async (
     )
 
   const stageNow = stageOf(record.state)
-  // Before a course is (re)computed, let fresh live observations into the plan.
-  if (stageNow === 'PLANNING' || stageNow === 'JOURNEY') {
-    record = (await syncLive(db, config, record, deps.observe)).record
-    await saveConversation(db, { id: record.id, messages, meta: record.meta })
-  }
   if (chipApplied && answeredByApp.includes(stageNow)) {
     const done = record
     return createUIMessageStream<AgentUIMessage>({
@@ -329,8 +333,11 @@ export const runTurn = async (
   }
 
   let current = record
+  let progress: TurnContext['progress']
+  let checks: { label: string; ok: boolean }[] = []
   const ctx: TurnContext = {
     config,
+    progress: (phase) => progress?.(phase),
     trip: () => current,
     commit: async (events, source) => {
       current = await commit(db, current, events, { source })
@@ -339,7 +346,16 @@ export const runTurn = async (
     remember: (preview) => {
       current = { ...current, meta: rememberPreview(current.meta, preview) }
     },
-    observe: deps.observe,
+    observe: async () => {
+      progress?.('OBSERVE')
+      const evidence = await deps.observe()
+      checks = evidence.map((e) => ({
+        label: e.label,
+        ok: e.status === 'LIVE' && e.freshness === 'FRESH',
+      }))
+      progress?.('PLAN')
+      return evidence
+    },
     newId: () => `pv_${crypto.randomUUID().slice(0, 8)}`,
   }
   const tools = makeTools(ctx)
@@ -420,6 +436,36 @@ export const runTurn = async (
     originalMessages: messages,
     execute: async ({ writer }) => {
       writer.write({ type: 'start', messageMetadata: meta() })
+      progress = (phase) =>
+        writer.write({
+          type: 'data-progress',
+          transient: true,
+          data: {
+            phase,
+            nickname: current.state.plan.nickname || '러너',
+            checks,
+          },
+        })
+      if (stageNow === 'PLANNING' || stageNow === 'JOURNEY') {
+        progress('OBSERVE')
+        const synced = await syncLive(db, config, current, deps.observe)
+        current = synced.record
+        checks =
+          synced.evidence?.map((e) => ({
+            label: e.label,
+            ok: e.status === 'LIVE' && e.freshness === 'FRESH',
+          })) ??
+          Object.entries(current.state.observations.sources).map(
+            ([name, s]) => ({ label: name, ok: s.freshness === 'FRESH' }),
+          )
+        await saveConversation(db, {
+          id: current.id,
+          messages,
+          meta: current.meta,
+        })
+        progress('PLAN')
+      }
+
       const entry =
         stageAfterIngest !== stageAtStart
           ? entryLine[stageAfterIngest]
@@ -445,6 +491,7 @@ export const runTurn = async (
       }) as ReadableStream<UIMessageChunk>
       for await (const chunk of ui) {
         if (chunk.type === 'tool-input-available') asked.add(chunk.toolName)
+        if (chunk.type === 'text-start') progress?.('EXPLAIN')
         if (chunk.type === 'tool-approval-request' && !chunk.isAutomatic)
           awaitingApproval = true
         writer.write(chunk as never)
