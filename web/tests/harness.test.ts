@@ -703,6 +703,33 @@ describe('하네스가 모델을 통제하는 방식', () => {
     expect((await load()).state.plan.departTime).toBe('18:30')
   })
 
+  it.each([true, false])(
+    '승인 응답(%s)은 제안된 변경만 처리하고 새 도구를 열지 않음',
+    async (approved) => {
+      await toPlanning()
+      await say('카페는 빼 줘')
+      await approve(false)
+      await say('16시 기차로 바뀌었어요')
+      const { model, calls } = recorder(false)
+      deps = { ...deps, model }
+      const chunks = await approve(approved)
+      expect((await load()).state.plan.departTime).toBe(
+        approved ? '16:00' : '18:30',
+      )
+      expect(calls.length).toBeGreaterThan(0)
+      expect(
+        calls.every(
+          (call) =>
+            call.tools.length === 0 &&
+            (call.toolChoice as { type: string }).type === 'none',
+        ),
+      ).toBe(true)
+      expect(
+        chunks.some((chunk) => chunk.type === 'tool-approval-request'),
+      ).toBe(false)
+    },
+  )
+
   it('모델 호출이 실패하면 같은 하네스에서 규칙 모델로 대체', async () => {
     await toPlanning()
     const broken: LanguageModelV4 = {

@@ -227,6 +227,15 @@ export const runTurn = async (
   ) as AgentUIMessage[]
   const stageAtStart = stageOf(record.state)
   const pending = pendingAnswers(messages, record.meta.ingested)
+  // Approval resumes the already-proposed tool, then only explains its result.
+  // It is not a fresh request to reinterpret older user messages.
+  const approvalResponse =
+    input.message.role === 'assistant' &&
+    messages
+      .at(-1)
+      ?.parts.some(
+        (part) => 'state' in part && part.state === 'approval-responded',
+      ) === true
 
   // An assistant message that answers nothing new needs no model call.
   if (
@@ -405,22 +414,33 @@ export const runTurn = async (
     providerOptions: { openai: { store: false, parallelToolCalls: false } },
     prepareStep: ({ stepNumber, steps }) => {
       const stage = stageOf(current.state)
-      const active = activeFor(stage)
-      const forced = forcedTool(
-        stage,
-        stage !== stageAtStart,
-        stepNumber,
-        steps,
-        active.includes('apply_plan_change'),
-        !chipApplied && text.length > 0 && !asksInfo(text),
-      )
+      const active = approvalResponse ? [] : activeFor(stage)
+      const forced = approvalResponse
+        ? null
+        : forcedTool(
+            stage,
+            stage !== stageAtStart,
+            stepNumber,
+            steps,
+            active.includes('apply_plan_change'),
+            !chipApplied && text.length > 0 && !asksInfo(text),
+          )
       return {
         activeTools: active,
-        toolChoice: forced ? { type: 'tool', toolName: forced } : 'auto',
+        toolChoice: approvalResponse
+          ? 'none'
+          : forced
+            ? { type: 'tool', toolName: forced }
+            : 'auto',
         instructions: [
           baseInstructions,
           stageInstructions[stage],
           snapshot(config, current.state, stage),
+          ...(approvalResponse
+            ? [
+                '이번 입력은 직전 변경안의 승인 또는 거절이다. 방금 실행된 도구의 결과나 거절 여부만 한 문장으로 확인한다. 이전 사용자 요청을 다시 처리하거나 새 변경안을 제안하지 않는다.',
+              ]
+            : []),
         ].join('\n\n'),
       }
     },
