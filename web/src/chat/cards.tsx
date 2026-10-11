@@ -33,6 +33,7 @@ import { courseById, departLabel, hubOf } from '#/core/route'
 import { clock } from '#/core/time'
 import type { PartOf, ToolPart } from './context'
 import { useChatContext } from './context'
+import { VisitPhotoCard } from './visit-photo-card'
 
 /**
  * One component per agent tool. A card is interactive only while it is the
@@ -491,6 +492,7 @@ const Hidden = () => null
 
 /** Data-directed dispatch: tool name → card. */
 const cards: Record<string, (props: CardProps<never>) => ReactNode> = {
+  prepare_visit_photo: VisitPhotoCard,
   update_trip_details: Hidden,
   record_race_progress: Hidden,
   ask_quick_reply: QuickReplyCard,

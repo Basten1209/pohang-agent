@@ -112,7 +112,6 @@ export const Shell = ({
   const [profileOpen, setProfileOpen] = useState(false)
   const [finishOpen, setFinishOpen] = useState(false)
   const [communityRevision, setCommunityRevision] = useState(0)
-  const [visitPlace, setVisitPlace] = useState<Place | null>(null)
   const [visitPosts, setVisitPosts] = useState<CommunityPost[]>([])
   const [visitsReady, setVisitsReady] = useState(false)
   const [updating, setUpdating] = useState(false)
@@ -146,9 +145,23 @@ export const Shell = ({
     return () => controller.abort()
   }, [tripId, communityRevision, view.state.plan.completed.length])
   const opportunity = photoOpportunity(config, view.state, view.itinerary.slack)
+  const dismissPhoto = (id: string) => {
+    const ids = [...new Set([...dismissed, id])]
+    setDismissed(ids)
+    try {
+      sessionStorage.setItem(
+        `run2-photo-dismissed:${tripId}`,
+        JSON.stringify(ids),
+      )
+    } catch {
+      /* Session-only fallback. */
+    }
+  }
   const showPhoto = (place: Place) => {
-    setChatOpen(false)
-    setVisitPlace(place)
+    if (agent.busy) return
+    dismissPhoto(place.id)
+    setChatOpen(true)
+    agent.send(`${place.attrs.short}에서 찍은 사진을 커뮤니티에 올릴래요`)
   }
   const photoPrompt =
     opportunity &&
@@ -159,18 +172,7 @@ export const Shell = ({
       <VisitPhotoPrompt
         place={opportunity}
         share={() => showPhoto(opportunity)}
-        dismiss={() => {
-          const ids = [...dismissed, opportunity.id]
-          setDismissed(ids)
-          try {
-            sessionStorage.setItem(
-              `run2-photo-dismissed:${tripId}`,
-              JSON.stringify(ids),
-            )
-          } catch {
-            /* Session-only fallback. */
-          }
-        }}
+        dismiss={() => dismissPhoto(opportunity.id)}
       />
     ) : null
   const advance = async () => {
@@ -228,7 +230,15 @@ export const Shell = ({
     )
 
   return (
-    <AgentProvider agent={agent} showTools={showTools}>
+    <AgentProvider
+      agent={agent}
+      showTools={showTools}
+      photoShared={() => setCommunityRevision((v) => v + 1)}
+      showCommunity={() => {
+        setChatOpen(false)
+        setTab('community')
+      }}
+    >
       <Tabs
         value={tab}
         onValueChange={(v) => {
@@ -395,6 +405,7 @@ export const Shell = ({
             config={config}
             revision={communityRevision}
             onFinish={() => setFinishOpen(true)}
+            onPhoto={() => ask('여행 사진을 커뮤니티에 올릴래요')}
           />
         </TabsContent>
       </Tabs>
@@ -421,24 +432,6 @@ export const Shell = ({
           ask('완주 후 구룡포 여행을 준비할게요.')
         }}
       />
-
-      {visitPlace && (
-        <FinishSheet
-          key={`${tripId}:${visitPlace.id}`}
-          open
-          onOpenChange={(open) => !open && setVisitPlace(null)}
-          tripId={tripId}
-          course={visitPlace.attrs.course}
-          place={visitPlace}
-          finish={async () => undefined}
-          onShared={() => setCommunityRevision((v) => v + 1)}
-          onContinue={() => setVisitPlace(null)}
-          onCommunity={() => {
-            setVisitPlace(null)
-            setTab('community')
-          }}
-        />
-      )}
 
       <Sheet open={chatOpen} onOpenChange={setChatOpen}>
         <SheetContent

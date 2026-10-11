@@ -1,4 +1,5 @@
 import { tool } from 'ai'
+import { visitPhotoOffer } from '#/core/visit-photo'
 import { z } from 'zod'
 import type { Evidence } from '#/core/evidence'
 import type { Changes } from '#/core/intents'
@@ -217,6 +218,13 @@ export const makeTools = (ctx: TurnContext) => {
     }),
 
     // ── Read ──────────────────────────────────────────────────────────
+    prepare_visit_photo: tool({
+      description:
+        '사용자가 관광 사진을 커뮤니티에 남기고 싶다고 할 때 채팅 안에 사진 공유 카드를 연다. 사용자의 원문을 request로 전달한다. 방문 완료한 장소만 제공하며, 방문 기록이나 게시물을 만들지 않는다. 촬영 장소 추천이나 일정 변경에는 쓰지 않는다. 사진 선택과 공개는 사용자가 카드에서 직접 한다.',
+      inputSchema: z.object({ request: z.string().max(1000) }).strict(),
+      execute: ({ request }) =>
+        visitPhotoOffer(config, ctx.trip().state, request),
+    }),
     plan_course: tool({
       description:
         '현재 조건 또는 요청된 변경으로 코스를 계산해 미리보기를 만든다. 코스를 처음 보여줄 때, 사용자가 출발 시각·코스(권역)·걷기·휴식·장소 제외를 바꾸고 싶다고 할 때 쓴다. 여러 코스를 비교만 하려면 compare_courses, 이유를 묻는 질문에는 explain_plan을 쓴다. 저장하지 않으며, 사용자가 말하지 않은 필드는 null이다.',

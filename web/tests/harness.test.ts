@@ -1,6 +1,7 @@
 import type { LanguageModelV4 } from '@ai-sdk/provider'
 import type { UIMessage } from 'ai'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { listCommunity, shareVisit, visitForTrip } from '#/server/community'
 import { seedConfig } from '#/core/defaults'
 import { planner } from '#/core/planner'
 import { progressOptions, stageOf } from '#/core/stage'
@@ -811,5 +812,95 @@ describe('하네스가 모델을 통제하는 방식', () => {
       messageMetadata: { mode: 'FALLBACK' },
     })
     expect(chunks.some((c) => c.type === 'tool-approval-request')).toBe(true)
+  })
+})
+
+describe('채팅 안에서 관광 사진 공유', () => {
+  const visited = async () => {
+    await finishRace()
+    await checkIn()
+    await say('이 코스로 갈게요')
+    await answer('await_progress', { event: 'ARRIVED' })
+    await answer('await_progress', { event: 'STOP_DONE' })
+  }
+  const photo = async () =>
+    toolParts(await lastAssistant()).find(
+      (p) => p.type === 'tool-prepare_visit_photo',
+    )
+
+  it('방문 후 자연어 요청은 모델 없이 공유 카드를 저장하며 명시적 POST만 게시한다', async () => {
+    await visited()
+    const before = (await load()).state
+    const model = scriptedModel()
+    deps.model = {
+      ...model,
+      doStream: async () => {
+        throw new Error('사진 요청에서 모델을 호출하면 안 됨')
+      },
+    }
+    await say('여기서 찍은 사진을 커뮤니티에 올릴래')
+    expect((await photo())?.output).toMatchObject({
+      placeIds: ['food'],
+      selectedId: 'food',
+    })
+    expect((await load()).state).toEqual(before)
+    expect(await listCommunity(db)).toEqual([])
+    const post = await shareVisit(db, seedConfig, {
+      tripId,
+      course: 'guryongpo',
+      placeId: 'food',
+      caption: '구룡포에서 먹은 점심',
+      photo: { kind: 'UPLOAD', data: 'data:image/jpeg;base64,/9j/2Q==' },
+    })
+    expect(post).toMatchObject({ kind: 'VISIT', placeId: 'food' })
+    expect(await visitForTrip(db, tripId, 'food')).toEqual(post)
+    await say('항구 앞 점심 사진 공유할래')
+    expect((await photo())?.output).toMatchObject({ selectedId: 'food' })
+    expect(await listCommunity(db)).toHaveLength(1)
+    deps.model = null
+    await say('다음 일정 알려줘')
+    expect(toolParts(await lastAssistant()).at(-1)?.type).toBe(
+      'tool-await_progress',
+    )
+    expect((await load()).state.plan.completed).toEqual(['food'])
+  })
+
+  it('방문 전 요청에는 진행 버튼을 남기고 방문 기록을 자동으로 만들지 않는다', async () => {
+    await finishRace()
+    await checkIn()
+    await say('이 코스로 갈게요')
+    await answer('await_progress', { event: 'ARRIVED' })
+    await say('일본인 가옥거리에서 찍은 사진 공유할래')
+    expect((await photo())?.output).toMatchObject({
+      placeIds: [],
+      selectedId: null,
+    })
+    expect((await load()).state.plan.completed).toEqual([])
+    expect(toolParts(await lastAssistant()).at(-1)?.type).toBe(
+      'tool-await_progress',
+    )
+    expect(await listCommunity(db)).toEqual([])
+  })
+
+  it('안전 안내가 사진 요청보다 우선이고 귀가 후 명시적 공유도 가능하다', async () => {
+    await visited()
+    const record = await load()
+    await commit(
+      db,
+      record,
+      [{ type: 'plan.patched', patch: { stage: 'DONE' } }],
+      { source: 'test' },
+    )
+    await say('여행 사진 올릴래')
+    expect((await photo())?.output).toMatchObject({ placeIds: ['food'] })
+    await say('어지러워요. 여기 사진 올릴래')
+    expect(await stage()).toBe('SAFETY')
+    expect(await photo()).toBeUndefined()
+    expect(
+      toolParts(await lastAssistant()).some(
+        (p) => p.type === 'tool-show_safety_help',
+      ),
+    ).toBe(true)
+    expect(await listCommunity(db)).toEqual([])
   })
 })

@@ -5,6 +5,9 @@ import {
   lastAssistantMessageIsCompleteWithToolCalls,
 } from 'ai'
 import { useEffect, useMemo, useState } from 'react'
+import { Camera } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { visitedPlaces } from '#/core/community'
 import {
   Conversation,
   ConversationContent,
@@ -120,6 +123,7 @@ export const useAgent = ({
     .find((m) => m.metadata?.mode)?.metadata?.mode
 
   const context = (showTools: boolean): ChatContext => ({
+    tripId,
     config,
     view,
     send,
@@ -162,11 +166,21 @@ export const AgentProvider = ({
   agent,
   showTools,
   children,
+  photoShared,
+  showCommunity,
 }: {
   agent: Agent
   showTools: boolean
   children: React.ReactNode
-}) => <ChatProvider value={agent.context(showTools)}>{children}</ChatProvider>
+  photoShared?: () => void
+  showCommunity?: () => void
+}) => (
+  <ChatProvider
+    value={{ ...agent.context(showTools), photoShared, showCommunity }}
+  >
+    {children}
+  </ChatProvider>
+)
 
 /**
  * The conversation and the composer. `suggestions` are the chips of the
@@ -181,7 +195,7 @@ export const ChatPanel = ({
   suggestions?: string[]
   photoPrompt?: React.ReactNode
 }) => {
-  const { view } = useChatContext()
+  const { view, config } = useChatContext()
   const { messages, status, stop, error } = agent.chat
   const [input, setInput] = useState('')
   const last = messages.at(-1)
@@ -249,7 +263,9 @@ export const ChatPanel = ({
               </MessageContent>
             </Message>
           ))}
-          {!agent.busy && photoPrompt}
+          {!agent.busy &&
+            !last?.parts.some((p) => p.type === 'tool-prepare_visit_photo') &&
+            photoPrompt}
           {agent.busy && (
             <div
               role="status"
@@ -330,7 +346,20 @@ export const ChatPanel = ({
                 maxLength={1000}
               />
             </PromptInputBody>
-            <PromptInputFooter className="justify-end">
+            <PromptInputFooter className="justify-between">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={
+                  agent.busy ||
+                  view.stage === 'SAFETY' ||
+                  !visitedPlaces(config, view.state).length
+                }
+                onClick={() => send('여행 사진을 커뮤니티에 올릴래요')}
+              >
+                <Camera /> 여행 사진
+              </Button>
               <PromptInputSubmit
                 status={status}
                 onStop={stop}

@@ -366,6 +366,8 @@ const decideFromResult = (
   const v = r.value ?? {}
   if (r.denied) return { text: '기존 계획을 그대로 둘게요.' }
   switch (r.toolName) {
+    case 'prepare_visit_photo':
+      return { text: '사진 카드에서 장소와 공개 내용을 확인해 주세요.' }
     case 'plan_course':
       if (typeof v.noEffect === 'string') return { text: v.noEffect }
       return v.isChange && has('apply_plan_change')

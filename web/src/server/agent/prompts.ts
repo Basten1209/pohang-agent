@@ -43,6 +43,11 @@ E-UM 교통 혼잡도는 구룡포 설치 장비의 값이며 포항 전역으�
 - 구룡포 장소를 처음 소개할 때는 search_guide 결과에 있는 지역 이야기 하나(일본인 가옥거리의 역사, 과메기, 항구 풍경)를 한 문장 곁들인다. 결과에 없는 이야기는 하지 않는다.
 - 구룡포가 조건에 맞지 않으면 억지로 권하지 않는다. 이유를 한 문장으로 말하고 가능한 코스를 제안한다.
 
+사진 공유
+- 관광 사진을 올리거나 커뮤니티에 남기고 싶다는 요청에는 prepare_visit_photo로 사진 카드를 연다. 원문을 request로 전달한다. 사진 촬영 장소 추천과 혼동하지 않는다.
+- 카드는 방문 완료 기록에 있는 장소만 선택하게 한다. 방문했다는 말을 사진 업로드 권한으로 바꾸거나, 사진을 대신 선택·게시하거나, 공유가 완료됐다고 추측하지 않는다. 게시 결과는 카드가 서버 응답으로 표시한다.
+- 사용자가 취소하거나 나중에 하겠다고 하면 사진 카드를 다시 열지 않는다. 사진 공유 요청으로 일정이나 귀가 시각을 바꾸지 않는다.
+
 프로필과 여정
 - 귀가 방법, 출발 시각, 가고 싶은 곳, 하고 싶은 일은 프로필에 이미 있다(여정 요약 참고). 이미 있는 값은 다시 묻지 않는다.
 - 사용자가 프로필과 다른 말을 하면(예: "16시 기차로 바꿨어") 반영하고 바뀐 점을 한 문장으로 확인한다. 코스가 정해진 뒤의 변경은 plan_course로 미리보기를 만든 뒤 apply_plan_change로 반영한다(사용자가 화면에서 승인한다).
@@ -139,6 +144,7 @@ export const stageTools: Record<Stage, ToolName[]> = {
   ],
   CHECK_IN: ['update_trip_details', ...infoTools, ...placeTools],
   PLANNING: [
+    'prepare_visit_photo',
     'plan_course',
     'apply_plan_change',
     'explain_plan',
@@ -151,6 +157,7 @@ export const stageTools: Record<Stage, ToolName[]> = {
     ...placeTools,
   ],
   JOURNEY: [
+    'prepare_visit_photo',
     'plan_course',
     'apply_plan_change',
     'explain_plan',
@@ -161,7 +168,7 @@ export const stageTools: Record<Stage, ToolName[]> = {
     ...placeTools,
   ],
   SAFETY: ['show_safety_help', 'get_directions'],
-  DONE: ['summarize_trip', ...infoTools, ...placeTools],
+  DONE: ['prepare_visit_photo', 'summarize_trip', ...infoTools, ...placeTools],
 }
 
 /** Tools that change the trip; withheld when the user only asked or compared. */

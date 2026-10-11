@@ -12,6 +12,7 @@ import {
 import { createHash } from 'node:crypto'
 import type { Evidence } from '#/core/evidence'
 import { asksInfo, isReadOnly, mentionsSymptom } from '#/core/intents'
+import { requestsVisitPhoto, visitPhotoOffer } from '#/core/visit-photo'
 import type { SlotId, TripConfig } from '#/core/schema'
 import type { ChoicePrompt } from '#/core/slots'
 import { choiceValue, fillSlots, pendingSlot, promptFor } from '#/core/slots'
@@ -310,6 +311,55 @@ export const runTurn = async (
     )
 
   const stageNow = stageOf(record.state)
+  // Explicit photo requests are UI work, independent of model availability.
+  // Run AFTER the safety gate, only for a new user turn (not a card answer).
+  if (
+    input.message.role === 'user' &&
+    stageNow !== 'SAFETY' &&
+    requestsVisitPhoto(text)
+  ) {
+    const done = record
+    const offer = visitPhotoOffer(config, done.state, text)
+    return createUIMessageStream<AgentUIMessage>({
+      originalMessages: messages,
+      execute: ({ writer }) => {
+        const meta = { stage: stageNow, revision: done.state.plan.revision }
+        const toolCallId = `photo_${crypto.randomUUID()}`
+        writer.write({ type: 'start', messageMetadata: meta })
+        writer.write({
+          type: 'tool-input-available',
+          toolName: 'prepare_visit_photo',
+          toolCallId,
+          input: { request: text },
+        })
+        writer.write({
+          type: 'tool-output-available',
+          toolCallId,
+          output: offer,
+        })
+        if (!offer.placeIds.length && stageNow === 'JOURNEY')
+          writer.write({
+            type: 'tool-input-available',
+            toolCallId: `h_${crypto.randomUUID()}`,
+            toolName: 'await_progress',
+            input: {},
+          })
+        writer.write({
+          type: 'data-trip',
+          data: tripView(config, done.state),
+          transient: true,
+        })
+        writer.write({ type: 'finish', messageMetadata: meta })
+      },
+      onEnd: async ({ messages: final }) => {
+        await saveConversation(db, {
+          id: done.id,
+          messages: final,
+          meta: done.meta,
+        })
+      },
+    })
+  }
   if (chipApplied && answeredByApp.includes(stageNow)) {
     const done = record
     return createUIMessageStream<AgentUIMessage>({

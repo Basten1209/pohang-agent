@@ -13,6 +13,9 @@ export type PartOf<Name extends string> = Extract<
 
 /** What every card can reach: the trip, and the two ways to answer the agent. */
 export type ChatContext = {
+  tripId: string
+  photoShared?: () => void
+  showCommunity?: () => void
   config: TripConfig
   view: TripView
   /** Answer an Ask tool (a card). The harness applies it on the server. */

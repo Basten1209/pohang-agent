@@ -37,10 +37,12 @@ export const CommunityTab = ({
   config,
   revision = 0,
   onFinish,
+  onPhoto,
 }: {
   config: TripConfig
   revision?: number
   onFinish?: () => void
+  onPhoto?: () => void
 }) => {
   const [tag, setTag] = useState('all')
   const [posts, setPosts] = useState<CommunityPost[]>([])
@@ -87,6 +89,7 @@ export const CommunityTab = ({
           완주 사진 공유 · 여행 준비하기
         </Button>
       )}
+      {onPhoto && <Button onClick={onPhoto}>여행 사진 공유하기</Button>}
       <ToggleGroup
         type="single"
         variant="outline"
