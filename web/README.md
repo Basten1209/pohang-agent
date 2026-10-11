@@ -1,4 +1,4 @@
-# RUN2포항 web — TanStack Start · shadcn · Vercel AI SDK · PWA
+# RUN2구룡포 web — TanStack Start · shadcn · Vercel AI SDK · PWA
 
 포항 러닝 대회를 마친 러너가 완주 후 포항을 둘러보고(구룡포·호미곶·영일대·죽도시장) 기차·버스·비행기·자가용 시간 또는 귀가 시각까지 돌아오도록 돕는 모바일 PWA입니다. 기획·명세는 [`docs/`](../docs)를, 이전 Vite+Express 데모는 저장소 루트를 참고하세요.
 

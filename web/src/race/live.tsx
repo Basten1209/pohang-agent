@@ -18,7 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { pace, raceClock, snapshot } from '#/core/race'
+import { pace, raceClock, snapshot, timeAt } from '#/core/race'
 import { bib, category, demoStart, race } from './mock'
 
 const km = (d: number) => d.toFixed(2)
@@ -35,10 +35,13 @@ const Stat = ({ label, value }: { label: string; value: string }) => (
  * fast-forwarded) on every tab, as a real race would; everything shown is
  * `snapshot(race, t)`.
  */
-export const RaceLive = () => {
+export const RaceLive = ({ finished = false }: { finished?: boolean }) => {
   const [t, setT] = useState(demoStart)
   const [speed, setSpeed] = useState('1')
-  const s = useMemo(() => snapshot(race, t), [t])
+  const s = useMemo(
+    () => snapshot(race, finished ? timeAt(race.me.paces, race.distance) : t),
+    [t, finished],
+  )
 
   useEffect(() => {
     if (s.finished) return

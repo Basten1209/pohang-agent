@@ -19,7 +19,7 @@ describe('질문 순서와 답 버튼 (설정 데이터)', () => {
     for (const [slot, value] of [
       ['departMode', 'BUS'],
       ['departTime', '17:00'],
-      ['course', 'jukdo'],
+      ['course', 'homigot'],
       ['interests', ['food']],
       ['origin', 'RACE'],
     ] as const) {
@@ -37,7 +37,7 @@ describe('질문 순서와 답 버튼 (설정 데이터)', () => {
     expect(s.plan).toMatchObject({
       departMode: 'BUS',
       departTime: '17:00',
-      course: 'jukdo',
+      course: 'homigot',
     })
     expect(pendingSlot(seedConfig, s)).toBeNull()
   })
@@ -80,8 +80,6 @@ describe('질문 순서와 답 버튼 (설정 데이터)', () => {
     expect(promptFor(seedConfig, s)?.choices.map((c) => c.value)).toEqual([
       'guryongpo',
       'homigot',
-      'yeongildae',
-      'jukdo',
       'auto',
     ])
     s = replay(s, fillSlots(seedConfig, s, { course: 'auto' }))

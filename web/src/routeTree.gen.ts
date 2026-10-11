@@ -12,10 +12,12 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ClassicRouteImport } from './routes/classic'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiCommunityRouteImport } from './routes/api/community'
 import { Route as ApiConfigRouteImport } from './routes/api/config'
 import { Route as ApiEvidenceRouteImport } from './routes/api/evidence'
 import { Route as ApiStatusRouteImport } from './routes/api/status'
 import { Route as ApiTripsTripIdRouteImport } from './routes/api/trips.$tripId'
+import { Route as ApiCommunityPostIdImageRouteImport } from './routes/api/community.$postId.image'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -30,6 +32,11 @@ const ClassicRoute = ClassicRouteImport.update({
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCommunityRoute = ApiCommunityRouteImport.update({
+  id: '/api/community',
+  path: '/api/community',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiConfigRoute = ApiConfigRouteImport.update({
@@ -52,34 +59,45 @@ const ApiTripsTripIdRoute = ApiTripsTripIdRouteImport.update({
   path: '/api/trips/$tripId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCommunityPostIdImageRoute = ApiCommunityPostIdImageRouteImport.update({
+  id: '/$postId/image',
+  path: '/$postId/image',
+  getParentRoute: () => ApiCommunityRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/classic': typeof ClassicRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/community': typeof ApiCommunityRouteWithChildren
   '/api/config': typeof ApiConfigRoute
   '/api/evidence': typeof ApiEvidenceRoute
   '/api/status': typeof ApiStatusRoute
   '/api/trips/$tripId': typeof ApiTripsTripIdRoute
+  '/api/community/$postId/image': typeof ApiCommunityPostIdImageRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/classic': typeof ClassicRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/community': typeof ApiCommunityRouteWithChildren
   '/api/config': typeof ApiConfigRoute
   '/api/evidence': typeof ApiEvidenceRoute
   '/api/status': typeof ApiStatusRoute
   '/api/trips/$tripId': typeof ApiTripsTripIdRoute
+  '/api/community/$postId/image': typeof ApiCommunityPostIdImageRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/classic': typeof ClassicRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/community': typeof ApiCommunityRouteWithChildren
   '/api/config': typeof ApiConfigRoute
   '/api/evidence': typeof ApiEvidenceRoute
   '/api/status': typeof ApiStatusRoute
   '/api/trips/$tripId': typeof ApiTripsTripIdRoute
+  '/api/community/$postId/image': typeof ApiCommunityPostIdImageRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -87,34 +105,41 @@ export interface FileRouteTypes {
     | '/'
     | '/classic'
     | '/api/chat'
+    | '/api/community'
     | '/api/config'
     | '/api/evidence'
     | '/api/status'
     | '/api/trips/$tripId'
+    | '/api/community/$postId/image'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/classic'
     | '/api/chat'
+    | '/api/community'
     | '/api/config'
     | '/api/evidence'
     | '/api/status'
     | '/api/trips/$tripId'
+    | '/api/community/$postId/image'
   id:
     | '__root__'
     | '/'
     | '/classic'
     | '/api/chat'
+    | '/api/community'
     | '/api/config'
     | '/api/evidence'
     | '/api/status'
     | '/api/trips/$tripId'
+    | '/api/community/$postId/image'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ClassicRoute: typeof ClassicRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiCommunityRoute: typeof ApiCommunityRouteWithChildren
   ApiConfigRoute: typeof ApiConfigRoute
   ApiEvidenceRoute: typeof ApiEvidenceRoute
   ApiStatusRoute: typeof ApiStatusRoute
@@ -142,6 +167,13 @@ declare module '@tanstack/react-router' {
       path: '/api/chat'
       fullPath: '/api/chat'
       preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/community': {
+      id: '/api/community'
+      path: '/api/community'
+      fullPath: '/api/community'
+      preLoaderRoute: typeof ApiCommunityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/config': {
@@ -172,13 +204,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTripsTripIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/community/$postId/image': {
+      id: '/api/community/$postId/image'
+      path: '/$postId/image'
+      fullPath: '/api/community/$postId/image'
+      preLoaderRoute: typeof ApiCommunityPostIdImageRouteImport
+      parentRoute: typeof ApiCommunityRoute
+    }
   }
 }
+
+interface ApiCommunityRouteChildren {
+  ApiCommunityPostIdImageRoute: typeof ApiCommunityPostIdImageRoute
+}
+
+const ApiCommunityRouteChildren: ApiCommunityRouteChildren = {
+  ApiCommunityPostIdImageRoute: ApiCommunityPostIdImageRoute,
+}
+
+const ApiCommunityRouteWithChildren = ApiCommunityRoute._addFileChildren(
+  ApiCommunityRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ClassicRoute: ClassicRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiCommunityRoute: ApiCommunityRouteWithChildren,
   ApiConfigRoute: ApiConfigRoute,
   ApiEvidenceRoute: ApiEvidenceRoute,
   ApiStatusRoute: ApiStatusRoute,

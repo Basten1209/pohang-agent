@@ -112,7 +112,7 @@ export const courses: Course[] = [
   {
     id: 'yeongildae',
     sort: 30,
-    active: true,
+    active: false,
     title: '영일대·스페이스워크',
     area: '영일대',
     desc: '대회장 바로 옆이라 이동이 가장 짧은 코스. 물회로 점심을 먹고 해상누각과 스페이스워크를 걷고, 미술관이나 해변 카페에서 쉬어요.',
@@ -163,7 +163,7 @@ export const courses: Course[] = [
   {
     id: 'jukdo',
     sort: 40,
-    active: true,
+    active: false,
     title: '죽도시장·포항운하',
     area: '죽도시장',
     desc: '동해안 대표 전통시장에서 회와 물회를 먹고, 포항운하를 걷거나 크루즈를 타는 코스. 버스터미널과 가까워 버스로 돌아가는 사람에게 좋아요.',

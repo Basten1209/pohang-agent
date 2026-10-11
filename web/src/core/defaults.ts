@@ -13,8 +13,9 @@ import { places } from './seed/places'
 export const seedConfig: TripConfig = {
   // 2: courses, ways home, race event (see seed/). 3: featured course, live
   // decision source, stairs. 5: presentation date, four E-UM sources, scoped leg buffers.
+  // 6: Guryongpo/Homigot scope and precise demo-route diagnostics.
   // Operator-edited documents are preserved.
-  version: 5,
+  version: 6,
   event,
   courses,
   modes,
@@ -49,7 +50,9 @@ export const seedConfig: TripConfig = {
       incomplete: '컨디션과 짐 회수 여부를 먼저 확인해 주세요.',
       atStation: '{hub} 도착을 직접 확인했어요.',
       routeMissing:
-        '이 출발 시각에 맞는 왕복 경로가 없어요. 지도에서 경로를 확인해 주세요.',
+        '경로 확인이 필요한 시연 조건이 적용돼 있어 일정을 계산하지 않았어요. 시연 메뉴의 기본 코스로 복원하거나 지도에서 경로를 확인해 주세요.',
+      outboundWindowMissing:
+        '{start} 출발은 시연에 등록된 출발시간 {from}–{to} 밖이에요. 실제 버스가 없다는 뜻은 아니며, 지도에서 이동 경로를 확인해 주세요.',
       returnRouteMissing:
         '현재 시각에 맞는 복귀 경로가 없어요. 외부 지도에서 확인해 주세요.',
       returnLeg:

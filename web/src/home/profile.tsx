@@ -41,9 +41,12 @@ const initialForm = (config: TripConfig, view: TripView): Form => {
     departMode: plan.departMode,
     departTime: plan.departTime,
     // Guryongpo is the default; "추천" stays one tap away.
-    course: has('course')
-      ? plan.course
-      : (config.policy.featuredCourse ?? AUTO_COURSE),
+    course:
+      has('course') &&
+      (plan.course === AUTO_COURSE ||
+        activeCourses(config).some((c) => c.id === plan.course))
+        ? plan.course
+        : (config.policy.featuredCourse ?? AUTO_COURSE),
     interests: plan.interests,
     origin: plan.origin,
   }

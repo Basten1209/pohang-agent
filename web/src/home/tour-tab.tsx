@@ -107,7 +107,9 @@ export const TourTab = ({
       : []),
     ...it.stops.map((s) => ({
       at: `${clock(s.start)}–${clock(s.end)}`,
-      what: place(s.id)?.attrs.short ?? s.id,
+      what: place(s.id)
+        ? `${place(s.id)!.attrs.short} · ${place(s.id)!.attrs.subtitle}`
+        : s.id,
     })),
     ...(it.returnDeparture !== null
       ? [{ at: clock(it.returnDeparture), what: `${toward(hub.name)} 출발` }]
@@ -136,7 +138,7 @@ export const TourTab = ({
         <div className="relative">
           <p className="text-xs tracking-widest">AFTER THE FINISH LINE</p>
           <h1 className="mt-2 text-2xl font-semibold">
-            {state.plan.nickname || '러너'}님의 포항 여행
+            {state.plan.nickname || '러너'}님의 구룡포 여행
           </h1>
           <p className="mt-2 text-sm">
             완주의 여운은 길게, 돌아가는 길은 여유롭게.
@@ -166,6 +168,9 @@ export const TourTab = ({
                         <PlaceThumb place={p} />
                         <div className="flex flex-col gap-0.5">
                           <span className="font-medium">{p.attrs.short}</span>
+                          <span className="text-xs text-primary">
+                            {p.attrs.subtitle}
+                          </span>
                           <span className="line-clamp-2 text-xs text-muted-foreground">
                             {p.attrs.desc}
                           </span>

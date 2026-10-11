@@ -346,6 +346,8 @@ export const runTurn = async (
   let checks: { label: string; ok: boolean }[] = []
   const ctx: TurnContext = {
     config,
+    canProposeChanges:
+      stageAtStart === 'PLANNING' || stageAtStart === 'JOURNEY',
     progress: (phase) => progress?.(phase),
     trip: () => current,
     commit: async (events, source) => {

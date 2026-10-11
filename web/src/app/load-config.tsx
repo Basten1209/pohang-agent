@@ -49,9 +49,9 @@ export const Loading = () => {
       >
         <Gull className="brand-pulse size-28" />
         <span className="text-xs font-semibold tracking-[.25em] text-primary">
-          RUN2 POHANG
+          RUN2 GURYONGPO
         </span>
-        <h1 className="text-2xl font-semibold">달리기 다음은, 포항.</h1>
+        <h1 className="text-2xl font-semibold">달리기 다음은, 구룡포.</h1>
         <p className="text-sm text-muted-foreground">
           {slow
             ? '연결이 평소보다 오래 걸리고 있어요.'

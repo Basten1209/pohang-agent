@@ -243,11 +243,11 @@ describe('코스 다변화와 귀가 방식', () => {
     expect(r.alternatives).not.toContain('guryongpo')
     expect(r.alternatives.length).toBeLessThanOrEqual(3)
   })
-  it('추천(auto)인데 구룡포가 귀가 시각 때문에 불가능하면 다른 코스와 이유', () => {
+  it('이른 귀가로 두 코스 모두 불가능하면 권역 밖 관광을 추천하지 않음', () => {
     const r = calculate({ ...auto, departTime: '14:00' }, obs)
-    expect(r.course).not.toBe('guryongpo')
-    expect(['GO', 'SHORTEN', 'INDOOR']).toContain(r.decision)
-    expect(r.reasons[0]).toContain('구룡포는 지금 조건으로 다녀오기 어려워')
+    expect(r.decision).toBe('CANCEL')
+    expect(r.stops).toEqual([])
+    expect(r.alternatives).toEqual([])
   })
   it('코스를 직접 고르면 그 코스, 다른 가능한 코스는 대안으로', () => {
     const r = calculate(
@@ -259,12 +259,7 @@ describe('코스 다변화와 귀가 방식', () => {
   })
   it('모든 활성 코스를 한 번에 비교', () => {
     const all = planEveryCourse(seedConfig, auto, obs)
-    expect(all.map((i) => i.course)).toEqual([
-      'guryongpo',
-      'homigot',
-      'yeongildae',
-      'jukdo',
-    ])
+    expect(all.map((i) => i.course)).toEqual(['guryongpo', 'homigot'])
   })
   it('하고 싶은 일이 고른 장소를 정함', () => {
     const r = calculate(
@@ -313,12 +308,12 @@ describe('코스 다변화와 귀가 방식', () => {
   })
   it('관심 활동이 하나도 없는 코스는 이유를 말함', () => {
     const r = calculate(
-      { ...plan, interests: ['indoor'], course: 'jukdo' },
+      { ...plan, interests: ['indoor'], course: 'homigot' },
       {
         ...obs,
       },
     )
-    expect(r.stops.map((s) => s.id)).toEqual(['jd-canalhall'])
+    expect(r.stops.map((s) => s.id)).toEqual(['hm-museum'])
     const none = calculate(
       {
         ...plan,
@@ -329,5 +324,26 @@ describe('코스 다변화와 귀가 방식', () => {
     )
     expect(none.decision).toBe('CANCEL')
     expect(none.reasons.at(-1)).toContain('고른 활동에 맞는 장소가 없어요')
+  })
+})
+
+describe('출발 시각과 경로 누락 구분', () => {
+  it('1시간 뒤 출발은 가능하고 이중 휴식으로 범위를 넘으면 실제 시각과 시연 범위를 안내', () => {
+    const ready = {
+      ...plan,
+      readyTime: '11:40',
+      currentTime: '11:40',
+      restMin: 0,
+      departTime: '18:30',
+    }
+    expect(calculate(ready, obs).decision).toBe('GO')
+    const duplicate = calculate({ ...ready, restMin: 60 }, obs)
+    expect(duplicate.decision).toBe('NEEDS_DATA')
+    expect(duplicate.reasons.join(' ')).toContain('12:40')
+    expect(duplicate.reasons.join(' ')).toContain('10:00–12:00')
+    expect(duplicate.reasons.join(' ')).not.toContain('왕복 경로')
+    expect(
+      calculate(ready, { ...obs, routeAvailable: false }).reasons.join(' '),
+    ).toContain('시연 조건')
   })
 })

@@ -33,6 +33,7 @@ import type { AgentMode, AgentUIMessage } from '#/server/agent/harness'
 import { AgentProvider, ChatPanel, useAgent } from '#/chat/chat'
 import { RaceLive } from '#/race/live'
 import { CommunityTab } from './community'
+import { FinishSheet } from './finish'
 import { HomeTab } from './home-tab'
 import { ProfileForm } from './profile'
 import { TourTab } from './tour-tab'
@@ -103,12 +104,21 @@ export const Shell = ({
   const [tab, setTab] = useState<Tab>('home')
   const [chatOpen, setChatOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [finishOpen, setFinishOpen] = useState(false)
+  const [communityRevision, setCommunityRevision] = useState(0)
   const [showTools, setShowTools] = useState(readFlag)
 
   /** Open the agent, optionally saying something right away. */
   const ask = (text?: string) => {
     setChatOpen(true)
     if (text) agent.send(text)
+  }
+  const finish = async () => {
+    if (view.state.phase >= 3) return
+    const { trip } = await postEvents(tripId, [
+      { type: 'day.advanced', phase: 3 },
+    ])
+    agent.setView(trip)
   }
   const refresh = () =>
     fetch(`/api/trips/${tripId}?live=1`)
@@ -121,7 +131,7 @@ export const Shell = ({
       <div className="mx-auto flex min-h-dvh max-w-xl flex-col gap-6 p-4 pt-safe pb-safe">
         <BrandHero />
         <div className="flex flex-col gap-1">
-          <span className="text-sm text-muted-foreground">RUN2포항</span>
+          <span className="text-sm text-muted-foreground">RUN2구룡포</span>
           <h1 className="text-2xl font-semibold tracking-tight">
             나만의 여행을 준비해요
           </h1>
@@ -159,7 +169,7 @@ export const Shell = ({
           <div className="mx-auto flex h-14 max-w-2xl items-center gap-2 px-4">
             <Gull className="size-8" />
             <span className="font-semibold tracking-tight text-primary">
-              RUN2포항
+              RUN2구룡포
             </span>
             <Badge variant="secondary">{stageLabel[view.stage]}</Badge>
             {showTools && agent.mode && (
@@ -262,19 +272,19 @@ export const Shell = ({
           forceMount
           className="pb-24 data-[state=inactive]:hidden"
         >
-          {view.state.phase < 3 && (
-            <div className="mx-auto max-w-2xl px-4 pt-4">
-              <Button
-                className="w-full"
-                size="lg"
-                onClick={() => ask('완주했어요')}
-              >
-                <Flag />
-                완주했어요
-              </Button>
-            </div>
-          )}
-          <RaceLive />
+          <div className="mx-auto max-w-2xl px-4 pt-4">
+            <Button
+              className="w-full"
+              size="lg"
+              onClick={() => setFinishOpen(true)}
+            >
+              <Flag />
+              {view.state.phase < 3
+                ? '마라톤 완주! 구룡포 여행으로 떠나요'
+                : '완주의 순간 공유 · 여행 준비하기'}
+            </Button>
+          </div>
+          <RaceLive finished={view.state.phase >= 3} />
         </TabsContent>
         <TabsContent value="tour" className="pb-24">
           <TourTab
@@ -292,7 +302,11 @@ export const Shell = ({
           />
         </TabsContent>
         <TabsContent value="community" className="pb-24">
-          <CommunityTab config={config} />
+          <CommunityTab
+            config={config}
+            revision={communityRevision}
+            onFinish={() => setFinishOpen(true)}
+          />
         </TabsContent>
       </Tabs>
 
@@ -305,6 +319,20 @@ export const Shell = ({
         <Gull className="size-11" />
       </Button>
 
+      <FinishSheet
+        open={finishOpen}
+        onOpenChange={setFinishOpen}
+        tripId={tripId}
+        course={view.state.plan.course}
+        finish={finish}
+        onShared={() => setCommunityRevision((v) => v + 1)}
+        onCommunity={() => setTab('community')}
+        onContinue={() => {
+          setTab('tour')
+          ask('완주 후 구룡포 여행을 준비할게요.')
+        }}
+      />
+
       <Sheet open={chatOpen} onOpenChange={setChatOpen}>
         <SheetContent
           side="bottom"
@@ -313,7 +341,7 @@ export const Shell = ({
           <SheetHeader className="border-b">
             <SheetTitle className="flex items-center gap-2">
               <Gull className="size-9" />
-              포항 여행 친구
+              구룡포 여행 친구
             </SheetTitle>
             <SheetDescription>
               대회·코스·맛집·버스, 무엇이든 물어보세요

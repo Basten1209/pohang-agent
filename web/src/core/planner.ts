@@ -15,7 +15,7 @@ import type {
 import { AUTO_COURSE } from './schema'
 import type { Effect } from './signals'
 import { assessSignals, fill } from './signals'
-import { minutes, within } from './time'
+import { clock, minutes, within } from './time'
 
 /**
  * The decision engine: `planner(config)(plan, observations) → Itinerary`.
@@ -236,7 +236,15 @@ const routeUnavailable: Rule<Context, Itinerary> = (ctx) => {
         ...ctx.base,
         decision: 'NEEDS_DATA',
         calculationStatus: 'NEEDS_DATA',
-        reasons: [copy(ctx, 'routeMissing')],
+        reasons: [
+          !ctx.obs.routeAvailable
+            ? copy(ctx, 'routeMissing')
+            : copy(ctx, 'outboundWindowMissing', {
+                start: clock(ctx.start),
+                from: outbound.window.from,
+                to: outbound.window.to,
+              }),
+        ],
       }
     : undefined
 }

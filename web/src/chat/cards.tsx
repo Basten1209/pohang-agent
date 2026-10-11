@@ -215,7 +215,7 @@ const ProgressCard = ({
       : state.plan.stage === 'LOCAL' && place
         ? {
             title: place.attrs.title,
-            desc: `${clock(stop.start)}–${clock(stop.end)} · 다음 행동`,
+            desc: `${place.attrs.short} · ${place.attrs.subtitle} · ${clock(stop.start)}–${clock(stop.end)}`,
             url: map(place.id, 'walk'),
           }
         : {
@@ -317,6 +317,11 @@ export const CourseSummary = ({
                   <ItemContent>
                     <ItemTitle>{place?.attrs.title ?? s.id}</ItemTitle>
                     <ItemDescription>
+                      {place && (
+                        <span className="mb-1 block font-medium text-foreground">
+                          {place.attrs.short} · {place.attrs.subtitle}
+                        </span>
+                      )}
                       {clock(s.start)}–{clock(s.end)}
                     </ItemDescription>
                   </ItemContent>

@@ -204,7 +204,7 @@ export const ChatPanel = ({
                 {m.role === 'assistant' && (
                   <div className="mb-2 flex items-center gap-2 text-xs font-medium text-primary">
                     <Gull className="size-7" />
-                    포항 여행 친구
+                    구룡포 여행 친구
                   </div>
                 )}
                 {m.parts.map((p, i) => {
@@ -244,7 +244,7 @@ export const ChatPanel = ({
                 <Gull className="brand-pulse size-12 shrink-0" />
                 <div className="text-sm font-medium">
                   {agent.progress ? (
-                    `${agent.progress.nickname}님을 위한 포항 여행코스를 짜는 중…`
+                    `${agent.progress.nickname}님을 위한 구룡포 여행코스를 짜는 중…`
                   ) : (
                     <Shimmer>답변을 준비하고 있어요…</Shimmer>
                   )}

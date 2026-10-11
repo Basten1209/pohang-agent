@@ -68,6 +68,11 @@ describe('구간별 여유와 시간 보존', () => {
     ).toBe(true)
   })
   it('다른 권역에는 구룡포 관측을 적용하지 않는다', () => {
+    // A separate configuration keeps the generic planner's area boundary covered.
+    const calculate = planner({
+      ...seedConfig,
+      courses: seedConfig.courses.map((c) => ({ ...c, active: true })),
+    })
     for (const course of ['yeongildae', 'jukdo']) {
       const quiet = calculate({ ...plan, course }, obs(0))
       const bad = calculate({ ...plan, course }, obs(100, 90, 10))

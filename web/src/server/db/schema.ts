@@ -66,6 +66,18 @@ export const trips = pgTable('trips', {
   updatedAt: updatedAt(),
 })
 
+/** One completion photo per trip. Photo bytes are kept out of the public feed. */
+export const communityPosts = pgTable('community_posts', {
+  id: uuid('id').primaryKey(),
+  tripId: uuid('trip_id').notNull().unique(),
+  course: text('course').notNull(),
+  author: text('author').notNull(),
+  caption: text('caption').notNull(),
+  photoKind: text('photo_kind').notNull(),
+  imageData: text('image_data'),
+  createdAt: createdAt(),
+})
+
 /** Append-only event log. The source of truth for what happened on a trip. */
 export const tripEvents = pgTable(
   'trip_events',
@@ -131,6 +143,16 @@ export const bootstrapStatements = [
     updated_at timestamptz NOT NULL DEFAULT now()
   )`,
   `ALTER TABLE trips ADD COLUMN IF NOT EXISTS messages jsonb NOT NULL DEFAULT '[]'::jsonb`,
+  `CREATE TABLE IF NOT EXISTS community_posts (
+    id uuid PRIMARY KEY,
+    trip_id uuid NOT NULL UNIQUE,
+    course text NOT NULL,
+    author text NOT NULL,
+    caption text NOT NULL,
+    photo_kind text NOT NULL,
+    image_data text,
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`,
   `CREATE TABLE IF NOT EXISTS trip_events (
     id bigserial PRIMARY KEY,
     trip_id uuid NOT NULL,

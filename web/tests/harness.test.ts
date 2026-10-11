@@ -140,6 +140,71 @@ const checkIn = async () => {
 }
 
 describe('대화로 여정 만들기', () => {
+  it('1시간 뒤 출발·조금 지침·18:30 열차: AI가 이전 휴식을 재요청해도 최초 코스에는 한 번만 반영', async () => {
+    await finishRace()
+    await choose('readyTime', '11:40', '1시간 쉬고 출발할게요')
+    const base = scriptedModel()
+    deps = {
+      ...deps,
+      model: {
+        ...base,
+        doStream: async (options) => {
+          const result = await base.doStream(options)
+          return {
+            ...result,
+            stream: result.stream.pipeThrough(
+              new TransformStream({
+                transform(part, controller) {
+                  if (
+                    part.type === 'tool-call' &&
+                    part.toolName === 'plan_course'
+                  ) {
+                    part = {
+                      ...part,
+                      input: JSON.stringify({
+                        changes: {
+                          departTime: null,
+                          course: null,
+                          walkingLimit: null,
+                          extraRestMin: 60,
+                          excludePlaces: null,
+                          dropInterests: null,
+                        },
+                      }),
+                    }
+                  }
+                  controller.enqueue(part)
+                },
+              }),
+            ),
+          }
+        },
+      },
+    }
+    await choose('condition', 'TIRED', '조금 지쳤어요')
+    const record = await load()
+    expect(record.state.plan).toMatchObject({
+      readyTime: '11:40',
+      currentTime: '11:40',
+      restMin: 0,
+      departTime: '18:30',
+    })
+    const parts = record.messages.flatMap(
+      (m) => (m as UIMessage).parts,
+    ) as Part[]
+    const output = parts
+      .slice()
+      .reverse()
+      .find((p) => p.type === 'tool-plan_course')?.output as {
+      isChange: boolean
+      itinerary: { start: number; decision: string; stationEta: number }
+    }
+    expect(output.isChange).toBe(false)
+    expect(output.itinerary.start).toBe(11 * 60 + 40)
+    expect(['GO', 'SHORTEN', 'INDOOR']).toContain(output.itinerary.decision)
+    expect(output.itinerary.stationEta).toBeLessThanOrEqual(18 * 60)
+  })
+
   it('새 여정은 인사로 시작하고 질문은 프로필 폼이 받음', async () => {
     const { messages, state } = await load()
     expect(stageOf(state)).toBe('ONBOARDING')

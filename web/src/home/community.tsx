@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -8,126 +9,157 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import type { CommunityPost } from '#/core/community'
 import { activeCourses } from '#/core/route'
 import type { TripConfig } from '#/core/schema'
 
-/**
- * Finishers' notes from their trips. For now a read-only feed of demo posts
- * (marked as such); posting needs storage for photos and moderation.
- */
-
-type Post = {
-  id: string
-  course: string
-  author: string
-  ago: string
-  text: string
-  image: string
-}
-
-const posts: Post[] = [
+const examples = [
   {
-    id: 'p1',
+    id: 'example-gp',
     course: 'guryongpo',
-    author: '10km 김○○',
-    ago: '12분 전',
-    text: '완주하고 바로 구룡포. 항구 앞에서 먹은 모리국수가 오늘의 메달 같았어요.',
-    image: '/images/guryongpo-harbor.jpg',
+    author: '구룡포 러너',
+    caption:
+      '완주하고 구룡포에서 한 끼, 가옥거리에서 한 장. 달리기 뒤에 여행이 있으니 더 즐거워요.',
+    image: '/images/guryongpo-street-2024.jpg',
   },
   {
-    id: 'p2',
-    course: 'guryongpo',
-    author: '5km 박○○',
-    ago: '35분 전',
-    text: '가옥거리 짧게 한 바퀴. 계단은 빼고 평지로만 걸었는데도 사진 충분히 남겼어요.',
-    image: '/images/guryongpo-street.jpg',
-  },
-  {
-    id: 'p3',
+    id: 'example-hm',
     course: 'homigot',
-    author: '10km 이○○',
-    ago: '1시간 전',
-    text: '상생의 손 앞에서 완주 메달 인증. 바람이 세서 겉옷 꼭 챙기세요.',
-    image: '',
-  },
-  {
-    id: 'p4',
-    course: 'yeongildae',
-    author: '10km 최○○',
-    ago: '1시간 전',
-    text: '결승선 바로 옆 해상누각에서 쉬다가 물회 한 그릇. 이동이 짧아 다리가 편했어요.',
-    image: '',
-  },
-  {
-    id: 'p5',
-    course: 'jukdo',
-    author: '5km 정○○',
-    ago: '2시간 전',
-    text: '죽도시장에서 회 먹고 터미널까지 걸어서 15분. 버스 시간 넉넉했어요.',
-    image: '',
-  },
-  {
-    id: 'p6',
-    course: 'guryongpo',
-    author: '10km 한○○',
-    ago: '2시간 전',
-    text: '16시 열차라 카페는 빠졌지만 점심이랑 골목 구경은 다 했어요. 역 도착도 여유 있었고요.',
-    image: '',
-  },
-  {
-    id: 'p7',
-    course: 'homigot',
-    author: '10km 윤○○',
-    ago: '3시간 전',
-    text: '국립등대박물관은 실내라 땀 식히기 좋았어요.',
+    author: '바다 러너',
+    caption:
+      '상생의 손 앞에서 메달 인증. 구룡포에서 호미곶까지, 바다를 보며 쉬어가요.',
     image: '',
   },
 ]
 
-export const CommunityTab = ({ config }: { config: TripConfig }) => {
+export const CommunityTab = ({
+  config,
+  revision = 0,
+  onFinish,
+}: {
+  config: TripConfig
+  revision?: number
+  onFinish?: () => void
+}) => {
   const [tag, setTag] = useState('all')
+  const [posts, setPosts] = useState<CommunityPost[]>([])
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [retry, setRetry] = useState(0)
+  useEffect(() => {
+    const controller = new AbortController()
+    setStatus('loading')
+    fetch('/api/community', { signal: controller.signal })
+      .then(async (r) => {
+        if (!r.ok) throw new Error('load')
+        return r.json() as Promise<{ posts: CommunityPost[] }>
+      })
+      .then(({ posts }) => {
+        setPosts(posts)
+        setStatus('ready')
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setStatus('error')
+      })
+    return () => controller.abort()
+  }, [revision, retry])
   const courses = activeCourses(config)
   const area = (id: string) => courses.find((c) => c.id === id)?.area ?? id
-  const shown = posts.filter((p) => tag === 'all' || p.course === tag)
+  const visible = (p: { course: string }) =>
+    courses.some((c) => c.id === p.course) &&
+    (tag === 'all' || p.course === tag)
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4">
-      <div className="flex items-center justify-between gap-2">
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          size="sm"
-          className="flex-wrap"
-          value={tag}
-          onValueChange={(v) => v && setTag(v)}
-        >
-          <ToggleGroupItem value="all">전체</ToggleGroupItem>
-          {courses.map((c) => (
-            <ToggleGroupItem key={c.id} value={c.id}>
-              {c.area}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
+      <div>
+        <h1 className="text-xl font-semibold">완주의 기쁨, 함께 나눠요</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          메달 한 장에서 시작되는 구룡포 여행.
+        </p>
       </div>
-      <Badge variant="outline" className="self-start">
-        시연용 게시물
-      </Badge>
-      {shown.map((p) => (
+      {onFinish && (
+        <Button variant="outline" onClick={onFinish}>
+          완주 사진 공유 · 여행 준비하기
+        </Button>
+      )}
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        size="sm"
+        className="flex-wrap"
+        value={tag}
+        onValueChange={(v) => v && setTag(v)}
+      >
+        <ToggleGroupItem value="all">전체</ToggleGroupItem>
+        {courses.map((c) => (
+          <ToggleGroupItem key={c.id} value={c.id}>
+            {c.area}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+      {status === 'loading' && (
+        <p role="status" className="text-sm text-muted-foreground">
+          완주 사진을 불러오고 있어요…
+        </p>
+      )}
+      {status === 'error' && (
+        <div role="alert" className="text-sm">
+          사진을 불러오지 못했어요.{' '}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setRetry((v) => v + 1)}
+          >
+            다시 불러오기
+          </Button>
+        </div>
+      )}
+      {posts.filter(visible).map((p) => (
+        <Card key={p.id} size="sm" className="overflow-hidden">
+          <img
+            src={p.image}
+            alt={`${p.author}님의 완주 사진`}
+            loading="lazy"
+            className="aspect-[3/2] w-full object-cover"
+          />
+          <CardHeader>
+            <CardTitle className="text-sm">{p.author}</CardTitle>
+            <CardDescription>
+              {area(p.course)} ·{' '}
+              {new Date(p.createdAt).toLocaleDateString('ko-KR', {
+                timeZone: 'Asia/Seoul',
+              })}
+            </CardDescription>
+            {p.photoKind === 'DEMO' && (
+              <Badge variant="secondary" className="mt-1">
+                AI 생성 시연 사진 · 실제 참가자 아님
+              </Badge>
+            )}
+          </CardHeader>
+          <CardContent className="whitespace-pre-wrap text-sm">
+            {p.caption}
+          </CardContent>
+        </Card>
+      ))}
+      {status === 'ready' && posts.filter(visible).length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          첫 완주 사진을 기다리고 있어요.
+        </p>
+      )}
+      {examples.filter(visible).map((p) => (
         <Card key={p.id} size="sm" className="overflow-hidden">
           {p.image && (
             <img
               src={p.image}
-              alt=""
+              alt="구룡포 일본인 가옥거리 풍경"
               loading="lazy"
               className="aspect-video w-full object-cover"
             />
           )}
           <CardHeader>
+            <Badge variant="outline">시연용 예시 글</Badge>
             <CardTitle className="text-sm">{p.author}</CardTitle>
-            <CardDescription>
-              {area(p.course)} · {p.ago}
-            </CardDescription>
+            <CardDescription>{area(p.course)}</CardDescription>
           </CardHeader>
-          <CardContent className="text-sm">{p.text}</CardContent>
+          <CardContent className="text-sm">{p.caption}</CardContent>
         </Card>
       ))}
     </div>

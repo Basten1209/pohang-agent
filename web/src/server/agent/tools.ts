@@ -66,6 +66,8 @@ export type TurnContext = {
   remember: (preview: StoredPreview) => void
   observe: () => Promise<Evidence[]>
   newId: () => string
+  /** Check-in has already saved readiness/condition; the first plan must use them once. */
+  canProposeChanges?: boolean
   progress?: (phase: 'OBSERVE' | 'PLAN' | 'EXPLAIN') => void
 }
 
@@ -149,8 +151,10 @@ export const makeTools = (ctx: TurnContext) => {
     AUTO_COURSE,
     ...activeCourses(config).map((c) => c.id),
   ] as [string, ...string[]]
-  const placeName = (id: string) =>
-    config.places.find((p) => p.id === id)?.attrs.short ?? id
+  const placeName = (id: string) => {
+    const place = config.places.find((p) => p.id === id)
+    return place ? `${place.attrs.short} (${place.attrs.subtitle})` : id
+  }
   const docs = knowledgeOf(config)
   /** Catalogue places (and guide notes) of the area `near` points at, best first. */
   const nearbyDocs = (near: string) => {
@@ -235,7 +239,10 @@ export const makeTools = (ctx: TurnContext) => {
       execute: async ({ changes }) => {
         ctx.progress?.('PLAN')
         const { state, it: current } = now()
-        const request = (changes as Changes | null) ?? noChanges
+        const request =
+          ctx.canProposeChanges === false
+            ? noChanges
+            : ((changes as Changes | null) ?? noChanges)
         const p = preview(config, state.plan, state.observations, request)
         // "카페는 빼 줘" when there is no cafe: nothing to approve.
         const onlyRemovals =
@@ -490,7 +497,7 @@ export const makeTools = (ctx: TurnContext) => {
     }),
     compare_courses: tool({
       description:
-        '지금 조건(출발 시각, 준비 시각, 컨디션, 하고 싶은 일)으로 모든 코스(구룡포, 호미곶, 영일대, 죽도시장 등)를 계산해 비교한다. "다른 코스는?", "어디가 제일 여유 있어?", "호미곶도 갈 수 있어?" 같은 질문에 쓴다. 저장하지 않는다. 바꾸려면 plan_course(changes.course). 입력은 없다.',
+        '지금 조건(출발 시각, 준비 시각, 컨디션, 하고 싶은 일)으로 구룡포·호미곶 코스를 계산해 비교한다. "다른 코스는?", "어디가 제일 여유 있어?", "호미곶도 갈 수 있어?" 같은 질문에 쓴다. 저장하지 않는다. 바꾸려면 plan_course(changes.course). 입력은 없다.',
       inputSchema: z.object({}).strict(),
       execute: async () => {
         const { state, it } = now()
