@@ -96,7 +96,7 @@ describe('E-UM 응답 해석 (문서 샘플 형식)', () => {
 })
 
 describe('E-UM 호출', () => {
-  it('시간 통계는 실제 계약의 KST YYYY-MM-DD 날짜와 장비를 사용하며 미래 0을 제외한다', async () => {
+  it('시간 통계는 실제 계약의 KST YYYY-MM-DD 날짜와 장비를 사용하며 집계 중인 시간의 0을 제외한다', async () => {
     const source = seedConfig.sources.find((s) => s.id === 'INT_S01_012')!
     const now = Date.parse('2026-10-11T09:30:00Z')
     const request = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
@@ -105,6 +105,7 @@ describe('E-UM 호출', () => {
           status: 'success',
           data: [
             { hours: 17, devId: 1, type: 'PM25', unit: '㎍/㎥', value: 7.2 },
+            { hours: 18, devId: 1, type: 'PM25', unit: '㎍/㎥', value: 0 },
             { hours: 23, devId: 1, type: 'PM25', unit: '㎍/㎥', value: 0 },
           ],
         }),

@@ -251,9 +251,9 @@ export const hourlyAirBody = (
       )
       .filter(
         (r) =>
-          Date.parse(
-            `${day}T${String(r.hours).padStart(2, '0')}:00:00+09:00`,
-          ) <= now,
+          Date.parse(`${day}T${String(r.hours).padStart(2, '0')}:00:00+09:00`) +
+            3_600_000 <=
+          now,
       )
       .map((r) => ({
         ...r,
