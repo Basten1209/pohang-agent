@@ -15,7 +15,8 @@ export const seedConfig: TripConfig = {
   // decision source, stairs. 5: presentation date, four E-UM sources, scoped leg buffers.
   // 6: Guryongpo/Homigot scope and precise demo-route diagnostics.
   // Operator-edited documents are preserved.
-  version: 6,
+  // 7: distinct modal estimates; official route references do not supply these minutes.
+  version: 7,
   event,
   courses,
   modes,
@@ -56,11 +57,11 @@ export const seedConfig: TripConfig = {
       returnRouteMissing:
         '현재 시각에 맞는 복귀 경로가 없어요. 외부 지도에서 확인해 주세요.',
       returnLeg:
-        '정류장 접근 {stopAccess}분과 시연 이동 {returnMin}분을 반영해 {hub}(으)로 가요.',
+        '도보·대기를 포함한 시연 이동 {returnMin}분으로 {hub}(으)로 가요.',
       reserveUnknown:
-        '최신 관측을 확인할 수 없어 보수적으로 도로 이동 구간마다 여유 {reserve}분을 반영했어요.',
+        '최신 관측을 확인할 수 없어 보수적으로 구룡포를 지나는 도로 이동 구간마다 여유 {reserve}분을 반영했어요.',
       reserveBand:
-        '{label} 신호에 따라 도로 이동 구간마다 여유 {reserve}분을 더했어요.',
+        '{label} 신호에 따라 구룡포를 지나는 도로 이동 구간마다 여유 {reserve}분을 더했어요.',
       outdoorUnknown:
         '환경 관측을 확인할 수 없어요. 야외 체류 전 현장 상황을 확인해 주세요.',
       outdoorLimit:
@@ -339,7 +340,7 @@ export const seedConfig: TripConfig = {
     {
       id: 'traffic',
       title: '혼잡만 82%로',
-      desc: '현재 사용자 조건 유지 · 교통 여유 +20분',
+      desc: '현재 사용자 조건 유지 · 구룡포 도로 구간마다 여유 추가',
       base: 'keep',
       plan: {},
       readings: { congestion: 82 },

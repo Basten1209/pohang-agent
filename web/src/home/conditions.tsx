@@ -1,5 +1,6 @@
 import {
   Activity,
+  Sparkles,
   ArrowUpRight,
   Bus,
   CarTaxiFront,
@@ -69,7 +70,7 @@ export const ConditionsCard = ({
               const value = demo ? obs.readings[source.reading] : src?.value
               const scoped =
                 source.reading === 'congestion'
-                  ? view.itinerary.legs.some((leg) => leg.bufferMin > 0) ||
+                  ? view.itinerary.legs.some((leg) => leg.trafficScope) ||
                     view.itinerary.course === 'guryongpo'
                   : view.itinerary.course === 'guryongpo'
               const applies =
@@ -163,10 +164,12 @@ export const TransportCard = ({
   config,
   view,
   select,
+  disabled = false,
 }: {
   config: TripConfig
   view: TripView
-  select: (mode: 'TAXI' | 'TRANSIT') => Promise<void>
+  disabled?: boolean
+  select: (mode: 'AUTO' | 'TAXI' | 'TRANSIT') => Promise<void>
 }) => {
   const rec = recommendTransport(
     view.state.plan,
@@ -175,9 +178,9 @@ export const TransportCard = ({
   )
   const [pending, setPending] = useState(false)
   const [message, setMessage] = useState('')
-  const selected = view.state.plan.localTransport
+  const selected = view.state.plan.localTransport ?? 'AUTO'
   const hub = hubOf(config, view.state.plan)
-  const choose = async (mode: 'TAXI' | 'TRANSIT') => {
+  const choose = async (mode: 'AUTO' | 'TAXI' | 'TRANSIT') => {
     setPending(true)
     setMessage('')
     try {
@@ -202,29 +205,37 @@ export const TransportCard = ({
         </ul>
         {rec.mode && (
           <>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <Button
+                variant={selected === 'AUTO' ? 'default' : 'outline'}
+                disabled={pending || disabled}
+                onClick={() => choose('AUTO')}
+              >
+                <Sparkles />
+                구간별 자동
+              </Button>
               <Button
                 variant={selected === 'TRANSIT' ? 'default' : 'outline'}
-                disabled={pending}
+                disabled={pending || disabled}
                 onClick={() => choose('TRANSIT')}
               >
                 <Bus />
-                대중교통 선택
+                버스 우선
               </Button>
               <Button
                 variant={selected === 'TAXI' ? 'default' : 'outline'}
-                disabled={pending}
+                disabled={pending || disabled}
                 onClick={() => choose('TAXI')}
               >
                 <CarTaxiFront />
-                택시 선택
+                택시 우선
               </Button>
             </div>
             {selected === 'TAXI' ? (
               <div className="rounded-lg bg-secondary p-3 text-sm">
                 <p className="mb-3">
-                  택시 시간·요금 확인이 필요해요. 위 시간표는 기존 대중교통 기준
-                  참고안으로 유지합니다.
+                  시간표에도 택시 시연 추정을 반영했어요. 실제 배차·요금과
+                  소요시간은 카카오T에서 확인해 주세요.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button asChild>

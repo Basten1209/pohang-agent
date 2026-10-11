@@ -52,7 +52,10 @@ export type AnchorId = z.infer<typeof anchorIdSchema>
 export const planSchema = z.object({
   revision: z.number().int().nonnegative(),
   nickname: z.string().trim().max(20).optional(),
-  localTransport: z.enum(['TRANSIT', 'TAXI']).optional(),
+  localTransport: z.enum(['AUTO', 'TRANSIT', 'TAXI']).optional(),
+  transportOverrides: z
+    .record(z.string().max(120), z.enum(['TRANSIT', 'TAXI', 'WALK']))
+    .optional(),
   arrivalAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/),
   departMode: departModeSchema,
   /** Departure (train, bus, flight) or the time to be back (car, local). */
@@ -188,6 +191,20 @@ export const policySchema = z.object({
 export type Policy = z.infer<typeof policySchema>
 
 // ── Config: courses (one area each) and ways home ───────────────────────
+/** App estimates, never provider ETAs. Access walk is included exactly once. */
+export const transportEstimateSchema = z.object({
+  rideMin: z.number().int().positive(),
+  waitMin: z.number().int().nonnegative(),
+  walkMin: z.number().int().nonnegative(),
+  via: z.string(),
+  trafficScope: z.boolean(),
+})
+export type TransportEstimate = z.infer<typeof transportEstimateSchema>
+const roadOptionsSchema = z.object({
+  TRANSIT: transportEstimateSchema,
+  TAXI: transportEstimateSchema.optional(),
+})
+
 export const courseSchema = z.object({
   id: courseIdSchema,
   sort: z.number().int().default(0),
@@ -213,6 +230,12 @@ export const courseSchema = z.object({
     window: windowSchema,
     via: z.string(),
   }),
+  transport: z
+    .object({
+      outbound: roadOptionsSchema,
+      return: z.partialRecord(hubIdSchema, roadOptionsSchema),
+    })
+    .optional(),
   /** Tried in order; the first that fits is the plan, later ones are shorter. */
   variants: z.array(variantSchema).min(1),
   meta: z.record(z.string(), z.unknown()).default({}),

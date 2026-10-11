@@ -1,4 +1,20 @@
-import type { Course, Mode } from '../schema'
+import type { Course, Mode, TransportEstimate } from '../schema'
+
+const estimate = (
+  rideMin: number,
+  waitMin: number,
+  walkMin: number,
+  via: string,
+  trafficScope = true,
+): TransportEstimate => ({ rideMin, waitMin, walkMin, via, trafficScope })
+const gpReturn = (busRide: number, taxiRide: number) => ({
+  TRANSIT: estimate(busRide, 20, 5, '버스 · 실제 노선·배차 확인'),
+  TAXI: estimate(taxiRide, 5, 2, '택시 · 실제 배차·요금 확인'),
+})
+const hmReturn = (busRide: number, taxiRide: number) => ({
+  TRANSIT: estimate(busRide, 20, 5, '버스 · 실제 노선·환승 확인', false),
+  TAXI: estimate(taxiRide, 5, 2, '택시 · 실제 배차·요금 확인', false),
+})
 
 /**
  * Courses: one area each, with its own legs and shortening steps. Travel
@@ -16,17 +32,29 @@ export const courses: Course[] = [
     tags: ['항구', '골목', '사진', '시장'],
     geo: { lat: 35.9868, lng: 129.5528 },
     outbound: {
-      minutes: 90,
-      accessWalk: 10,
+      minutes: 80,
+      accessWalk: 5,
       window: { from: '10:00', to: '12:00' },
-      via: '시내버스(환승 포함, 대기 포함)',
+      via: '900번 안내 경로 · 대기 포함, 실제 노선 확인',
     },
     return: {
-      minutes: { STATION: 120, TERMINAL: 110, AIRPORT: 90, PARKING: 110 },
-      accessWalk: 10,
+      minutes: { STATION: 95, TERMINAL: 75, AIRPORT: 50, PARKING: 80 },
+      accessWalk: 5,
       stopAccess: 5,
       window: { from: '12:00', to: '18:00' },
       via: '시내버스(대기 포함)',
+    },
+    transport: {
+      outbound: {
+        TRANSIT: estimate(65, 10, 5, '900번 안내 경로 · 실제 노선·배차 확인'),
+        TAXI: estimate(40, 5, 2, '택시 · 실제 배차·요금 확인'),
+      },
+      return: {
+        STATION: gpReturn(70, 45),
+        TERMINAL: gpReturn(50, 35),
+        AIRPORT: gpReturn(25, 20),
+        PARKING: gpReturn(55, 40),
+      },
     },
     variants: [
       {
@@ -76,11 +104,23 @@ export const courses: Course[] = [
       via: '시내버스(구룡포 환승, 대기 포함)',
     },
     return: {
-      minutes: { STATION: 130, TERMINAL: 120, AIRPORT: 90, PARKING: 120 },
+      minutes: { STATION: 110, TERMINAL: 100, AIRPORT: 85, PARKING: 100 },
       accessWalk: 5,
       stopAccess: 5,
       window: { from: '12:00', to: '18:00' },
       via: '시내버스(대기 포함)',
+    },
+    transport: {
+      outbound: {
+        TRANSIT: estimate(75, 20, 5, '버스 · 구룡포 경유 시연'),
+        TAXI: estimate(55, 5, 2, '택시 · 실제 경로 확인', false),
+      },
+      return: {
+        STATION: hmReturn(85, 60),
+        TERMINAL: hmReturn(75, 50),
+        AIRPORT: hmReturn(60, 40),
+        PARKING: hmReturn(75, 55),
+      },
     },
     variants: [
       {

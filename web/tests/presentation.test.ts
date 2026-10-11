@@ -61,7 +61,7 @@ describe('구간별 여유와 시간 보존', () => {
     expect(it.planningArrival).toBe(it.legs.at(-1)?.end)
     expect(it.stationTarget - it.planningArrival!).toBe(it.slack)
     expect(it.stops[0].start).toBe(
-      it.legs[0].end + seedConfig.policy.local.firstApproach,
+      it.legs.find((l) => l.to === it.stops[0].id)!.end,
     )
     expect(
       it.legs.filter((l) => l.kind === 'WALK').every((l) => l.bufferMin === 0),
@@ -114,7 +114,7 @@ describe('구간별 여유와 시간 보존', () => {
     )
     expect(it.trafficReserve).toBe(10)
     expect(it.legs).toHaveLength(1)
-    expect(it.planningArrival).toBe(14 * 60 + 5 + 120 + 10)
+    expect(it.planningArrival).toBe(14 * 60 + 70 + 20 + 5 + 10)
   })
   it('구간 도착 보고도 여유가 반영된 동일 시각으로 진행한다', () => {
     const state = {
@@ -124,37 +124,43 @@ describe('구간별 여유와 시간 보존', () => {
     }
     const it = calculate(state.plan, state.observations)
     const next = replay(state, advance(state, it).events)
-    expect(next.plan.currentTime).toBe('12:20')
+    expect(next.plan.currentTime).toBe('12:10')
   })
 })
 
-describe('교통수단은 설명 가능한 추천이며 ETA는 조작하지 않는다', () => {
-  it('피로·보행 제한·귀가 여유를 반영한다', () => {
+describe('교통수단은 실제 일정과 일치하는 시연 추천', () => {
+  it('피로·보행 제한·귀가 여유를 반영하며 혼잡을 택시 우위로 설명하지 않음', () => {
     const it = calculate(plan, obs(82))
     expect(recommendTransport(plan, obs(82), it).mode).toBe('TRANSIT')
-    expect(
-      recommendTransport({ ...plan, condition: 'TIRED' }, obs(82), it).mode,
-    ).toBe('TAXI')
-    expect(
-      recommendTransport({ ...plan, walkingLimit: 15 }, obs(82), it).mode,
-    ).toBe('TAXI')
-    expect(recommendTransport(plan, obs(82), { ...it, slack: 19 }).mode).toBe(
-      'TAXI',
+    for (const p of [
+      { ...plan, condition: 'TIRED' as const },
+      { ...plan, walkingLimit: 15 },
+    ]) {
+      expect(recommendTransport(p, obs(82), calculate(p, obs(82))).mode).toBe(
+        'TAXI',
+      )
+    }
+    expect(recommendTransport(plan, obs(82), { ...it, slack: 19 }).urgent).toBe(
+      true,
     )
-    expect(recommendTransport(plan, obs(82), { ...it, slack: 20 }).mode).toBe(
-      'TRANSIT',
+    expect(recommendTransport(plan, obs(82), { ...it, slack: 20 }).urgent).toBe(
+      false,
     )
     expect(recommendTransport(plan, obs(82), it).reasons.join()).toContain(
       '버스와 택시 모두',
     )
   })
-  it('택시 선택은 시간표와 요금을 만들어 내지 않는다', () => {
+  it('택시 선택은 별도 시연 시간표로 바뀌고 실제 ETA·요금은 주장하지 않는다', () => {
     const before = calculate(plan, obs(82))
-    expect(calculate({ ...plan, localTransport: 'TAXI' }, obs(82))).toEqual(
-      before,
-    )
-    expect(recommendTransport(plan, obs(82), before).taxiMinutes).toBeNull()
-    expect(recommendTransport(plan, obs(82), before).taxiFare).toBeNull()
+    const taxi = calculate({ ...plan, localTransport: 'TAXI' }, obs(82))
+    expect(taxi.planningArrival!).toBeLessThan(before.planningArrival!)
+    expect(
+      taxi.legs
+        .filter((l) => l.mode !== 'WALK')
+        .every((l) => l.mode === 'TAXI'),
+    ).toBe(true)
+    expect(recommendTransport(plan, obs(82), taxi).taxiMinutes).toBeNull()
+    expect(recommendTransport(plan, obs(82), taxi).taxiFare).toBeNull()
   })
 })
 

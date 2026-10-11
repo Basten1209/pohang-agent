@@ -75,7 +75,7 @@ describe('이벤트 소싱', () => {
     expect(s.plan).toMatchObject({
       stage: 'LOCAL',
       currentPlace: 'COURSE',
-      currentTime: '12:10',
+      currentTime: '11:27',
     })
     s = fold(s, advance(s, calc(s.plan, s.observations)))
     expect(s.plan.completed).toEqual(['food'])
@@ -111,9 +111,9 @@ describe('이벤트 소싱', () => {
     s = fold(s, runScenario(config, s, 'traffic'))
     expect(s.plan.departTime).toBe('16:00')
     expect(s.observations.readings.congestion).toBe(82)
-    expect(calc(s.plan, s.observations).stops.map((x) => x.id)).toEqual([
-      'food',
-    ])
+    const it = calc(s.plan, s.observations)
+    expect(it.trafficReserve).toBeGreaterThan(0)
+    expect(it.planningArrival!).toBeLessThanOrEqual(it.stationTarget)
   })
 })
 

@@ -40,6 +40,8 @@ import {
   tourTypes,
   trains,
 } from '../sources/datagokr'
+import { roadOptions, transportLabel } from '#/core/mobility'
+import { assessSignals } from '#/core/signals'
 import { recommendTransport } from '#/core/transport'
 import { forecastForDay } from '../sources/weather'
 import { knownPointNames, resolvePoint } from '#/core/where'
@@ -292,6 +294,14 @@ export const makeTools = (ctx: TurnContext) => {
           hub: hubOf(config, ctx.trip().state.plan).name,
           decision: output.itinerary.decision,
           stops: output.itinerary.stops.map((s) => placeName(s.id)),
+          legs: output.itinerary.legs.map((l) => ({
+            fromTo: l.label,
+            mode: transportLabel[l.mode],
+            minutes: l.totalMin,
+            bufferMin: l.bufferMin,
+            reason: l.reason,
+            provenance: 'DEMO_POLICY',
+          })),
           planningArrival:
             output.itinerary.planningArrival === null
               ? null
@@ -375,7 +385,7 @@ export const makeTools = (ctx: TurnContext) => {
               it.calculationStatus !== 'NOT_RUN' &&
               (it.course === 'guryongpo' ||
                 (e.reading === 'congestion' &&
-                  it.legs.some((leg) => leg.bufferMin > 0))),
+                  it.legs.some((leg) => leg.trafficScope))),
           })),
         }
       },
@@ -388,20 +398,40 @@ export const makeTools = (ctx: TurnContext) => {
         const { state, it } = now()
         const course = courseById(config, it.course)
         const hub = hubOf(config, state.plan)
+        const options = course
+          ? roadOptions(
+              course,
+              'RETURN',
+              hub.id,
+              assessSignals(config.policy, state.observations).reserveMin,
+            )
+          : []
+        const transit = options.find((o) => o.mode === 'TRANSIT')
+        const taxi = options.find((o) => o.mode === 'TAXI')
         return {
           from: course?.area ?? null,
           to: hub.name,
           transit: {
-            minutes: course?.return.minutes[hub.id] ?? null,
-            via: course?.return.via ?? null,
+            minutes: transit?.totalMin ?? null,
+            via: transit?.via ?? null,
             provenance: 'DEMO_POLICY' as const,
           },
           taxi: {
-            minutes: null,
+            minutes: taxi?.totalMin ?? null,
             fare: null,
-            provenance: 'NOT_CONNECTED' as const,
-            note: '택시 시간·요금은 연결된 데이터가 없어요. 카카오T 앱에서 확인하세요.',
+            provenance: 'DEMO_POLICY' as const,
+            note: '시연 추정시간이며 실제 경로·배차·요금은 지도·카카오T에서 확인하세요.',
           },
+          segments: it.legs.map((l) => ({
+            label: l.label,
+            mode: transportLabel[l.mode],
+            minutes: l.totalMin,
+            rideMin: l.rideMin,
+            waitMin: l.waitMin,
+            walkMin: l.walkMin,
+            bufferMin: l.bufferMin,
+            reason: l.reason,
+          })),
           recommendation: recommendTransport(
             state.plan,
             state.observations,
@@ -662,8 +692,9 @@ export const makeTools = (ctx: TurnContext) => {
                 }),
               )
             : null
-        const course = courseById(config, courseId)
-        const hub = hubOf(config, state.plan)
+        const matchingLeg = it.legs.find(
+          (l) => l.label === `${a.name} → ${b.name}`,
+        )
         return {
           from: a.name,
           to: b.name,
@@ -673,20 +704,17 @@ export const makeTools = (ctx: TurnContext) => {
             car: directionsUrl(a, b, 'car'),
             walk: directionsUrl(a, b, 'walk'),
           },
-          appEstimate:
-            course && b.name === hub.name
-              ? {
-                  minutes: course.return.minutes[hub.id] ?? null,
-                  via: course.return.via,
-                  provenance: 'DEMO_POLICY',
-                }
-              : course && b.name === course.area
-                ? {
-                    minutes: course.outbound.minutes,
-                    via: course.outbound.via,
-                    provenance: 'DEMO_POLICY',
-                  }
-                : null,
+          appEstimate: matchingLeg
+            ? {
+                minutes: matchingLeg.totalMin,
+                via: transportLabel[matchingLeg.mode],
+                provenance: 'DEMO_POLICY',
+                rideMin: matchingLeg.rideMin,
+                waitMin: matchingLeg.waitMin,
+                walkMin: matchingLeg.walkMin,
+                bufferMin: matchingLeg.bufferMin,
+              }
+            : null,
           busStops: nearest,
           busStatus:
             stops.status === 'LIVE'

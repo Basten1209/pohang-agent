@@ -75,12 +75,12 @@ export const CommunityTab = ({
         eyebrow="FINISH & SHARE"
         title={
           <>
-            완주의 기쁨,
+            완주와 여행의 순간,
             <br />
             함께 나눠요
           </>
         }
-        description="메달 한 장에서 시작되는 구룡포 여행."
+        description="메달부터 골목과 바다까지, 오늘의 사진을 함께 나눠요."
       />
       {onFinish && (
         <Button variant="outline" onClick={onFinish}>
@@ -104,7 +104,7 @@ export const CommunityTab = ({
       </ToggleGroup>
       {status === 'loading' && (
         <p role="status" className="text-sm text-muted-foreground">
-          완주 사진을 불러오고 있어요…
+          사진을 불러오고 있어요…
         </p>
       )}
       {status === 'error' && (
@@ -123,21 +123,26 @@ export const CommunityTab = ({
         <Card key={p.id} size="sm" className="overflow-hidden">
           <img
             src={p.image}
-            alt={`${p.author}님의 완주 사진`}
+            alt={`${p.author}님의 ${p.placeName ? `${p.placeName} 여행` : '완주'} 사진`}
             loading="lazy"
             className="aspect-[3/2] w-full object-cover"
           />
           <CardHeader>
             <CardTitle className="text-sm">{p.author}</CardTitle>
             <CardDescription>
-              {area(p.course)} ·{' '}
+              {p.kind === 'VISIT'
+                ? `${area(p.course)} · ${p.placeName}`
+                : `완주 · ${area(p.course)}`}{' '}
+              ·{' '}
               {new Date(p.createdAt).toLocaleDateString('ko-KR', {
                 timeZone: 'Asia/Seoul',
               })}
             </CardDescription>
             {p.photoKind === 'DEMO' && (
               <Badge variant="secondary" className="mt-1">
-                AI 생성 시연 사진 · 실제 참가자 아님
+                {p.kind === 'VISIT'
+                  ? '장소 예시 사진 · 실제 방문 사진 아님'
+                  : 'AI 생성 시연 사진 · 실제 참가자 아님'}
               </Badge>
             )}
           </CardHeader>
@@ -148,7 +153,7 @@ export const CommunityTab = ({
       ))}
       {status === 'ready' && posts.filter(visible).length === 0 && (
         <p className="text-sm text-muted-foreground">
-          첫 완주 사진을 기다리고 있어요.
+          첫 완주·여행 사진을 기다리고 있어요.
         </p>
       )}
       {examples.filter(visible).map((p) => (

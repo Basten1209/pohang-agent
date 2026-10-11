@@ -608,9 +608,10 @@ describe('채팅 하네스 (규칙 모델 + PGlite)', () => {
       visited.push(event)
       await answer('await_progress', { event })
     }
-    // With the 16:00 train only one stop fits.
+    // With modal estimates, two stops fit the approved shortened itinerary.
     expect(visited).toEqual([
       'ARRIVED',
+      'STOP_DONE',
       'STOP_DONE',
       'START_RETURN',
       'AT_STATION',

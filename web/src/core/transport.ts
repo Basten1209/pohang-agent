@@ -12,14 +12,26 @@ export const recommendTransport = (
   it: Itinerary,
 ) => {
   const congestion =
-    it.legs.some((leg) => leg.bufferMin > 0) || it.course === 'guryongpo'
+    it.legs.some((leg) => leg.trafficScope) || it.course === 'guryongpo'
       ? usableReading(obs, 'congestion')
       : null
   const reasons: string[] = []
   const constrained = plan.condition === 'TIRED' || plan.walkingLimit <= 15
   const urgent =
     it.decision === 'CANCEL' || (it.slack !== null && it.slack < 20)
-  const mode = constrained || urgent ? ('TAXI' as const) : ('TRANSIT' as const)
+  const used = new Set(
+    it.legs.filter((l) => l.mode !== 'WALK').map((l) => l.mode),
+  )
+  const mode =
+    used.size > 1
+      ? ('MIXED' as const)
+      : used.has('TAXI')
+        ? ('TAXI' as const)
+        : used.has('TRANSIT')
+          ? ('TRANSIT' as const)
+          : constrained || urgent
+            ? ('TAXI' as const)
+            : ('TRANSIT' as const)
   if (plan.condition === 'UNWELL')
     return {
       mode: null,
@@ -31,14 +43,13 @@ export const recommendTransport = (
       taxiFare: null,
       url: KAKAO_T_URL,
     }
-  if (constrained)
-    reasons.push(
-      '완주 후 피로와 걷기 한도를 고려해 환승·도보 부담을 줄이는 택시를 제안해요.',
-    )
-  else
-    reasons.push(
-      '현재 컨디션과 걷기 조건으로 대중교통 경로를 먼저 확인해 볼 수 있어요.',
-    )
+  reasons.push(
+    mode === 'MIXED'
+      ? '가는 길과 돌아오는 길, 장소 사이의 걷기 부담을 따로 계산해 버스와 택시를 섞었어요.'
+      : mode === 'TAXI'
+        ? '피로·걷기 한도·귀가 여유와 선택한 조건을 고려한 택시 일정이에요.'
+        : '컨디션과 귀가 여유에 맞춰 버스를 우선한 일정이에요.',
+  )
   if (congestion !== null && congestion >= 50)
     reasons.push(
       `${obs.sources.congestion?.provenance === 'DEMO' ? '시연 조건의 ' : ''}구룡포 혼잡도 ${congestion}%예요. 버스와 택시 모두 지연될 수 있어요.`,
@@ -52,15 +63,17 @@ export const recommendTransport = (
       '귀가까지 시간이 빠듯해요. 관광 추가보다 귀가 경로 확인이 먼저예요.',
     )
   reasons.push(
-    '일정의 이동시간은 시연 기준이에요. 택시 시간·요금·배차는 카카오T, 실제 노선은 지도에서 확인해 주세요.',
+    '버스·택시 시간은 승차·대기·도보를 나눈 시연 추정이에요. 실제 시간·노선은 지도, 택시 배차·요금은 카카오T에서 확인해 주세요.',
   )
   return {
     mode,
     title: urgent
       ? '귀가 경로부터 확인해요'
-      : mode === 'TAXI'
-        ? '걷기를 줄이는 택시를 제안해요'
-        : '대중교통을 제안해요',
+      : mode === 'MIXED'
+        ? '구간에 맞게 버스와 택시를 섞었어요'
+        : mode === 'TAXI'
+          ? '걷기를 줄이는 택시를 제안해요'
+          : '대중교통을 제안해요',
     reasons,
     urgent,
     congestion,

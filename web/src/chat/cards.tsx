@@ -20,17 +20,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemMedia,
-  ItemTitle,
-} from '@/components/ui/item'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { PlaceIcon } from '#/app/bits'
-import { mapUrl } from '#/core/links'
+import { ItineraryTimeline } from '#/home/timeline'
+import { transportLabel } from '#/core/mobility'
+import { mapUrl, pointOf, directionsUrl } from '#/core/links'
 import type { Decision, Itinerary } from '#/core/planner'
 import type { ChoicePrompt } from '#/core/slots'
 import type { Progress } from '#/core/stage'
@@ -204,19 +198,35 @@ const ProgressCard = ({
   if (!options.length) return null
   const map = mapUrl(config, it.course)
   const [stop] = it.stops
+  const leg = it.legs[0]
+  const points = pointOf(config, it.course)
+  const a = leg && points(leg.from),
+    b = leg && points(leg.to)
+  const legUrl =
+    a && b
+      ? directionsUrl(
+          a,
+          b,
+          leg.mode === 'TAXI'
+            ? 'car'
+            : leg.mode === 'WALK'
+              ? 'walk'
+              : 'traffic',
+        )
+      : null
   const place = stop && config.places.find((p) => p.id === stop.id)
   const target =
     state.plan.stage === 'OUTBOUND'
       ? {
           title: `${course?.area ?? '코스'}로 이동`,
-          desc: `${course?.outbound.via ?? '대중교통'} · 약 ${it.outbound}분`,
-          url: map('COURSE'),
+          desc: `${it.legs.find((l) => l.kind === 'OUTBOUND')?.mode ? transportLabel[it.legs.find((l) => l.kind === 'OUTBOUND')!.mode] : '이동'} · 시연 추정 약 ${it.outbound}분`,
+          url: legUrl ?? map('COURSE'),
         }
       : state.plan.stage === 'LOCAL' && place
         ? {
             title: place.attrs.title,
             desc: `${place.attrs.short} · ${place.attrs.subtitle} · ${clock(stop.start)}–${clock(stop.end)}`,
-            url: map(place.id, 'walk'),
+            url: legUrl ?? map(place.id, 'walk'),
           }
         : {
             title: `${hub.name}(으)로`,
@@ -224,7 +234,7 @@ const ProgressCard = ({
               it.planningArrival === null
                 ? `${hub.name}(으)로 이동해요`
                 : `계획상 ${clock(it.planningArrival)} 도착 · ${departLabel(config, state.plan)}`,
-            url: map(hub.id),
+            url: legUrl ?? map(hub.id),
           }
 
   return (
@@ -306,29 +316,7 @@ export const CourseSummary = ({
       </CardHeader>
       {it.stops.length > 0 && (
         <CardContent>
-          <ItemGroup>
-            {it.stops.map((s) => {
-              const place = config.places.find((p) => p.id === s.id)
-              return (
-                <Item key={s.id} size="sm" className="px-0">
-                  <ItemMedia variant="icon">
-                    <PlaceIcon name={place?.attrs.icon ?? ''} />
-                  </ItemMedia>
-                  <ItemContent>
-                    <ItemTitle>{place?.attrs.title ?? s.id}</ItemTitle>
-                    <ItemDescription>
-                      {place && (
-                        <span className="mb-1 block font-medium text-foreground">
-                          {place.attrs.short} · {place.attrs.subtitle}
-                        </span>
-                      )}
-                      {clock(s.start)}–{clock(s.end)}
-                    </ItemDescription>
-                  </ItemContent>
-                </Item>
-              )
-            })}
-          </ItemGroup>
+          <ItineraryTimeline config={config} itinerary={it} />
         </CardContent>
       )}
     </Card>

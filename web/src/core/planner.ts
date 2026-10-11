@@ -16,6 +16,14 @@ import { AUTO_COURSE } from './schema'
 import type { Effect } from './signals'
 import { assessSignals, fill } from './signals'
 import { clock, minutes, within } from './time'
+import {
+  localOptions,
+  makeLeg,
+  preferredRoadModes,
+  roadOptions,
+} from './mobility'
+import type { TravelLeg, TravelMode } from './mobility'
+export type { TravelLeg } from './mobility'
 
 /**
  * The decision engine: `planner(config)(plan, observations) → Itinerary`.
@@ -38,16 +46,6 @@ export type Decision =
   | 'MEDICAL_FIRST'
   | 'NEEDS_DATA'
   | 'INCOMPLETE'
-
-export type TravelLeg = {
-  kind: 'OUTBOUND' | 'WALK' | 'RETURN'
-  label: string
-  start: number
-  end: number
-  baseMin: number
-  bufferMin: number
-  basis: string
-}
 
 export type Stop = { id: PlaceId; start: number; end: number; dwell: number }
 
@@ -251,54 +249,88 @@ const routeUnavailable: Rule<Context, Itinerary> = (ctx) => {
 
 const returnLeg: Rule<Context, Itinerary> = (ctx) => {
   if (ctx.plan.stage !== 'RETURN') return undefined
-  const leg = ctx.course.return
-  const legMin = ctx.hubMin ?? 0
-  const base = observed(ctx)
-  if (!within(leg.window)(ctx.start))
+  if (!within(ctx.course.return.window)(ctx.start))
     return {
-      ...base,
+      ...ctx.base,
       decision: 'NEEDS_DATA',
       calculationStatus: 'NEEDS_DATA',
       outbound: 0,
       reasons: [copy(ctx, 'returnRouteMissing')],
     }
-  const departure = ctx.start + leg.stopAccess
-  const eta = departure + legMin
-  const buffer =
-    ctx.course.meta.trafficReturn === true ? ctx.effect.reserveMin : 0
-  const planned = eta + buffer
+  const options = roadOptions(
+    ctx.course,
+    'RETURN',
+    ctx.hub.id,
+    ctx.effect.reserveMin,
+  )
+  const from = ctx.plan.completed.at(-1) ?? 'COURSE'
+  const preference = preferredRoadModes(ctx.plan)
+  const candidates = preference.flatMap(([, mode]) => {
+    const leg = makeLeg(
+      ctx.config,
+      ctx.course,
+      ctx.plan,
+      from,
+      ctx.hub.id,
+      'RETURN',
+      ctx.start,
+      options,
+      mode,
+      roadReason(ctx.plan, mode, 'RETURN'),
+    )
+    return leg ? [leg] : []
+  })
+  const leg = candidates.find((l) => l.end <= ctx.target) ?? candidates[0]
+  if (!leg)
+    return {
+      ...ctx.base,
+      decision: 'NEEDS_DATA',
+      calculationStatus: 'NEEDS_DATA',
+      reasons: [
+        '선택한 이동수단의 시연 시간이 등록되지 않았어요. 지도에서 확인해 주세요.',
+      ],
+    }
   return {
-    ...base,
-    decision: planned <= ctx.target ? 'GO' : 'CANCEL',
+    ...observed(ctx),
+    decision: leg.end <= ctx.target ? 'GO' : 'CANCEL',
     outbound: 0,
-    returnMin: leg.stopAccess + legMin + buffer,
-    trafficReserve: buffer,
-    stationEta: planned,
-    planningArrival: planned,
-    legs: [
-      {
-        kind: 'RETURN',
-        label: `${ctx.course.area} → ${ctx.hub.name}`,
-        start: departure,
-        end: planned,
-        baseMin: legMin,
-        bufferMin: buffer,
-        basis:
-          buffer > 0
-            ? '구룡포 관측 + 앱 여유 정책 · 기본 시간은 시연'
-            : '기본 이동시간은 시연',
-      },
-    ],
-    returnDeparture: departure,
-    slack: ctx.target - planned,
+    returnMin: leg.totalMin,
+    walking: leg.walkMin,
+    trafficReserve: leg.bufferMin,
+    stationEta: leg.end,
+    planningArrival: leg.end,
+    legs: [leg],
+    returnDeparture: leg.start,
+    slack: ctx.target - leg.end,
     reasons: [
-      ...ctx.effect.reasons,
-      copy(ctx, 'returnLeg', {
-        stopAccess: leg.stopAccess,
-        returnMin: legMin,
-      }),
+      ...legReasons(ctx, [leg]),
+      copy(ctx, 'returnLeg', { returnMin: leg.totalMin }),
     ],
   }
+}
+
+const roadReason = (plan: Plan, mode: TravelMode, direction: string) =>
+  plan.localTransport && plan.localTransport !== 'AUTO'
+    ? '직접 선택한 이동수단을 우선했어요.'
+    : mode === 'TAXI'
+      ? plan.condition === 'TIRED' || plan.walkingLimit <= 15
+        ? '피로와 걷기 한도를 고려해 도보·환승 부담을 줄여요.'
+        : `${direction === 'RETURN' ? '귀가' : '전체 일정'} 여유를 확보하는 조합이에요. 택시의 실제 시간은 확인이 필요해요.`
+      : '컨디션과 귀가 여유가 맞으면 버스를 우선해요.'
+
+const legReasons = (ctx: Context, legs: TravelLeg[]) => {
+  const hasTraffic = legs.some((l) => l.trafficScope)
+  return assessSignals(
+    {
+      ...ctx.config.policy,
+      signals: ctx.config.policy.signals.filter((s) =>
+        s.kind === 'reserve-by-band'
+          ? hasTraffic
+          : ctx.course.id === 'guryongpo',
+      ),
+    },
+    ctx.obs,
+  ).reasons
 }
 
 // ── Course search over configured variants ──────────────────────────────
@@ -327,143 +359,173 @@ const allowedIn = (ctx: Context) => (id: PlaceId) =>
 const evaluate =
   (ctx: Context) =>
   (variant: Variant, index: number): Candidate => {
-    const { policy } = ctx.config
-    const { plan, base, effect } = ctx
+    const { plan, effect } = ctx
     const selected = variant.stops.filter((s) => allowedIn(ctx)(s.place))
     const resumed = plan.completed.length > 0
     if (!selected.length && !resumed) return { kind: 'empty' }
-
-    const approach = resumed
-      ? policy.local.lastApproach
-      : selected.length
-        ? policy.local.firstApproach + policy.local.lastApproach
-        : 0
-    const transfers = selected.map((s, i) =>
-      i > 0 || resumed ? (s.transferMin ?? 0) : 0,
+    let windowMiss = false
+    const combinations = preferredRoadModes(plan).flatMap(([out, back]) =>
+      [false, true].map((localTaxi) => ({
+        outMode: out,
+        backMode: back,
+        localTaxi,
+      })),
     )
-    const localMin =
-      approach + sum(selected.map((s) => s.dwell)) + sum(transfers)
-    const outBuffer =
-      base.outbound > 0 && ctx.course.meta.trafficOutbound === true
-        ? effect.reserveMin
-        : 0
-    const outbound = base.outbound + outBuffer
-    const returnBuffer =
-      ctx.course.meta.trafficReturn === true ? effect.reserveMin : 0
-    const trafficReserve = outBuffer + returnBuffer
-    const walking =
-      (base.outbound ? ctx.course.outbound.accessWalk : 0) +
-      ctx.course.return.accessWalk +
-      sum(selected.map((s) => s.walk)) +
-      sum(transfers)
-    const returnDeparture = ctx.start + outbound + localMin
-    if (!within(ctx.course.return.window)(returnDeparture))
-      return { kind: 'window-miss' }
-
-    const eta = returnDeparture + base.returnMin
-    const planned = eta + returnBuffer
-    if (planned > ctx.target || walking > plan.walkingLimit)
-      return { kind: 'infeasible' }
-
-    const firstAt =
-      ctx.start +
-      outbound +
-      (selected.length && !resumed ? policy.local.firstApproach : 0)
-    const stops = selected.reduce<Stop[]>((acc, s, i) => {
-      const from =
-        (acc.length ? acc[acc.length - 1].end : firstAt) + transfers[i]
-      return [
-        ...acc,
-        { id: s.place, start: from, end: from + s.dwell, dwell: s.dwell },
-      ]
-    }, [])
-
-    const chosen = new Set(selected.map((s) => s.place))
-    const excluded = Object.values(ctx.places)
-      .filter((p) => !chosen.has(p.id) && !plan.completed.includes(p.id))
-      .sort((a, b) => a.sort - b.sort)
-      .map((p) => ({
-        id: p.id,
-        reason: plan.excluded.includes(p.id)
-          ? copy(ctx, 'excludedByUser')
-          : !plan.interests.includes(p.attrs.interest)
-            ? copy(ctx, 'excludedByInterest')
-            : avoidsStairs(plan) && hasStairs(p)
-              ? copy(ctx, 'excludedStairs')
-              : p.attrs.outdoor && effect.outdoorBlocked
-                ? copy(ctx, 'excludedOutdoor')
-                : copy(ctx, 'excludedByTime'),
-      }))
-
-    const reasons = [
-      ...effect.reasons,
-      ...(index > 0 && variant.reason ? [variant.reason] : []),
-    ]
-    return {
-      kind: 'ok',
-      itinerary: {
-        ...observed(ctx),
-        decision:
-          index > 0 ? 'SHORTEN' : effect.outdoorBlocked ? 'INDOOR' : 'GO',
-        variant: variant.id,
-        stops,
-        outbound,
-        trafficReserve,
-        returnMin: base.returnMin + returnBuffer,
-        legs: [
-          ...(outbound > 0
-            ? [
-                {
-                  kind: 'OUTBOUND' as const,
-                  label: `출발지 → ${ctx.course.area}`,
-                  start: ctx.start,
-                  end: ctx.start + outbound,
-                  baseMin: base.outbound,
-                  bufferMin: outBuffer,
-                  basis: '기본 시간은 시연 · 구룡포 도로 구간만 혼잡 여유 적용',
-                },
-              ]
-            : []),
-          ...stops.flatMap((stop, i) =>
-            transfers[i] > 0
-              ? [
-                  {
-                    kind: 'WALK' as const,
-                    label: `${ctx.places[stop.id].attrs.short}까지 도보`,
-                    start: stop.start - transfers[i],
-                    end: stop.start,
-                    baseMin: transfers[i],
-                    bufferMin: 0,
-                    basis: '시연 도보 이동 · 교통 혼잡 미적용',
-                  },
-                ]
-              : [],
-          ),
-          {
-            kind: 'RETURN' as const,
-            label: `${ctx.course.area} → ${ctx.hub.name}`,
-            start: returnDeparture,
-            end: planned,
-            baseMin: base.returnMin,
-            bufferMin: returnBuffer,
-            basis: '기본 시간은 시연 · 구룡포 도로 구간만 혼잡 여유 적용',
-          },
-        ],
-        stationEta: planned,
-        planningArrival: planned,
-        slack: ctx.target - planned,
-        walking,
-        localMin,
-        returnDeparture,
-        reasons: [
-          ...new Set(reasons),
-          copy(ctx, ctx.mode.bufferMin > 0 ? 'fullCourse' : 'fullCourseBack', {
-            count: selected.length,
-          }),
-        ],
-        excluded,
-      },
+    for (const { outMode, backMode, localTaxi } of combinations) {
+      const legs: TravelLeg[] = []
+      const stops: Stop[] = []
+      let cursor = ctx.start
+      let outbound = 0
+      let from = resumed ? plan.completed.at(-1)! : 'COURSE'
+      if (ctx.base.outbound > 0) {
+        const leg = makeLeg(
+          ctx.config,
+          ctx.course,
+          plan,
+          plan.origin,
+          'COURSE',
+          'OUTBOUND',
+          cursor,
+          roadOptions(ctx.course, 'OUTBOUND', ctx.hub.id, effect.reserveMin),
+          outMode,
+          roadReason(plan, outMode, 'OUTBOUND'),
+        )
+        if (!leg) continue
+        legs.push(leg)
+        cursor = leg.end
+        outbound = leg.totalMin
+        from = 'COURSE'
+      }
+      const localStart = cursor
+      let missing = false
+      for (const stop of selected) {
+        const options = localOptions(
+          ctx.config,
+          ctx.course,
+          from,
+          stop.place,
+          effect.reserveMin,
+        )
+        const walk = options.find((o) => o.mode === 'WALK')!
+        const taxi = options.find((o) => o.mode === 'TAXI')
+        // A high traffic reserve can make a short taxi hop a poor trade-off.
+        const useTaxi =
+          taxi &&
+          plan.localTransport !== 'TRANSIT' &&
+          (localTaxi ||
+            plan.condition === 'TIRED' ||
+            plan.walkingLimit <= 15 ||
+            plan.localTransport === 'TAXI') &&
+          (localTaxi ||
+            plan.walkingLimit <= 15 ||
+            plan.localTransport === 'TAXI' ||
+            taxi.totalMin <= walk.totalMin + 5)
+        const leg = makeLeg(
+          ctx.config,
+          ctx.course,
+          plan,
+          from,
+          stop.place,
+          'TRANSFER',
+          cursor,
+          options,
+          useTaxi ? 'TAXI' : 'WALK',
+          useTaxi
+            ? '완주 후 긴 도보 부담을 줄이는 근거리 택시예요.'
+            : taxi && taxi.totalMin > walk.totalMin + 5
+              ? '택시 대기와 혼잡 여유보다 짧은 도보를 선택했어요.'
+              : '가까운 장소는 걸어서 이어가요.',
+        )
+        if (!leg) {
+          missing = true
+          break
+        }
+        legs.push(leg)
+        const at = leg.end
+        stops.push({
+          id: stop.place,
+          start: at,
+          end: at + stop.dwell,
+          dwell: stop.dwell,
+        })
+        cursor = at + stop.dwell
+        from = stop.place
+      }
+      if (missing) continue
+      const localMin = cursor - localStart
+      const returnDeparture = cursor
+      if (!within(ctx.course.return.window)(returnDeparture)) {
+        windowMiss = true
+        continue
+      }
+      const back = makeLeg(
+        ctx.config,
+        ctx.course,
+        plan,
+        from,
+        ctx.hub.id,
+        'RETURN',
+        cursor,
+        roadOptions(ctx.course, 'RETURN', ctx.hub.id, effect.reserveMin),
+        backMode,
+        roadReason(plan, backMode, 'RETURN'),
+      )
+      if (!back) continue
+      legs.push(back)
+      const walking =
+        sum(legs.map((l) => l.walkMin)) + sum(selected.map((s) => s.walk))
+      if (back.end > ctx.target || walking > plan.walkingLimit) continue
+      const chosen = new Set(selected.map((s) => s.place))
+      const excluded = Object.values(ctx.places)
+        .filter((p) => !chosen.has(p.id) && !plan.completed.includes(p.id))
+        .sort((a, b) => a.sort - b.sort)
+        .map((p) => ({
+          id: p.id,
+          reason: plan.excluded.includes(p.id)
+            ? copy(ctx, 'excludedByUser')
+            : !plan.interests.includes(p.attrs.interest)
+              ? copy(ctx, 'excludedByInterest')
+              : avoidsStairs(plan) && hasStairs(p)
+                ? copy(ctx, 'excludedStairs')
+                : p.attrs.outdoor && effect.outdoorBlocked
+                  ? copy(ctx, 'excludedOutdoor')
+                  : copy(ctx, 'excludedByTime'),
+        }))
+      const trafficReserve = sum(legs.map((l) => l.bufferMin))
+      return {
+        kind: 'ok',
+        itinerary: {
+          ...observed(ctx),
+          decision:
+            index > 0 ? 'SHORTEN' : effect.outdoorBlocked ? 'INDOOR' : 'GO',
+          variant: variant.id,
+          stops,
+          legs,
+          outbound,
+          trafficReserve,
+          returnMin: back.totalMin,
+          stationEta: back.end,
+          planningArrival: back.end,
+          walking,
+          localMin,
+          returnDeparture,
+          slack: ctx.target - back.end,
+          reasons: [
+            ...new Set([
+              ...legReasons(ctx, legs),
+              ...(index > 0 && variant.reason ? [variant.reason] : []),
+            ]),
+            copy(
+              ctx,
+              ctx.mode.bufferMin > 0 ? 'fullCourse' : 'fullCourseBack',
+              { count: selected.length },
+            ),
+          ],
+          excluded,
+        },
+      }
     }
+    return windowMiss ? { kind: 'window-miss' } : { kind: 'infeasible' }
   }
 
 const courseSearch = (ctx: Context): Itinerary => {

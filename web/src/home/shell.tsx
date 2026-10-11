@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { Ellipsis, Flag, House, Map as MapIcon, Users } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -26,6 +26,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Gull, GullPose, AssetCredits } from '#/brand/brand'
 import { newTripId, postEvents } from '#/app/trip-client'
+import { toast } from 'sonner'
+import { advance as advanceTrip, startReturn } from '#/core/trip'
+import { photoOpportunity, type CommunityPost } from '#/core/community'
+import { VisitPhotoPrompt } from './visit-photos'
+import type { Place } from '#/core/schema'
 import type { TripConfig } from '#/core/schema'
 import type { Stage } from '#/core/stage'
 import type { TripView } from '#/core/view'
@@ -107,6 +112,84 @@ export const Shell = ({
   const [profileOpen, setProfileOpen] = useState(false)
   const [finishOpen, setFinishOpen] = useState(false)
   const [communityRevision, setCommunityRevision] = useState(0)
+  const [visitPlace, setVisitPlace] = useState<Place | null>(null)
+  const [visitPosts, setVisitPosts] = useState<CommunityPost[]>([])
+  const [visitsReady, setVisitsReady] = useState(false)
+  const [updating, setUpdating] = useState(false)
+  const [dismissed, setDismissed] = useState<string[]>(() => {
+    try {
+      const v = JSON.parse(
+        sessionStorage.getItem(`run2-photo-dismissed:${tripId}`) ?? '[]',
+      )
+      return Array.isArray(v) ? v : []
+    } catch {
+      return []
+    }
+  })
+  useEffect(() => {
+    const controller = new AbortController()
+    setVisitsReady(false)
+    fetch(`/api/community?tripId=${tripId}&visits=1`, {
+      signal: controller.signal,
+    })
+      .then(async (r) => {
+        if (!r.ok) throw new Error('load')
+        return r.json() as Promise<{ posts: CommunityPost[] }>
+      })
+      .then(({ posts }) => {
+        if (!controller.signal.aborted) {
+          setVisitPosts(posts)
+          setVisitsReady(true)
+        }
+      })
+      .catch(() => undefined)
+    return () => controller.abort()
+  }, [tripId, communityRevision, view.state.plan.completed.length])
+  const opportunity = photoOpportunity(config, view.state, view.itinerary.slack)
+  const showPhoto = (place: Place) => {
+    setChatOpen(false)
+    setVisitPlace(place)
+  }
+  const photoPrompt =
+    opportunity &&
+    visitsReady &&
+    !agent.busy &&
+    !dismissed.includes(opportunity.id) &&
+    !visitPosts.some((p) => p.placeId === opportunity.id) ? (
+      <VisitPhotoPrompt
+        place={opportunity}
+        share={() => showPhoto(opportunity)}
+        dismiss={() => {
+          const ids = [...dismissed, opportunity.id]
+          setDismissed(ids)
+          try {
+            sessionStorage.setItem(
+              `run2-photo-dismissed:${tripId}`,
+              JSON.stringify(ids),
+            )
+          } catch {
+            /* Session-only fallback. */
+          }
+        }}
+      />
+    ) : null
+  const advance = async () => {
+    if (updating || agent.busy) return
+    setUpdating(true)
+    try {
+      const cmd =
+        view.state.plan.stage === 'LOCAL' && !view.itinerary.stops.length
+          ? startReturn(view.state, view.itinerary)
+          : advanceTrip(view.state, view.itinerary)
+      const { trip } = await postEvents(tripId, cmd.events)
+      agent.setView(trip)
+    } catch {
+      toast.error('진행을 저장하지 못했어요. 다시 눌러 주세요.')
+    } finally {
+      setUpdating(false)
+    }
+  }
+
   const [showTools, setShowTools] = useState(readFlag)
 
   /** Open the agent, optionally saying something right away. */
@@ -281,9 +364,27 @@ export const Shell = ({
             active={tab === 'tour'}
             refresh={refresh}
             ask={ask}
+            photoPrompt={photoPrompt}
+            onPhoto={showPhoto}
+            onAdvance={() => void advance()}
+            busy={agent.busy || updating}
+            selectLegTransport={async (id, mode) => {
+              const transportOverrides = {
+                ...view.state.plan.transportOverrides,
+              }
+              if (mode === 'AUTO') delete transportOverrides[id]
+              else transportOverrides[id] = mode
+              const { trip } = await postEvents(tripId, [
+                { type: 'plan.patched', patch: { transportOverrides } },
+              ])
+              agent.setView(trip)
+            }}
             selectTransport={async (mode) => {
               const { trip } = await postEvents(tripId, [
-                { type: 'plan.patched', patch: { localTransport: mode } },
+                {
+                  type: 'plan.patched',
+                  patch: { localTransport: mode, transportOverrides: {} },
+                },
               ])
               agent.setView(trip)
             }}
@@ -321,6 +422,24 @@ export const Shell = ({
         }}
       />
 
+      {visitPlace && (
+        <FinishSheet
+          key={`${tripId}:${visitPlace.id}`}
+          open
+          onOpenChange={(open) => !open && setVisitPlace(null)}
+          tripId={tripId}
+          course={visitPlace.attrs.course}
+          place={visitPlace}
+          finish={async () => undefined}
+          onShared={() => setCommunityRevision((v) => v + 1)}
+          onContinue={() => setVisitPlace(null)}
+          onCommunity={() => {
+            setVisitPlace(null)
+            setTab('community')
+          }}
+        />
+      )}
+
       <Sheet open={chatOpen} onOpenChange={setChatOpen}>
         <SheetContent
           side="bottom"
@@ -335,7 +454,11 @@ export const Shell = ({
               대회·코스·맛집·버스, 무엇이든 물어보세요
             </SheetDescription>
           </SheetHeader>
-          <ChatPanel agent={agent} suggestions={tabChips(tab, view)} />
+          <ChatPanel
+            agent={agent}
+            suggestions={tabChips(tab, view)}
+            photoPrompt={photoPrompt}
+          />
         </SheetContent>
       </Sheet>
 

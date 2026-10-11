@@ -175,9 +175,11 @@ export const AgentProvider = ({
 export const ChatPanel = ({
   agent,
   suggestions = [],
+  photoPrompt,
 }: {
   agent: Agent
   suggestions?: string[]
+  photoPrompt?: React.ReactNode
 }) => {
   const { view } = useChatContext()
   const { messages, status, stop, error } = agent.chat
@@ -247,6 +249,7 @@ export const ChatPanel = ({
               </MessageContent>
             </Message>
           ))}
+          {!agent.busy && photoPrompt}
           {agent.busy && (
             <div
               role="status"

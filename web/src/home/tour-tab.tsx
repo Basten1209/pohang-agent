@@ -1,4 +1,4 @@
-import { Navigation } from 'lucide-react'
+import { Camera, Navigation } from 'lucide-react'
 import { useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -22,12 +22,16 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from '@/components/ui/empty'
-import { toward } from '#/core/explain'
 import { mapUrl } from '#/core/links'
 import { readingLine } from '#/core/live'
 import type { Decision } from '#/core/planner'
 import { canTravel } from '#/core/planner'
-import { anchorOf, courseById, departLabel, hubOf } from '#/core/route'
+import { courseById, departLabel, hubOf } from '#/core/route'
+import type { TravelMode } from '#/core/mobility'
+import type { Place } from '#/core/schema'
+import { visitedPlaces } from '#/core/community'
+import type { ReactNode } from 'react'
+import { ItineraryTimeline } from './timeline'
 import type { TripConfig } from '#/core/schema'
 import { clock } from '#/core/time'
 import type { TripView } from '#/core/view'
@@ -53,6 +57,11 @@ export const TourTab = ({
   refresh,
   ask,
   selectTransport,
+  selectLegTransport,
+  photoPrompt,
+  onPhoto,
+  onAdvance,
+  busy,
 }: {
   config: TripConfig
   view: TripView
@@ -61,7 +70,12 @@ export const TourTab = ({
   refresh: () => void
   /** Open the agent with this message. */
   ask: (text: string) => void
-  selectTransport: (mode: 'TAXI' | 'TRANSIT') => Promise<void>
+  selectTransport: (mode: 'AUTO' | 'TAXI' | 'TRANSIT') => Promise<void>
+  selectLegTransport: (id: string, mode: TravelMode | 'AUTO') => Promise<void>
+  photoPrompt?: ReactNode
+  onPhoto: (place: Place) => void
+  onAdvance: () => void
+  busy: boolean
 }) => {
   const { state, itinerary: it, stage } = view
   const planned =
@@ -92,36 +106,7 @@ export const TourTab = ({
   const hub = hubOf(config, state.plan)
   const map = mapUrl(config, it.course)
   const place = (id: string) => config.places.find((p) => p.id === id)
-  const origin = anchorOf(config, state.plan.origin)?.name ?? state.plan.origin
   const travel = canTravel(it)
-  const timeline = [
-    ...(it.outbound > 0
-      ? [
-          { at: clock(it.start), what: `${origin} 출발` },
-          {
-            at: clock(it.start + it.outbound),
-            what: `${course?.area ?? '코스'} 도착`,
-          },
-        ]
-      : []),
-    ...it.stops.map((s) => ({
-      at: `${clock(s.start)}–${clock(s.end)}`,
-      what: place(s.id)
-        ? `${place(s.id)!.attrs.short} · ${place(s.id)!.attrs.subtitle}`
-        : s.id,
-    })),
-    ...(it.returnDeparture !== null
-      ? [{ at: clock(it.returnDeparture), what: `${toward(hub.name)} 출발` }]
-      : []),
-    ...(it.planningArrival !== null
-      ? [
-          {
-            at: clock(it.planningArrival),
-            what: `${hub.name} 도착 (여유 포함)`,
-          },
-        ]
-      : []),
-  ]
   const others = it.alternatives.flatMap((id) => courseById(config, id) ?? [])
 
   return (
@@ -186,8 +171,54 @@ export const TourTab = ({
         )}
       </Card>
 
+      {photoPrompt}
+      {stage === 'JOURNEY' && travel && state.plan.stage !== 'DONE' && (
+        <Button disabled={busy} onClick={onAdvance}>
+          {state.plan.stage === 'OUTBOUND'
+            ? `${course?.area ?? '코스'}에 도착했어요`
+            : state.plan.stage === 'RETURN'
+              ? `${hub.name}에 도착했어요`
+              : it.stops[0]
+                ? `${place(it.stops[0].id)?.attrs.short ?? '이곳'} 다 봤어요`
+                : '돌아가기 시작'}
+        </Button>
+      )}
+      {stage === 'PLANNING' && travel && (
+        <Button disabled={busy} onClick={() => ask('이 코스로 갈게요')}>
+          이 코스로 출발하기
+        </Button>
+      )}
+      {visitedPlaces(config, state).length > 0 &&
+        state.plan.condition !== 'UNWELL' && (
+          <Card size="sm">
+            <CardHeader>
+              <CardTitle>다녀온 곳에 사진 남기기</CardTitle>
+              <CardDescription>
+                방문을 확인한 장소마다 한 장씩 공유할 수 있어요.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              {visitedPlaces(config, state).map((p) => (
+                <Button
+                  key={p.id}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onPhoto(p)}
+                >
+                  <Camera />
+                  {p.attrs.short}
+                </Button>
+              ))}
+            </CardContent>
+          </Card>
+        )}
       <ConditionsCard config={config} view={view} />
-      <TransportCard config={config} view={view} select={selectTransport} />
+      <TransportCard
+        config={config}
+        view={view}
+        select={selectTransport}
+        disabled={busy}
+      />
 
       {travel && (
         <Card size="sm">
@@ -199,35 +230,17 @@ export const TourTab = ({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="mb-4 flex flex-col gap-2">
-              {it.legs?.map((leg, i) => (
-                <div key={i} className="rounded-md bg-secondary/60 p-3 text-sm">
-                  <div className="flex justify-between gap-2">
-                    <span className="font-medium">{leg.label}</span>
-                    <span className="text-xs tabular-nums">
-                      {clock(leg.start)}–{clock(leg.end)}
-                    </span>
-                  </div>
-                  <p className="mt-1">
-                    이동 {leg.baseMin}분
-                    {leg.bufferMin > 0 ? ` + 혼잡 여유 ${leg.bufferMin}분` : ''}
-                  </p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    {leg.basis}
-                  </p>
-                </div>
-              ))}
-            </div>
-            <ol className="flex flex-col gap-2 text-sm">
-              {timeline.map((row) => (
-                <li key={`${row.at}${row.what}`} className="flex gap-3">
-                  <span className="w-24 shrink-0 tabular-nums text-muted-foreground">
-                    {row.at}
-                  </span>
-                  <span>{row.what}</span>
-                </li>
-              ))}
-            </ol>
+            <ItineraryTimeline
+              config={config}
+              itinerary={it}
+              select={selectLegTransport}
+              disabled={busy}
+            />
+            {it.planningArrival !== null && (
+              <p className="mt-4 text-sm font-medium text-primary">
+                {clock(it.planningArrival)} {hub.name} 도착 예정 · 시연 추정
+              </p>
+            )}
           </CardContent>
           <CardFooter className="flex-col items-stretch gap-2">
             <p className="text-xs text-muted-foreground">

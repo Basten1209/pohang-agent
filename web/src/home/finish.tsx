@@ -11,6 +11,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { GullPose } from '#/brand/brand'
+import type { Place } from '#/core/schema'
 import type { CommunityPost, CommunityPostInput } from '#/core/community'
 
 /** Decode and re-encode locally: bounded uploads, consistent orientation, no EXIF. */
@@ -44,6 +45,7 @@ export function FinishSheet({
   onOpenChange,
   tripId,
   course,
+  place,
   finish,
   onShared,
   onContinue,
@@ -53,6 +55,7 @@ export function FinishSheet({
   onOpenChange: (open: boolean) => void
   tripId: string
   course: string
+  place?: Place
   finish: () => Promise<void>
   onShared: () => void
   onContinue: () => void
@@ -60,7 +63,9 @@ export function FinishSheet({
 }) {
   const [photo, setPhoto] = useState<CommunityPostInput['photo'] | null>(null)
   const [caption, setCaption] = useState(
-    '마라톤 완주! 메달의 기쁨을 안고 구룡포 여행으로 떠나요 🏅',
+    place
+      ? `${place.attrs.short}에서 남긴 오늘의 한 장 📷`
+      : '마라톤 완주! 메달의 기쁨을 안고 구룡포 여행으로 떠나요 🏅',
   )
   const [post, setPost] = useState<CommunityPost | null>(null)
   const [busy, setBusy] = useState(false)
@@ -69,7 +74,10 @@ export function FinishSheet({
     if (!open) return
     const controller = new AbortController()
     setLoading(true)
-    fetch(`/api/community?tripId=${tripId}`, { signal: controller.signal })
+    fetch(
+      `/api/community?tripId=${tripId}${place ? `&placeId=${place.id}` : ''}`,
+      { signal: controller.signal },
+    )
       .then(async (r) => {
         if (!r.ok) throw new Error('load')
         return r.json() as Promise<{ post: CommunityPost | null }>
@@ -82,7 +90,7 @@ export function FinishSheet({
         if (!controller.signal.aborted) setLoading(false)
       })
     return () => controller.abort()
-  }, [open, tripId])
+  }, [open, tripId, place?.id])
   const [error, setError] = useState('')
   const input = useRef<HTMLInputElement>(null)
   const run = async (action: () => Promise<void>) => {
@@ -113,6 +121,7 @@ export function FinishSheet({
           tripId,
           course: course === 'homigot' ? 'homigot' : 'guryongpo',
           caption,
+          ...(place && { placeId: place.id }),
           photo,
         }),
       })
@@ -132,7 +141,9 @@ export function FinishSheet({
     })
   const preview =
     post?.image ??
-    (photo?.kind === 'DEMO' ? '/images/finisher-demo.png' : photo?.data)
+    (photo?.kind === 'DEMO'
+      ? place?.attrs.image || '/images/finisher-demo.png'
+      : photo?.data)
   return (
     <Sheet open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
       <SheetContent
@@ -142,9 +153,13 @@ export function FinishSheet({
         <SheetHeader className="mascot-panel flex-row items-center gap-3 rounded-t-3xl pr-10">
           <GullPose pose="cheer" className="w-24 sm:w-28" decorative />
           <div className="min-w-0 space-y-2">
-            <SheetTitle className="text-2xl">완주 축하해요!</SheetTitle>
+            <SheetTitle className="text-2xl">
+              {place ? '여행의 한 장을 남겨요' : '완주 축하해요!'}
+            </SheetTitle>
             <SheetDescription>
-              메달의 순간을 남기고, 구룡포에서 오늘의 기쁨을 이어가요.
+              {place
+                ? `${place.attrs.short}에서의 순간을 커뮤니티에 나눠요.`
+                : '메달의 순간을 남기고, 구룡포에서 오늘의 기쁨을 이어가요.'}
             </SheetDescription>
           </div>
         </SheetHeader>
@@ -153,20 +168,30 @@ export function FinishSheet({
             <div className="relative overflow-hidden rounded-2xl">
               <img
                 src={preview}
-                alt="공유할 마라톤 완주 사진"
+                alt={
+                  place
+                    ? `${place.attrs.short} 공유 사진 미리보기`
+                    : '공유할 마라톤 완주 사진'
+                }
                 className="max-h-64 w-full bg-primary/5 object-contain"
               />
               {(post?.photoKind === 'DEMO' ||
                 (!post && photo?.kind === 'DEMO')) && (
                 <Badge className="absolute bottom-3 left-3">
-                  AI 생성 시연 사진
+                  {place
+                    ? '장소 예시 사진 · 직접 촬영 아님'
+                    : 'AI 생성 시연 사진'}
                 </Badge>
               )}
             </div>
           ) : (
             <div className="flex min-h-36 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed bg-primary/5 text-primary">
               <Camera className="size-8" />
-              <p className="text-sm">오늘 가장 자랑스러운 한 장</p>
+              <p className="text-sm">
+                {place
+                  ? '여행에서 기억하고 싶은 한 장'
+                  : '오늘 가장 자랑스러운 한 장'}
+              </p>
             </div>
           )}
           {post ? (
@@ -176,7 +201,9 @@ export function FinishSheet({
                 className="flex items-center gap-2 text-sm font-medium text-primary"
               >
                 <Check className="size-4" />
-                완주의 순간이 커뮤니티에 공유됐어요.
+                {place
+                  ? `${place.attrs.short} 사진이 커뮤니티에 공유됐어요.`
+                  : '완주의 순간이 커뮤니티에 공유됐어요.'}
               </p>
               <p className="whitespace-pre-wrap text-sm">{post.caption}</p>
               <Button
@@ -186,10 +213,10 @@ export function FinishSheet({
                   onCommunity()
                 }}
               >
-                내 완주 사진 보기
+                {place ? '공유한 여행 사진 보기' : '내 완주 사진 보기'}
               </Button>
               <Button disabled={busy || loading} onClick={travel}>
-                구룡포 여행 준비하기
+                {place ? '일정으로 돌아가기' : '구룡포 여행 준비하기'}
               </Button>
             </>
           ) : (
@@ -200,7 +227,7 @@ export function FinishSheet({
                 tabIndex={-1}
                 accept="image/jpeg,image/png,image/webp"
                 className="sr-only"
-                aria-label="완주 사진 파일"
+                aria-label={place ? '관광지 사진 파일' : '완주 사진 파일'}
                 onChange={(e) => {
                   const file = e.target.files?.[0]
                   e.target.value = ''
@@ -222,25 +249,33 @@ export function FinishSheet({
                   <Upload />
                   사진 선택
                 </Button>
-                <Button
-                  variant="outline"
-                  disabled={busy || loading}
-                  onClick={() => {
-                    setPhoto({ kind: 'DEMO' })
-                    setError('')
-                  }}
-                >
-                  시연 사진 사용
-                </Button>
+                {(!place || place.attrs.image) && (
+                  <Button
+                    variant="outline"
+                    disabled={busy || loading}
+                    onClick={() => {
+                      setPhoto({ kind: 'DEMO' })
+                      setError('')
+                    }}
+                  >
+                    {place ? '장소 예시 사진 사용' : '시연 사진 사용'}
+                  </Button>
+                )}
               </div>
               <p className="text-xs text-muted-foreground">
-                JPG·PNG·WebP, 최대 5MB · 시연 사진은 AI로 만든 가상 러너예요.
+                JPG·PNG·WebP, 최대 5MB ·{' '}
+                {place
+                  ? '예시 사진은 해당 장소의 소개 사진이며 직접 촬영한 방문 사진이 아니에요.'
+                  : '시연 사진은 AI로 만든 가상 러너예요.'}
               </p>
-              <label htmlFor="finish-caption" className="text-sm font-medium">
-                완주 한마디
+              <label
+                htmlFor={place ? 'visit-caption' : 'finish-caption'}
+                className="text-sm font-medium"
+              >
+                {place ? '여행 한마디' : '완주 한마디'}
               </label>
               <Textarea
-                id="finish-caption"
+                id={place ? 'visit-caption' : 'finish-caption'}
                 value={caption}
                 maxLength={300}
                 rows={2}
@@ -248,8 +283,11 @@ export function FinishSheet({
                 onChange={(e) => setCaption(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                공유하면 사진과 닉네임, 한마디가 커뮤니티에 공개돼요. 여정당 한
-                번 공유할 수 있어요.
+                공유하면 사진과 닉네임, {place ? '장소명, ' : ''}한마디가
+                커뮤니티에 공개돼요.{' '}
+                {place
+                  ? '같은 여정에서 장소마다 한 번 공유할 수 있어요.'
+                  : '여정당 한 번 공유할 수 있어요.'}
               </p>
               <Button
                 disabled={busy || loading || !photo || !caption.trim()}
@@ -262,7 +300,7 @@ export function FinishSheet({
                 disabled={busy || loading}
                 onClick={travel}
               >
-                사진 없이 여행 준비하기
+                {place ? '나중에 할게요' : '사진 없이 여행 준비하기'}
               </Button>
             </>
           )}
