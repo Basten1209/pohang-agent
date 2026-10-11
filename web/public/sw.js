@@ -8,7 +8,7 @@
  *   - images / icons    → stale-while-revalidate
  * Bump VERSION to drop old caches.
  */
-const VERSION = 'run2-v9'
+const VERSION = 'run2-v10'
 const SHELL = [
   '/',
   '/classic',

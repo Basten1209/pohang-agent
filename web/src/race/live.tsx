@@ -187,8 +187,8 @@ export const RaceLive = ({
             </details>
           )}
           {s.finished && (
-            <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-2">
-              <GullPose pose="cheer" className="w-24 shrink-0" />
+            <div className="mascot-panel flex items-center gap-3 rounded-2xl border border-primary/10 px-4 py-3">
+              <GullPose pose="cheer" className="w-28" decorative />
               <div>
                 <p className="font-bold">완주 축하해요!</p>
                 <p className="text-sm text-muted-foreground">

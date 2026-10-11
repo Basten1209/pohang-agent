@@ -1,4 +1,4 @@
-import { Map as MapIcon, Navigation } from 'lucide-react'
+import { Navigation } from 'lucide-react'
 import { useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,7 +20,6 @@ import {
   Empty,
   EmptyDescription,
   EmptyHeader,
-  EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty'
 import { toward } from '#/core/explain'
@@ -33,7 +32,7 @@ import type { TripConfig } from '#/core/schema'
 import { clock } from '#/core/time'
 import type { TripView } from '#/core/view'
 import { ConditionsCard, TransportCard } from './conditions'
-import { AssetCredits } from '#/brand/brand'
+import { AssetCredits, GullPose, MascotBanner } from '#/brand/brand'
 import { PlaceThumb } from './thumb'
 
 const decisionLabel: Record<Decision, string> = {
@@ -75,18 +74,18 @@ export const TourTab = ({
 
   if (!planned || it.decision === 'INCOMPLETE')
     return (
-      <Empty className="m-4 border">
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <MapIcon />
-          </EmptyMedia>
-          <EmptyTitle>아직 코스가 없어요</EmptyTitle>
-          <EmptyDescription>
-            완주 후 에이전트가 지금 컨디션과 귀가 시간에 맞춰 코스를 만들어
-            드려요.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
+      <div className="mx-auto w-full max-w-2xl p-4">
+        <Empty className="mascot-panel rounded-3xl border px-6 py-8">
+          <EmptyHeader>
+            <GullPose pose="map" className="mx-auto mb-2 w-44" decorative />
+            <EmptyTitle>달린 다음의 여행도, 함께해요</EmptyTitle>
+            <EmptyDescription>
+              완주 후 에이전트가 지금 컨디션과 귀가 시간에 맞춰 코스를 만들어
+              드려요.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </div>
     )
 
   const course = courseById(config, it.course)
@@ -127,24 +126,18 @@ export const TourTab = ({
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4">
-      <div className="relative overflow-hidden rounded-xl bg-primary p-5 text-white">
-        <img
-          src="/images/guryongpo-sea.jpg"
-          alt=""
-          width="960"
-          height="576"
-          className="absolute inset-0 h-full w-full object-cover opacity-25"
-        />
-        <div className="relative">
-          <p className="text-xs tracking-widest">AFTER THE FINISH LINE</p>
-          <h1 className="mt-2 text-2xl font-semibold">
-            {state.plan.nickname || '러너'}님의 구룡포 여행
-          </h1>
-          <p className="mt-2 text-sm">
-            완주의 여운은 길게, 돌아가는 길은 여유롭게.
-          </p>
-        </div>
-      </div>
+      <MascotBanner
+        pose={travel ? 'map' : 'think'}
+        eyebrow="AFTER THE FINISH LINE"
+        title={
+          <>
+            {state.plan.nickname || '러너'}님의
+            <br />
+            구룡포 여행
+          </>
+        }
+        description="완주의 여운은 길게, 돌아가는 길은 여유롭게."
+      />
       <Card>
         <CardHeader>
           <CardDescription>{departLabel(config, state.plan)}</CardDescription>

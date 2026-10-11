@@ -160,12 +160,10 @@
   object-fit: contain;
   flex-shrink: 0;
 }
-.gull-pose {
-  aspect-ratio: 1 / 1.15;
-  background-image: url('/images/brand/gull-poses.png');
-  background-size: 400% auto;
-  background-repeat: no-repeat;
-  mix-blend-mode: multiply;
+.mascot-panel {
+  background:
+    radial-gradient(ellipse at 95% 90%, #c9eef0 0, transparent 65%),
+    linear-gradient(120deg, #ffffff 20%, #edf7ff 100%);
 }
 .launch-sea {
   background:

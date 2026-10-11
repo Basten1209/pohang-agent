@@ -139,12 +139,14 @@ export function FinishSheet({
         side="bottom"
         className="mx-auto max-w-2xl rounded-t-3xl data-[side=bottom]:max-h-[94dvh]"
       >
-        <SheetHeader className="pb-0">
-          <GullPose pose="cheer" className="w-20" />
-          <SheetTitle className="text-2xl">완주 축하해요!</SheetTitle>
-          <SheetDescription>
-            메달의 순간을 남기고, 구룡포에서 오늘의 기쁨을 이어가요.
-          </SheetDescription>
+        <SheetHeader className="mascot-panel flex-row items-center gap-3 rounded-t-3xl pr-10">
+          <GullPose pose="cheer" className="w-24 sm:w-28" decorative />
+          <div className="min-w-0 space-y-2">
+            <SheetTitle className="text-2xl">완주 축하해요!</SheetTitle>
+            <SheetDescription>
+              메달의 순간을 남기고, 구룡포에서 오늘의 기쁨을 이어가요.
+            </SheetDescription>
+          </div>
         </SheetHeader>
         <div className="flex min-h-0 flex-col gap-4 overflow-y-auto px-4 pb-6">
           {preview ? (

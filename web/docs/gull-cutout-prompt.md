@@ -2,7 +2,7 @@
 
 Created 2026-10-11 with the built-in image generation tool, using `public/images/brand/gull-poses.png` as the edit target. The source artwork was supplied by the project owner. Output: `public/images/brand/gull-wave-transparent.png` (1254 × 1254 PNG, alpha transparency).
 
-The launch, race-ready and first two onboarding screens display this whole image with its intrinsic square ratio. The onboarding white card and the duplicate boxed app icon on the loading screen were removed. Other character poses and installed app icons are unchanged.
+The launch, race-ready and first two onboarding screens display this whole image with its intrinsic square ratio. The onboarding white card and the duplicate boxed app icon on the loading screen were removed. The map, think and cheer poses were subsequently separated into their own transparent assets; see [gull-pose-cutout-prompts.md](gull-pose-cutout-prompts.md). Installed app icons remain unchanged.
 
 ## Final prompt
 

@@ -24,7 +24,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Gull, AssetCredits } from '#/brand/brand'
+import { Gull, GullPose, AssetCredits } from '#/brand/brand'
 import { newTripId, postEvents } from '#/app/trip-client'
 import type { TripConfig } from '#/core/schema'
 import type { Stage } from '#/core/stage'
@@ -300,11 +300,11 @@ export const Shell = ({
 
       <Button
         size="icon-lg"
-        className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 size-12 rounded-full shadow-lg"
+        className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 size-16 rounded-full border border-primary/15 bg-white p-0 text-primary shadow-lg hover:bg-secondary"
         aria-label="에이전트에게 묻기"
         onClick={() => ask()}
       >
-        <Gull className="size-11" />
+        <GullPose className="w-16" decorative />
       </Button>
 
       <FinishSheet
@@ -328,7 +328,7 @@ export const Shell = ({
         >
           <SheetHeader className="border-b">
             <SheetTitle className="flex items-center gap-2">
-              <Gull className="size-9" />
+              <GullPose className="w-12" decorative />
               구룡포 여행 친구
             </SheetTitle>
             <SheetDescription>

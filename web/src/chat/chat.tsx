@@ -24,7 +24,7 @@ import {
 } from '@/components/ai-elements/prompt-input'
 import { Shimmer } from '@/components/ai-elements/shimmer'
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion'
-import { Gull } from '#/brand/brand'
+import { Gull, GullPose } from '#/brand/brand'
 import type { PlanProgress } from '#/server/agent/harness'
 import { cacheView } from '#/app/trip-client'
 import type { TripConfig } from '#/core/schema'
@@ -198,6 +198,19 @@ export const ChatPanel = ({
     <div className="flex min-h-0 flex-1 flex-col">
       <Conversation className="min-h-0 flex-1">
         <ConversationContent className="mx-auto w-full max-w-2xl">
+          {messages.length === 0 && !agent.busy && (
+            <div className="mascot-panel flex items-center gap-3 rounded-2xl p-4">
+              <GullPose pose="wave" className="w-24" decorative />
+              <div className="min-w-0">
+                <p className="font-semibold text-[#102a43]">
+                  달리기부터 여행까지, 함께할게요
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                  대회 준비나 완주 후 가고 싶은 곳을 편하게 물어보세요.
+                </p>
+              </div>
+            </div>
+          )}
           {messages.map((m) => (
             <Message from={m.role} key={m.id}>
               <MessageContent className="w-full max-w-full">
@@ -238,10 +251,14 @@ export const ChatPanel = ({
             <div
               role="status"
               aria-live="polite"
-              className="rounded-xl border bg-secondary/50 p-4"
+              className="mascot-panel rounded-2xl border border-primary/10 p-4"
             >
               <div className="flex items-center gap-3">
-                <Gull className="brand-pulse size-12 shrink-0" />
+                <GullPose
+                  pose="think"
+                  className="brand-pulse w-20"
+                  decorative
+                />
                 <div className="text-sm font-medium">
                   {agent.progress ? (
                     `${agent.progress.nickname}님을 위한 구룡포 여행코스를 짜는 중…`

@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+
 export const Gull = ({ className = 'size-10' }: { className?: string }) => (
   <img
     src="/icons/icon-192.png"
@@ -8,38 +10,61 @@ export const Gull = ({ className = 'size-10' }: { className?: string }) => (
   />
 )
 
-/** The welcome pose has its own transparent asset so no sprite crop can cut it. */
+const gullPoses = {
+  wave: { label: '반겨 주는 갈매기', size: 1254 },
+  think: { label: '생각하는 갈매기', size: 1254 },
+  map: { label: '여행 지도를 보는 갈매기', size: 1254 },
+  cheer: { label: '완주를 축하하는 갈매기', size: 1254 },
+} as const
+type GullPoseName = keyof typeof gullPoses
+
+/** Every pose is a complete transparent image, never a crop from a pose sheet. */
 export const GullPose = ({
   pose = 'wave',
   className = '',
+  decorative = false,
 }: {
-  pose?: 'wave' | 'think' | 'map' | 'cheer'
+  pose?: GullPoseName
   className?: string
-}) =>
-  pose === 'wave' ? (
-    <img
-      src="/images/brand/gull-wave-transparent.png"
-      width="1254"
-      height="1254"
-      alt="반겨 주는 갈매기"
-      className={`gull-cutout ${className}`}
-    />
-  ) : (
-    <div
-      role="img"
-      aria-label={
-        {
-          think: '생각하는 갈매기',
-          map: '여행 지도를 보는 갈매기',
-          cheer: '완주를 축하하는 갈매기',
-        }[pose]
-      }
-      className={`gull-pose ${className}`}
-      style={{
-        backgroundPosition: `${{ think: 33.333, map: 66.667, cheer: 100 }[pose]}% 52%`,
-      }}
-    />
-  )
+  decorative?: boolean
+}) => (
+  <img
+    src={`/images/brand/gull-${pose}-transparent.png`}
+    width={gullPoses[pose].size}
+    height={gullPoses[pose].size}
+    alt={decorative ? '' : gullPoses[pose].label}
+    className={`gull-cutout ${className}`}
+    decoding="async"
+  />
+)
+
+/** A shared, responsive introduction for the app's three main destinations. */
+export const MascotBanner = ({
+  pose,
+  eyebrow,
+  title,
+  description,
+}: {
+  pose: GullPoseName
+  eyebrow: string
+  title: ReactNode
+  description: string
+}) => (
+  <section className="mascot-panel grid grid-cols-[minmax(0,1fr)_6rem] items-center gap-2 rounded-3xl border border-primary/10 px-5 py-5 min-[380px]:grid-cols-[minmax(0,1fr)_8rem] sm:grid-cols-[minmax(0,1fr)_12rem] sm:gap-5 sm:px-7">
+    <div className="flex min-w-0 flex-col gap-3">
+      <p className="text-[10px] font-bold tracking-[0.14em] text-primary sm:text-xs">
+        {eyebrow}
+      </p>
+      <h1 className="brand-heading break-words text-xl leading-snug sm:text-3xl">
+        {title}
+      </h1>
+      <p className="break-words text-sm leading-relaxed text-muted-foreground">
+        {description}
+      </p>
+    </div>
+    <GullPose pose={pose} className="w-full" decorative />
+  </section>
+)
 
 export const BrandHero = () => (
   <div className="brand-hero relative isolate overflow-hidden rounded-2xl bg-primary text-white">

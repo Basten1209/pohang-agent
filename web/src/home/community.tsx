@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { MascotBanner } from '#/brand/brand'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -69,12 +70,18 @@ export const CommunityTab = ({
     (tag === 'all' || p.course === tag)
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4">
-      <div>
-        <h1 className="text-xl font-semibold">완주의 기쁨, 함께 나눠요</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          메달 한 장에서 시작되는 구룡포 여행.
-        </p>
-      </div>
+      <MascotBanner
+        pose="cheer"
+        eyebrow="FINISH & SHARE"
+        title={
+          <>
+            완주의 기쁨,
+            <br />
+            함께 나눠요
+          </>
+        }
+        description="메달 한 장에서 시작되는 구룡포 여행."
+      />
       {onFinish && (
         <Button variant="outline" onClick={onFinish}>
           완주 사진 공유 · 여행 준비하기
