@@ -43,8 +43,14 @@ const connect = async (): Promise<Db> => {
 }
 
 export const bootstrap = async (db: Db) => {
-  for (const statement of schema.bootstrapStatements)
-    await db.execute(sql.raw(statement))
+  // IF NOT EXISTS alone is not race-safe when cold serverless instances
+  // concurrently create a table's pg_type row. Serialize the whole DDL batch
+  // on one transaction/connection; xact locks also work with Neon pooling.
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(1381322290)`)
+    for (const statement of schema.bootstrapStatements)
+      await tx.execute(sql.raw(statement))
+  })
   return db
 }
 
