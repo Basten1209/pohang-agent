@@ -121,6 +121,14 @@
 @utility pt-safe {
   padding-top: env(safe-area-inset-top);
 }
+/* The header under the status bar. iOS softens the top edge of a home-screen
+   app with its own blur, so there the header sits a little lower to clear it. */
+@utility pt-safe-header {
+  padding-top: env(safe-area-inset-top);
+  @media (display-mode: standalone) {
+    padding-top: calc(env(safe-area-inset-top) + 0.5rem);
+  }
+}
 
 /* App-owned brand tokens; shadcn primitives remain reusable. */
 .gull-cutout {
