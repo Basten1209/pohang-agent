@@ -1,4 +1,5 @@
 import type { Itinerary } from './planner'
+import { canTravel } from './planner'
 import type { Observations, Plan } from './schema'
 import { usableReading } from './signals'
 
@@ -11,6 +12,17 @@ export const recommendTransport = (
   obs: Observations,
   it: Itinerary,
 ) => {
+  if (plan.agentPlan && !canTravel(it))
+    return {
+      mode: null,
+      title: '일정을 다시 검토해요',
+      reasons: it.reasons,
+      urgent: true,
+      congestion: null,
+      taxiMinutes: null,
+      taxiFare: null,
+      url: KAKAO_T_URL,
+    }
   const congestion =
     it.legs.some((leg) => leg.trafficScope) || it.course === 'guryongpo'
       ? usableReading(obs, 'congestion')
@@ -44,11 +56,13 @@ export const recommendTransport = (
       url: KAKAO_T_URL,
     }
   reasons.push(
-    mode === 'MIXED'
-      ? '가는 길과 돌아오는 길, 장소 사이의 걷기 부담을 따로 계산해 버스와 택시를 섞었어요.'
-      : mode === 'TAXI'
-        ? '피로·걷기 한도·귀가 여유와 선택한 조건을 고려한 택시 일정이에요.'
-        : '컨디션과 귀가 여유에 맞춰 버스를 우선한 일정이에요.',
+    plan.agentPlan
+      ? plan.agentPlan.proposal.reasons.join(' ')
+      : mode === 'MIXED'
+        ? '가는 길과 돌아오는 길, 장소 사이의 걷기 부담을 따로 계산해 버스와 택시를 섞었어요.'
+        : mode === 'TAXI'
+          ? '피로·걷기 한도·귀가 여유와 선택한 조건을 고려한 택시 일정이에요.'
+          : '컨디션과 귀가 여유에 맞춰 버스를 우선한 일정이에요.',
   )
   if (congestion !== null && congestion >= 50)
     reasons.push(

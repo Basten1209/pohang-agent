@@ -49,7 +49,41 @@ export const anchorIdSchema = z.enum([
 ])
 export type AnchorId = z.infer<typeof anchorIdSchema>
 
+/** Choices made by the model. Route durations and arrival arithmetic are never model inputs. */
+export const itineraryProposalSchema = z
+  .object({
+    contextRevision: z.number().int().nonnegative(),
+    course: courseIdSchema,
+    stops: z
+      .array(
+        z
+          .object({
+            place: placeIdSchema,
+            dwell: z.number().int().min(5).max(180),
+            travelMode: z.enum(['WALK', 'TAXI']),
+            reason: z.string().trim().min(1).max(500),
+          })
+          .strict(),
+      )
+      .max(12),
+    outboundMode: z.enum(['TRANSIT', 'TAXI']),
+    returnMode: z.enum(['TRANSIT', 'TAXI']),
+    trafficBufferMin: z.number().int().min(0).max(60),
+    reasons: z.array(z.string().trim().min(1).max(600)).min(1).max(6),
+  })
+  .strict()
+export type ItineraryProposal = z.infer<typeof itineraryProposalSchema>
+
+export const agentPlanSchema = z.object({
+  proposal: itineraryProposalSchema,
+  observationsKey: z.string(),
+  preferencesKey: z.string().optional(),
+  model: z.string(),
+  createdAt: z.string(),
+})
+
 export const planSchema = z.object({
+  agentPlan: agentPlanSchema.nullable().optional(),
   revision: z.number().int().nonnegative(),
   nickname: z.string().trim().max(20).optional(),
   localTransport: z.enum(['AUTO', 'TRANSIT', 'TAXI']).optional(),
@@ -111,6 +145,30 @@ export type Observations = z.infer<typeof observationsSchema>
 
 // ── Config: places ──────────────────────────────────────────────────────
 export const geoSchema = z.object({ lat: z.number(), lng: z.number() })
+/** A sourced visit candidate, not an automatically scheduled stop. */
+export const venueSchema = z.object({
+  id: placeIdSchema,
+  name: z.string(),
+  kind: z.enum(['food', 'cafe', 'sight']),
+  address: z.string(),
+  highlight: z.string(),
+  description: z.string(),
+  tenTaste: z.string().optional(),
+  detour: z.boolean().default(false),
+  note: z.string().optional(),
+  map: z
+    .discriminatedUnion('kind', [
+      z.object({ kind: z.literal('place'), id: z.string().regex(/^\d+$/) }),
+      z.object({
+        kind: z.literal('coordinate'),
+        lat: z.number().min(-90).max(90),
+        lng: z.number().min(-180).max(180),
+      }),
+    ])
+    .optional(),
+  source: z.object({ title: z.string(), url: z.url(), checkedAt: z.string() }),
+})
+export type Venue = z.infer<typeof venueSchema>
 export const placeSchema = z.object({
   id: placeIdSchema,
   kind: z.string(),
@@ -134,6 +192,7 @@ export const placeSchema = z.object({
       outdoor: z.boolean(),
       defaultDwell: z.number().int().positive(),
       geo: geoSchema,
+      candidates: z.array(venueSchema).optional(),
     })
     .passthrough(),
   meta: z.record(z.string(), z.unknown()).default({}),

@@ -1,5 +1,7 @@
 import type { Interest, Place } from '../schema'
 import { images } from './images'
+import { venueCandidates } from './venues'
+import { visitDemoImages } from '../demo-images'
 
 /**
  * Place catalogue. Descriptions are written for the demo; hours, prices and
@@ -42,7 +44,12 @@ const at =
       kind: attrs.interest.toUpperCase(),
       sort: sortBase + i * 10,
       active: true,
-      attrs: { ...attrs, course, ...(photo && { image: photo.url }) },
+      attrs: {
+        ...attrs,
+        course,
+        candidates: venueCandidates[id] ?? [],
+        image: attrs.image || photo?.url || visitDemoImages[id] || '',
+      },
       meta: {
         provenance: 'PLACEHOLDER',
         verified: false,

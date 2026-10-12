@@ -1,14 +1,14 @@
-import { Check, CircleSlash, HeartPulse, Navigation, Phone } from 'lucide-react'
+import {
+  Check,
+  CircleSlash,
+  HeartPulse,
+  Camera,
+  Navigation,
+  Phone,
+} from 'lucide-react'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Shimmer } from '@/components/ai-elements/shimmer'
-import {
-  Tool,
-  ToolContent,
-  ToolHeader,
-  ToolInput,
-  ToolOutput,
-} from '@/components/ai-elements/tool'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -22,7 +22,9 @@ import {
 } from '@/components/ui/card'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { PlaceIcon } from '#/app/bits'
+import { photoEligiblePlaces } from '#/core/community'
 import { ItineraryTimeline } from '#/home/timeline'
+import { CourseCandidates } from '#/home/candidates'
 import { transportLabel } from '#/core/mobility'
 import { mapUrl, pointOf, directionsUrl } from '#/core/links'
 import type { Decision, Itinerary } from '#/core/planner'
@@ -184,7 +186,7 @@ const ProgressCard = ({
   part,
   interactive,
 }: CardProps<PartOf<'await_progress'>>) => {
-  const { config, view, answer } = useChatContext()
+  const { config, view, answer, send } = useChatContext()
   const { state, itinerary: it } = view
   const course = courseById(config, it.course)
   const hub = hubOf(config, state.plan)
@@ -246,6 +248,19 @@ const ProgressCard = ({
         <CardDescription>{target.desc}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-wrap gap-2">
+        {place &&
+          state.plan.stage === 'LOCAL' &&
+          photoEligiblePlaces(config, state).some((p) => p.id === place.id) && (
+            <Button
+              className="h-11 w-full"
+              onClick={() =>
+                send(`${place.attrs.short}에서 찍은 사진을 커뮤니티에 올릴래요`)
+              }
+            >
+              <Camera />
+              이곳에서 찍은 사진 올리기
+            </Button>
+          )}
         {options.map((o, i) => (
           <Button
             key={o}
@@ -318,6 +333,13 @@ export const CourseSummary = ({
       {it.stops.length > 0 && (
         <CardContent>
           <ItineraryTimeline config={config} itinerary={it} />
+          <div className="mt-5 border-t pt-4">
+            <CourseCandidates
+              key={it.course}
+              config={config}
+              course={it.course}
+            />
+          </div>
         </CardContent>
       )}
     </Card>
@@ -326,8 +348,10 @@ export const CourseSummary = ({
 
 const PlanCourseCard = ({ part }: CardProps<PartOf<'plan_course'>>) => {
   if (part.state === 'input-streaming' || part.state === 'input-available')
-    return <Shimmer>코스를 계산하고 있어요…</Shimmer>
+    return null
   if (part.state !== 'output-available') return null
+  if ('validationErrors' in part.output && part.output.validationErrors?.length)
+    return null
   return (
     <CourseSummary
       it={part.output.itinerary}
@@ -450,42 +474,13 @@ const SummaryCard = ({ part }: CardProps<PartOf<'summarize_trip'>>) =>
 
 // ── Everything else: the stock AI Elements tool view ───────────────────
 
-const toolTitle: Record<string, string> = {
-  explain_plan: '코스 근거 확인',
-  check_live_conditions: '디지털 트윈 확인',
-  compare_transport: '이동수단 비교',
-  set_demo_observation: '시연 조건 적용',
-  get_race_info: '대회 정보 조회',
-  search_guide: '안내 자료 검색',
-  compare_courses: '코스 비교',
-  find_nearby: '주변 관광정보 (한국관광공사)',
-  get_place_detail: '장소 상세 (한국관광공사)',
-  get_directions: '길찾기·버스',
-  get_bus_arrivals: '버스 도착정보 (TAGO)',
-  get_train_times: '열차 시간표 (TAGO)',
-  get_weather: '날씨 예보 (기상청)',
-}
-
-/** Lookups show only in presentation mode; the answer text says what they found. */
+/** Read-tool telemetry is transient; completed results live in the answer. */
 const GenericTool = ({ part }: CardProps<ToolPart>) =>
-  useChatContext().showTools ? <ToolDetails part={part} /> : null
-
-const ToolDetails = ({ part }: { part: ToolPart }) => (
-  <Tool>
-    <ToolHeader
-      type={part.type}
-      state={part.state}
-      title={toolTitle[part.type.slice(5)] ?? part.type.slice(5)}
-    />
-    <ToolContent>
-      <ToolInput input={part.input} />
-      <ToolOutput
-        output={'output' in part ? part.output : undefined}
-        errorText={'errorText' in part ? part.errorText : undefined}
-      />
-    </ToolContent>
-  </Tool>
-)
+  part.state === 'output-error' ? (
+    <p role="status" className="text-xs text-muted-foreground">
+      정보를 확인하지 못했어요. 답변에서 대체 안내를 확인해 주세요.
+    </p>
+  ) : null
 
 /** Bookkeeping the conversation already shows in words. */
 const Hidden = () => null

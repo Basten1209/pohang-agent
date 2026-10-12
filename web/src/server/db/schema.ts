@@ -76,6 +76,7 @@ export const communityPosts = pgTable('community_posts', {
   caption: text('caption').notNull(),
   photoKind: text('photo_kind').notNull(),
   imageData: text('image_data'),
+  demoImage: text('demo_image'),
   createdAt: createdAt(),
 })
 
@@ -175,6 +176,7 @@ export const bootstrapStatements = [
     image_data text,
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
+  `ALTER TABLE community_posts ADD COLUMN IF NOT EXISTS demo_image text`,
   `CREATE TABLE IF NOT EXISTS community_visit_posts (
     id uuid PRIMARY KEY,
     trip_id uuid NOT NULL,

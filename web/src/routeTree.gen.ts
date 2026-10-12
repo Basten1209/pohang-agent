@@ -15,7 +15,9 @@ import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiCommunityRouteImport } from './routes/api/community'
 import { Route as ApiConfigRouteImport } from './routes/api/config'
 import { Route as ApiEvidenceRouteImport } from './routes/api/evidence'
+import { Route as ApiOnboardingRouteImport } from './routes/api/onboarding'
 import { Route as ApiStatusRouteImport } from './routes/api/status'
+import { Route as ApiCommunityCaptionRouteImport } from './routes/api/community.caption'
 import { Route as ApiTripsTripIdRouteImport } from './routes/api/trips.$tripId'
 import { Route as ApiCommunityPostIdImageRouteImport } from './routes/api/community.$postId.image'
 
@@ -49,10 +51,20 @@ const ApiEvidenceRoute = ApiEvidenceRouteImport.update({
   path: '/api/evidence',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOnboardingRoute = ApiOnboardingRouteImport.update({
+  id: '/api/onboarding',
+  path: '/api/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStatusRoute = ApiStatusRouteImport.update({
   id: '/api/status',
   path: '/api/status',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCommunityCaptionRoute = ApiCommunityCaptionRouteImport.update({
+  id: '/caption',
+  path: '/caption',
+  getParentRoute: () => ApiCommunityRoute,
 } as any)
 const ApiTripsTripIdRoute = ApiTripsTripIdRouteImport.update({
   id: '/api/trips/$tripId',
@@ -72,7 +84,9 @@ export interface FileRoutesByFullPath {
   '/api/community': typeof ApiCommunityRouteWithChildren
   '/api/config': typeof ApiConfigRoute
   '/api/evidence': typeof ApiEvidenceRoute
+  '/api/onboarding': typeof ApiOnboardingRoute
   '/api/status': typeof ApiStatusRoute
+  '/api/community/caption': typeof ApiCommunityCaptionRoute
   '/api/trips/$tripId': typeof ApiTripsTripIdRoute
   '/api/community/$postId/image': typeof ApiCommunityPostIdImageRoute
 }
@@ -83,7 +97,9 @@ export interface FileRoutesByTo {
   '/api/community': typeof ApiCommunityRouteWithChildren
   '/api/config': typeof ApiConfigRoute
   '/api/evidence': typeof ApiEvidenceRoute
+  '/api/onboarding': typeof ApiOnboardingRoute
   '/api/status': typeof ApiStatusRoute
+  '/api/community/caption': typeof ApiCommunityCaptionRoute
   '/api/trips/$tripId': typeof ApiTripsTripIdRoute
   '/api/community/$postId/image': typeof ApiCommunityPostIdImageRoute
 }
@@ -95,7 +111,9 @@ export interface FileRoutesById {
   '/api/community': typeof ApiCommunityRouteWithChildren
   '/api/config': typeof ApiConfigRoute
   '/api/evidence': typeof ApiEvidenceRoute
+  '/api/onboarding': typeof ApiOnboardingRoute
   '/api/status': typeof ApiStatusRoute
+  '/api/community/caption': typeof ApiCommunityCaptionRoute
   '/api/trips/$tripId': typeof ApiTripsTripIdRoute
   '/api/community/$postId/image': typeof ApiCommunityPostIdImageRoute
 }
@@ -108,7 +126,9 @@ export interface FileRouteTypes {
     | '/api/community'
     | '/api/config'
     | '/api/evidence'
+    | '/api/onboarding'
     | '/api/status'
+    | '/api/community/caption'
     | '/api/trips/$tripId'
     | '/api/community/$postId/image'
   fileRoutesByTo: FileRoutesByTo
@@ -119,7 +139,9 @@ export interface FileRouteTypes {
     | '/api/community'
     | '/api/config'
     | '/api/evidence'
+    | '/api/onboarding'
     | '/api/status'
+    | '/api/community/caption'
     | '/api/trips/$tripId'
     | '/api/community/$postId/image'
   id:
@@ -130,7 +152,9 @@ export interface FileRouteTypes {
     | '/api/community'
     | '/api/config'
     | '/api/evidence'
+    | '/api/onboarding'
     | '/api/status'
+    | '/api/community/caption'
     | '/api/trips/$tripId'
     | '/api/community/$postId/image'
   fileRoutesById: FileRoutesById
@@ -142,6 +166,7 @@ export interface RootRouteChildren {
   ApiCommunityRoute: typeof ApiCommunityRouteWithChildren
   ApiConfigRoute: typeof ApiConfigRoute
   ApiEvidenceRoute: typeof ApiEvidenceRoute
+  ApiOnboardingRoute: typeof ApiOnboardingRoute
   ApiStatusRoute: typeof ApiStatusRoute
   ApiTripsTripIdRoute: typeof ApiTripsTripIdRoute
 }
@@ -190,12 +215,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiEvidenceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/onboarding': {
+      id: '/api/onboarding'
+      path: '/api/onboarding'
+      fullPath: '/api/onboarding'
+      preLoaderRoute: typeof ApiOnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/status': {
       id: '/api/status'
       path: '/api/status'
       fullPath: '/api/status'
       preLoaderRoute: typeof ApiStatusRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/community/caption': {
+      id: '/api/community/caption'
+      path: '/caption'
+      fullPath: '/api/community/caption'
+      preLoaderRoute: typeof ApiCommunityCaptionRouteImport
+      parentRoute: typeof ApiCommunityRoute
     }
     '/api/trips/$tripId': {
       id: '/api/trips/$tripId'
@@ -215,10 +254,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface ApiCommunityRouteChildren {
+  ApiCommunityCaptionRoute: typeof ApiCommunityCaptionRoute
   ApiCommunityPostIdImageRoute: typeof ApiCommunityPostIdImageRoute
 }
 
 const ApiCommunityRouteChildren: ApiCommunityRouteChildren = {
+  ApiCommunityCaptionRoute: ApiCommunityCaptionRoute,
   ApiCommunityPostIdImageRoute: ApiCommunityPostIdImageRoute,
 }
 
@@ -233,6 +274,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCommunityRoute: ApiCommunityRouteWithChildren,
   ApiConfigRoute: ApiConfigRoute,
   ApiEvidenceRoute: ApiEvidenceRoute,
+  ApiOnboardingRoute: ApiOnboardingRoute,
   ApiStatusRoute: ApiStatusRoute,
   ApiTripsTripIdRoute: ApiTripsTripIdRoute,
 }

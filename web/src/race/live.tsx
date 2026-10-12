@@ -73,7 +73,7 @@ export const RaceLive = ({
         않아요.
       </p>
       {ready ? (
-        <Card className="overflow-hidden border-primary/15">
+        <Card className="overflow-visible border-primary/15">
           <CardHeader className="text-center">
             <CardDescription>
               {category} · 배번 {bib}
@@ -83,7 +83,7 @@ export const RaceLive = ({
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-4">
-            <GullPose className="w-48" />
+            <GullPose className="w-44 sm:w-48" />
             <div className="grid w-full grid-cols-2 gap-2 text-center">
               <Stat label="달린 거리" value="0.00 km" prominent />
               <Stat label="경과 시간" value="0:00" prominent />
@@ -187,9 +187,9 @@ export const RaceLive = ({
             </details>
           )}
           {s.finished && (
-            <div className="mascot-panel flex items-center gap-3 rounded-2xl border border-primary/10 px-4 py-3">
-              <GullPose pose="cheer" className="w-28" decorative />
-              <div>
+            <div className="mascot-panel mascot-message gap-3 rounded-2xl border border-primary/10 px-4 py-3">
+              <GullPose pose="cheer" className="w-full" decorative />
+              <div className="min-w-0">
                 <p className="font-bold">완주 축하해요!</p>
                 <p className="text-sm text-muted-foreground">
                   이제 달린 만큼 쉬고, 구룡포를 만나요.

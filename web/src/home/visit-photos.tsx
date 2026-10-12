@@ -15,9 +15,9 @@ export function VisitPhotoPrompt({
   return (
     <section
       aria-label="여행 친구의 사진 제안"
-      className="mascot-panel flex gap-3 rounded-2xl border border-primary/15 p-4"
+      className="mascot-panel mascot-message gap-3 rounded-2xl border border-primary/15 p-4"
     >
-      <GullPose pose="cheer" className="w-16 self-start" decorative />
+      <GullPose pose="cheer" className="w-full self-start" decorative />
       <div className="min-w-0">
         <p className="text-xs font-medium text-primary">구룡포 여행 친구</p>
         <p className="mt-1 text-sm font-semibold">

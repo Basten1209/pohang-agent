@@ -1,39 +1,25 @@
 export type RoutePoint = [lat: number, lng: number]
 
-/**
- * Illustrative out-and-back near Yeongildae, NOT a surveyed race course.
- * The demo's 10km clock is mapped proportionally onto this sketch. These
- * coordinates are fixture data; we never read or store a device location.
- */
-const outbound: RoutePoint[] = [
-  [36.0565, 129.378],
-  [36.0548, 129.3762],
-  [36.0522, 129.3752],
-  [36.0494, 129.3741],
-  [36.0466, 129.3725],
-  [36.0439, 129.3701],
-  [36.0415, 129.3691],
-  [36.0381, 129.3685],
-  [36.0359, 129.3691],
-  [36.0331, 129.3705],
-  [36.0307, 129.3731],
-  [36.0276, 129.3754],
-  [36.0249, 129.3782],
-  [36.0228, 129.3801],
-  [36.0201, 129.3815],
-  [36.0176, 129.3826],
-]
+import { raceOutbound as outbound } from './seed/race-route'
+
 export const demoRoute: readonly RoutePoint[] = [
   ...outbound,
   ...outbound.slice(0, -1).reverse(),
 ]
 
-// Local equirectangular lengths suffice for interpolation over this small area.
-const lengths = demoRoute.slice(1).map((point, i) => {
-  const prev = demoRoute[i]
-  const cosLat = Math.cos(((prev[0] + point[0]) / 2) * (Math.PI / 180))
-  return Math.hypot(point[0] - prev[0], (point[1] - prev[1]) * cosLat)
-})
+export const distanceMeters = (a: RoutePoint, b: RoutePoint): number => {
+  const rad = Math.PI / 180
+  const h =
+    Math.sin(((b[0] - a[0]) * rad) / 2) ** 2 +
+    Math.cos(a[0] * rad) *
+      Math.cos(b[0] * rad) *
+      Math.sin(((b[1] - a[1]) * rad) / 2) ** 2
+  return 6371008.8 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
+}
+const lengths = demoRoute
+  .slice(1)
+  .map((point, i) => distanceMeters(demoRoute[i], point))
+export const routeDistanceMeters = lengths.reduce((sum, n) => sum + n, 0)
 const length = lengths.reduce((sum, n) => sum + n, 0)
 
 /** The visited polyline and marker always share exactly the same endpoint. */

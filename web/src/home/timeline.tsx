@@ -1,25 +1,39 @@
-import { Bus, CarTaxiFront, Footprints } from 'lucide-react'
+import {
+  Bus,
+  CarTaxiFront,
+  Check,
+  ChevronDown,
+  Footprints,
+  Camera,
+} from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { directionsUrl, pointOf } from '#/core/links'
 import type { Itinerary } from '#/core/planner'
-import type { TripConfig } from '#/core/schema'
+import type { Place, TripConfig } from '#/core/schema'
+import type { TripState } from '#/core/trip'
 import { clock } from '#/core/time'
 import { KAKAO_T_URL } from '#/core/transport'
 import { transportLabel, type TravelMode } from '#/core/mobility'
+import { PlaceThumb } from './thumb'
+import { venueMapUrl } from '#/core/venues'
 
-/** Stops and their bridges use exactly the server's calculated time intervals. */
 export function ItineraryTimeline({
   config,
   itinerary: it,
+  state,
   select,
   disabled = false,
+  onPhoto,
+  photoIds = [],
 }: {
   config: TripConfig
   itinerary: Itinerary
+  state?: TripState
   select?: (id: string, mode: TravelMode | 'AUTO') => Promise<void>
   disabled?: boolean
+  onPhoto?: (place: Place) => void
+  photoIds?: string[]
 }) {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
@@ -35,36 +49,95 @@ export function ItineraryTimeline({
       setPending(false)
     }
   }
+  const completed =
+    state?.plan.completed.map((id) => ({
+      id,
+      record: state.visits?.find((v) => v.placeId === id),
+    })) ?? []
+  const stopRow = (id: string, time: string, status: string) => {
+    const p = config.places.find((p) => p.id === id)
+    return (
+      <li
+        key={`stop-${id}`}
+        className={`rounded-xl border p-3 ${status === '완료' ? 'border-blue-100 bg-blue-50/50' : 'border-primary/25 bg-secondary/60'}`}
+      >
+        <div className="flex gap-3">
+          {p && <PlaceThumb place={p} className="size-16 shrink-0" />}
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-1 text-xs font-semibold text-primary">
+              {status === '완료' && <Check className="size-3" />}
+              {status}
+              <span className="ml-1 font-normal tabular-nums">{time}</span>
+            </p>
+            <p className="mt-1 font-semibold leading-snug">
+              {p?.attrs.short ?? id}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              {p?.attrs.subtitle}
+            </p>
+            {status !== '완료' &&
+              p?.attrs.candidates?.some((v) => v.kind !== 'sight') && (
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                  {p.attrs.candidates.slice(0, 2).map((v) => (
+                    <a
+                      key={v.id}
+                      href={venueMapUrl(v)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="py-1 text-primary underline underline-offset-2"
+                    >
+                      {v.name}
+                      {v.detour ? ' · 별도 이동' : ''}
+                    </a>
+                  ))}
+                </div>
+              )}
+            {p && onPhoto && photoIds.includes(id) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-2 px-0 text-primary"
+                disabled={disabled}
+                onClick={() => onPhoto(p)}
+              >
+                <Camera />
+                사진 남기기
+              </Button>
+            )}
+          </div>
+        </div>
+      </li>
+    )
+  }
   const rows = [
     ...(it.legs ?? [])
       .filter((l) => l.mode && Array.isArray(l.options))
       .map((leg) => ({ at: leg.start, key: leg.id, leg, stop: null })),
-    ...it.stops.map((stop) => ({
-      at: stop.start,
-      key: stop.id,
-      stop,
-      leg: null,
-    })),
+    ...it.stops
+      .filter((s) => !completed.some((c) => c.id === s.id))
+      .map((stop) => ({ at: stop.start, key: stop.id, stop, leg: null })),
   ].sort((a, b) => a.at - b.at || (a.leg ? -1 : 1))
   const point = pointOf(config, it.course)
   return (
     <ol aria-label="관광 일정과 구간별 이동" className="flex flex-col gap-3">
+      {completed.map(({ id, record }) =>
+        stopRow(
+          id,
+          record
+            ? `${clock(record.start)}–${clock(record.end)}`
+            : '이전 방문 · 시간 기록 없음',
+          '완료',
+        ),
+      )}
       {rows.map(({ key, leg, stop }) => {
-        if (stop) {
-          const p = config.places.find((p) => p.id === stop.id)
-          return (
-            <li key={key} className="rounded-xl border bg-card p-4">
-              <p className="text-xs font-medium tabular-nums text-primary">
-                {clock(stop.start)}–{clock(stop.end)} · 머무는 시간 {stop.dwell}
-                분
-              </p>
-              <p className="mt-1 font-semibold">{p?.attrs.short ?? stop.id}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {p?.attrs.subtitle}
-              </p>
-            </li>
+        if (stop)
+          return stopRow(
+            stop.id,
+            `${clock(stop.start)}–${clock(stop.end)} · ${stop.dwell}분`,
+            state?.plan.stage === 'LOCAL' && stop.id === it.stops[0]?.id
+              ? '지금'
+              : '예정',
           )
-        }
         if (!leg) return null
         const Icon =
           leg.mode === 'TRANSIT'
@@ -89,78 +162,78 @@ export function ItineraryTimeline({
         return (
           <li
             key={key}
-            className="mx-1 rounded-xl border border-primary/15 bg-primary/5 p-3 sm:mx-3"
+            className="mx-2 rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground"
           >
-            <div className="flex flex-wrap items-center gap-2 text-primary">
-              <Icon className="size-4 shrink-0" />
-              <span className="font-semibold">
-                {transportLabel[leg.mode]} 이동 · 약 {leg.totalMin}분
-              </span>
-              <Badge variant="outline" className="text-[10px]">
-                시연 추정
-              </Badge>
-            </div>
-            <p className="mt-1 text-xs tabular-nums">
-              {clock(leg.start)}–{clock(leg.end)} · {leg.label}
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              {leg.rideMin > 0 && `승차 ${leg.rideMin}분 · `}
-              {leg.waitMin > 0 && `대기 ${leg.waitMin}분 · `}도보 {leg.walkMin}
-              분{leg.bufferMin > 0 && ` + 혼잡 여유 ${leg.bufferMin}분`}
-            </p>
-            <p className="mt-1 text-xs leading-relaxed">{leg.reason}</p>
-            <details className="mt-2 text-xs text-muted-foreground">
-              <summary className="cursor-pointer">
-                이동 근거
-                {select && leg.options.length > 1 ? ' · 수단 바꾸기' : ''}
+            <details className="group">
+              <summary className="flex cursor-pointer list-none items-center gap-2 py-1">
+                <Icon className="size-3.5 shrink-0" />
+                <span className="min-w-0 flex-1 leading-relaxed">
+                  {leg.label}
+                  <span className="ml-1.5 whitespace-nowrap">
+                    · {transportLabel[leg.mode]} 약 {leg.totalMin}분
+                  </span>
+                </span>
+                <ChevronDown className="size-3.5 shrink-0 transition-transform group-open:rotate-180" />
               </summary>
-              <p className="my-2 leading-relaxed">
-                {leg.basis}. 실제 소요시간·운행·배차는 지도에서 확인해 주세요.
-              </p>
-              {select && leg.options.length > 1 && (
-                <div className="mb-3 flex flex-wrap gap-2">
-                  {leg.options.map((o) => (
+              <div className="mt-3 space-y-3 border-t pt-3 leading-relaxed">
+                <p>
+                  {clock(leg.start)}–{clock(leg.end)} · 시연 추정
+                </p>
+                <p>
+                  {leg.rideMin > 0 && `승차 ${leg.rideMin}분 · `}
+                  {leg.waitMin > 0 && `대기 ${leg.waitMin}분 · `}도보{' '}
+                  {leg.walkMin}분
+                  {leg.bufferMin > 0 && ` · 혼잡 여유 ${leg.bufferMin}분`}
+                </p>
+                <p>{leg.reason}</p>
+                <p>
+                  {leg.basis}. 실제 시간·운행·배차는 지도에서 확인해 주세요.
+                </p>
+                {select && leg.options.length > 1 && (
+                  <div className="flex flex-wrap gap-2">
+                    {leg.options.map((o) => (
+                      <Button
+                        key={o.mode}
+                        size="sm"
+                        variant={o.mode === leg.mode ? 'default' : 'outline'}
+                        disabled={pending || disabled}
+                        onClick={() => void change(leg.id, o.mode)}
+                      >
+                        {transportLabel[o.mode]} 약 {o.totalMin}분
+                      </Button>
+                    ))}
                     <Button
-                      key={o.mode}
                       size="sm"
-                      variant={o.mode === leg.mode ? 'default' : 'outline'}
+                      variant="ghost"
                       disabled={pending || disabled}
-                      onClick={() => void change(leg.id, o.mode)}
+                      onClick={() => void change(leg.id, 'AUTO')}
                     >
-                      {transportLabel[o.mode]} 약 {o.totalMin}분
+                      자동 추천
                     </Button>
-                  ))}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={pending || disabled}
-                    onClick={() => void change(leg.id, 'AUTO')}
-                  >
-                    자동 추천
-                  </Button>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-3">
+                  {url && (
+                    <a
+                      className="underline"
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      지도에서 이 구간 확인
+                    </a>
+                  )}
+                  {leg.mode === 'TAXI' && (
+                    <a
+                      className="underline"
+                      href={KAKAO_T_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      카카오T 배차·요금 확인
+                    </a>
+                  )}
                 </div>
-              )}
-              <div className="flex flex-wrap gap-3">
-                {url && (
-                  <a
-                    className="underline"
-                    href={url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    지도에서 이 구간 확인
-                  </a>
-                )}
-                {leg.mode === 'TAXI' && (
-                  <a
-                    className="underline"
-                    href={KAKAO_T_URL}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    카카오T 배차·요금 확인
-                  </a>
-                )}
               </div>
             </details>
           </li>

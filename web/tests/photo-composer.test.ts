@@ -50,8 +50,28 @@ beforeEach(() => {
   shared.mockClear()
   resume.mockClear()
   vi.stubGlobal(
+    'createImageBitmap',
+    vi.fn(async () => ({ width: 100, height: 100, close: vi.fn() })),
+  )
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
+    fillRect: vi.fn(),
+    drawImage: vi.fn(),
+  } as never)
+  vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue(
+    'data:image/jpeg;base64,/9j/2Q==',
+  )
+  vi.stubGlobal(
     'fetch',
     vi.fn(async (_url: string, init?: RequestInit) => {
+      if (_url === '/api/community/caption')
+        return new Response(
+          JSON.stringify({ caption: '골목에서 쉬어가는 오늘의 한 장.' }),
+        )
+      if (_url.startsWith('/images/'))
+        return {
+          ok: true,
+          blob: async () => new Blob(['image'], { type: 'image/webp' }),
+        } as Response
       const method = init?.method ?? 'GET'
       requests.push({
         method,
@@ -74,10 +94,66 @@ afterEach(async () => {
 })
 
 describe('명시적으로 사진을 공유하는 폼', () => {
+  it('늦게 도착한 AI 초안이 사용자가 수정한 글을 덮어쓰지 않는다', async () => {
+    const original = globalThis.fetch
+    let resolve!: (response: Response) => void
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) =>
+        url === '/api/community/caption'
+          ? new Promise<Response>((done) => {
+              resolve = done
+            })
+          : original(url, init),
+      ),
+    )
+    await render()
+    await click('샘플 사진 사용')
+    const textarea = host.querySelector('textarea')!
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        'value',
+      )!.set!.call(textarea, '내가 직접 쓴 오늘의 기록')
+      textarea.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await act(async () =>
+      resolve(new Response(JSON.stringify({ caption: '늦게 도착한 AI 글' }))),
+    )
+    expect(textarea.value).toBe('내가 직접 쓴 오늘의 기록')
+    expect(requests.filter((r) => r.method === 'POST')).toHaveLength(0)
+  })
+
+  it('AI 초안 실패 후 사진과 글을 보존하고 재시도할 수 있다', async () => {
+    const original = globalThis.fetch
+    let failDraft = true
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string, init?: RequestInit) =>
+        url === '/api/community/caption' && failDraft
+          ? Promise.resolve(new Response('{}', { status: 503 }))
+          : original(url, init),
+      ),
+    )
+    await render()
+    await click('샘플 사진 사용')
+    expect(host.textContent).toContain('AI 글을 만들지 못했어요')
+    expect(host.querySelector('img[alt*=미리보기]')?.getAttribute('src')).toBe(
+      '/images/demo/sample-street.webp',
+    )
+    expect(button('사진 공유하기').disabled).toBe(false)
+    failDraft = false
+    await click('AI로 글 다시 쓰기')
+    expect(host.querySelector('textarea')?.value).toBe(
+      '골목에서 쉬어가는 오늘의 한 장.',
+    )
+    expect(requests.filter((r) => r.method === 'POST')).toHaveLength(0)
+  })
+
   it('사진 선택과 취소는 게시하지 않으며 공개 안내 뒤 공유 버튼만 POST한다', async () => {
     await render()
     expect(button('사진 공유하기').disabled).toBe(true)
-    await click('장소 예시 사진 사용')
+    await click('샘플 사진 사용')
     expect(host.textContent).toContain('직접 촬영 아님')
     expect(host.textContent).toContain('커뮤니티에 공개돼요')
     expect(requests.filter((r) => r.method === 'POST')).toHaveLength(0)

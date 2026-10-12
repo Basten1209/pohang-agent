@@ -95,7 +95,7 @@ const AfterRace = ({
             {places.slice(0, 3).map((p) => (
               <div key={p.id} className="flex flex-col gap-1">
                 <PlaceThumb place={p} />
-                <span className="truncate text-xs">{p.attrs.short}</span>
+                <span className="text-xs leading-relaxed">{p.attrs.short}</span>
               </div>
             ))}
           </div>

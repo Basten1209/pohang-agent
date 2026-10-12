@@ -14,25 +14,6 @@ import type { CommunityPost } from '#/core/community'
 import { activeCourses } from '#/core/route'
 import type { TripConfig } from '#/core/schema'
 
-const examples = [
-  {
-    id: 'example-gp',
-    course: 'guryongpo',
-    author: '구룡포 러너',
-    caption:
-      '완주하고 구룡포에서 한 끼, 가옥거리에서 한 장. 달리기 뒤에 여행이 있으니 더 즐거워요.',
-    image: '/images/guryongpo-street-2024.jpg',
-  },
-  {
-    id: 'example-hm',
-    course: 'homigot',
-    author: '바다 러너',
-    caption:
-      '상생의 손 앞에서 메달 인증. 구룡포에서 호미곶까지, 바다를 보며 쉬어가요.',
-    image: '',
-  },
-]
-
 export const CommunityTab = ({
   config,
   revision = 0,
@@ -128,7 +109,13 @@ export const CommunityTab = ({
             src={p.image}
             alt={`${p.author}님의 ${p.placeName ? `${p.placeName} 여행` : '완주'} 사진`}
             loading="lazy"
-            className="aspect-[3/2] w-full object-cover"
+            width="1200"
+            height="800"
+            onError={(e) => {
+              if (!e.currentTarget.src.endsWith('/images/guryongpo-harbor.jpg'))
+                e.currentTarget.src = '/images/guryongpo-harbor.jpg'
+            }}
+            className="max-h-[28rem] w-full bg-muted/30 object-contain"
           />
           <CardHeader>
             <CardTitle className="text-sm">{p.author}</CardTitle>
@@ -144,7 +131,7 @@ export const CommunityTab = ({
             {p.photoKind === 'DEMO' && (
               <Badge variant="secondary" className="mt-1">
                 {p.kind === 'VISIT'
-                  ? '장소 예시 사진 · 실제 방문 사진 아님'
+                  ? 'AI 생성 시연 사진 · 실제 방문 사진 아님'
                   : 'AI 생성 시연 사진 · 실제 참가자 아님'}
               </Badge>
             )}
@@ -159,24 +146,6 @@ export const CommunityTab = ({
           첫 완주·여행 사진을 기다리고 있어요.
         </p>
       )}
-      {examples.filter(visible).map((p) => (
-        <Card key={p.id} size="sm" className="overflow-hidden">
-          {p.image && (
-            <img
-              src={p.image}
-              alt="구룡포 일본인 가옥거리 풍경"
-              loading="lazy"
-              className="aspect-video w-full object-cover"
-            />
-          )}
-          <CardHeader>
-            <Badge variant="outline">시연용 예시 글</Badge>
-            <CardTitle className="text-sm">{p.author}</CardTitle>
-            <CardDescription>{area(p.course)}</CardDescription>
-          </CardHeader>
-          <CardContent className="text-sm">{p.caption}</CardContent>
-        </Card>
-      ))}
     </div>
   )
 }

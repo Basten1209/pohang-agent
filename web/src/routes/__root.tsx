@@ -1,5 +1,6 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
+import { fontSizeBootstrap } from '#/app/display-settings'
 import appCss from '../styles.css?url'
 
 export const Route = createRootRoute({
@@ -44,9 +45,10 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: ReactNode }) {
   return (
-    <html lang="ko">
+    <html lang="ko" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: fontSizeBootstrap }} />
       </head>
       <body>
         {children}

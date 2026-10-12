@@ -1,0 +1,282 @@
+{
+  "food": [
+    {
+      "id": "kkakkune",
+      "name": "까꾸네 모리국수",
+      "kind": "food",
+      "address": "구룡포읍 호미로 239-13",
+      "highlight": "모리국수",
+      "description": "생선·해산물을 넣어 얼큰하게 끓이는 구룡포 향토 국수. 시장 골목에서 포항 10미를 맛볼 후보예요.",
+      "tenTaste": "모리국수",
+      "detour": false,
+      "note": "인원별 주문과 대기 여부는 방문 전에 확인해 주세요.",
+      "source": {
+        "title": "경북 동해안 관광 · 포항시 제공 자료",
+        "url": "https://oceang.kr/ko/cafe/food/?i=293",
+        "checkedAt": "2026-10-12"
+      }
+    },
+    {
+      "id": "gangdugi",
+      "name": "강두기수산",
+      "kind": "food",
+      "address": "구룡포읍 호미로 20",
+      "highlight": "물회 · 홍게",
+      "description": "포항시 관광 안내에 물회와 홍게를 소개한 식당이에요. 물회 한 끼를 찾을 때 확인해 보세요.",
+      "tenTaste": "포항 물회",
+      "detour": true,
+      "note": "병포리 쪽으로 이동이 필요해요.",
+      "source": {
+        "title": "포항시 퐝퐝여행",
+        "url": "https://pohang.go.kr/phtour/wmap/tourInformation/view.do?menu_idx=43&tour_info_idx=1046",
+        "checkedAt": "2026-10-12"
+      }
+    },
+    {
+      "id": "halmae-sikdang",
+      "name": "할매식당",
+      "kind": "food",
+      "address": "구룡포읍 호미로 241",
+      "highlight": "갈치찌개 · 도루묵찌개",
+      "description": "가옥거리 인근에서 생선찌개와 밥을 먹을 수 있는 식당 후보예요.",
+      "detour": false,
+      "source": {
+        "title": "경북 동해안 관광 · 포항시 제공 자료",
+        "url": "https://oceang.kr/ko/cafe/food/?i=237",
+        "checkedAt": "2026-10-12"
+      }
+    },
+    {
+      "id": "cheolgyu",
+      "name": "철규분식",
+      "kind": "food",
+      "address": "구룡포읍 구룡포길 62-2",
+      "highlight": "찐빵 · 단팥죽 · 잔치국수",
+      "description": "구룡포초등학교 앞 분식집. 국수나 단팥죽에 찐빵을 곁들이는 메뉴를 소개하고 있어요.",
+      "detour": false,
+      "source": {
+        "title": "포항시 퐝퐝여행",
+        "url": "https://pohang.go.kr/phtour/wmap/tourInformation/view.do?menu_idx=43&tour_info_idx=641",
+        "checkedAt": "2026-10-12"
+      }
+    },
+    {
+      "id": "gwamegi-street",
+      "name": "구룡포과메기물회거리",
+      "kind": "food",
+      "address": "구룡포읍 구룡포리 984-1 일대",
+      "highlight": "과메기 · 물회 전문 음식거리",
+      "description": "과메기와 물회 식당이 모인 음식테마거리예요. 과메기는 겨울철 별미로 소개돼요.",
+      "tenTaste": "과메기 · 포항 물회",
+      "detour": false,
+      "source": {
+        "title": "포항시 퐝퐝여행",
+        "url": "https://pohang.go.kr/phtour/wmap/tourInformation/view.do?menu_idx=43&tour_info_idx=861",
+        "checkedAt": "2026-10-12"
+      }
+    }
+  ],
+  "street": [
+    {
+      "id": "japanese-street",
+      "name": "구룡포 일본인 가옥거리",
+      "kind": "sight",
+      "address": "구룡포읍 구룡포길 153-1 일대",
+      "highlight": "포항 12경 · 역사 골목",
+      "description": "옛 가옥이 남아 있는 골목에서 항구 마을의 풍경을 둘러봐요.",
+      "detour": false,
+      "note": "인근 근대역사관은 공식 안내상 2026년 11월까지 휴관. 야외 거리 관람과 구분해 주세요.",
+      "source": {
+        "title": "포항시 퐝퐝여행",
+        "url": "https://pohang.go.kr/phtour/wmap/tourInformation/view.do?menu_idx=43&tour_info_idx=347",
+        "checkedAt": "2026-10-12"
+      }
+    },
+    {
+      "id": "ara-square",
+      "name": "구룡포 아라광장",
+      "kind": "sight",
+      "address": "구룡포읍 구룡포리 954-16",
+      "highlight": "항구 앞 광장 · 드라마 촬영지",
+      "description": "구룡포항과 맞닿은 광장. 가옥거리와 함께 들러 항구 풍경을 볼 수 있어요.",
+      "detour": false,
+      "source": {
+        "title": "포항시 퐝퐝여행",
+        "url": "https://pohang.go.kr/phtour/wmap/tourInformation/view.do?menu_idx=43&tour_info_idx=765",
+        "checkedAt": "2026-10-12"
+      }
+    },
+    {
+      "id": "guryongpo-port",
+      "name": "구룡포항",
+      "kind": "sight",
+      "address": "구룡포읍 호미로 222-1",
+      "highlight": "어선과 항구 풍경",
+      "description": "시장과 가옥거리 가까이에서 포구의 일상을 둘러볼 수 있어요.",
+      "detour": false,
+      "source": {
+        "title": "포항시 퐝퐝여행",
+        "url": "https://pohang.go.kr/phtour/wmap/tourInformation/view.do?menu_idx=43&tour_info_idx=109",
+        "checkedAt": "2026-10-12"
+      }
+    },
+    {
+      "id": "janggilri-park",
+      "name": "장길리 복합낚시공원",
+      "kind": "sight",
+      "address": "구룡포읍 동해안로 4376-30",
+      "highlight": "바다 풍경 · 해안 사진",
+      "description": "포항시가 드라마 촬영지와 바다 사진 명소로 소개한 곳이에요.",
+      "detour": true,
+      "note": "장길리까지 별도 이동이 필요해요.",
+      "source": {
+        "title": "포항시 퐝퐝여행",
+        "url": "https://pohang.go.kr/phtour/wmap/tourInformation/view.do?menu_idx=43&tour_info_idx=96",
+        "checkedAt": "2026-10-12"
+      }
+    }
+  ],
+  "gp-museum": [
+    {
+      "id": "gwamegi-museum",
+      "name": "구룡포 과메기문화관",
+      "kind": "sight",
+      "address": "구룡포읍 구룡포길117번길 28-8",
+      "highlight": "실내 전시 · 해양 체험",
+      "description": "포항의 바다와 과메기를 주제로 전시·체험을 즐길 수 있어요.",
+      "detour": false,
+      "note": "오르막이 있어요. 휴관일과 관람 가능 여부를 확인해 주세요.",
+      "source": {
+        "title": "포항시 퐝퐝여행",
+        "url": "https://pohang.go.kr/phtour/wmap/tourInformation/view.do?menu_idx=43&tour_info_idx=406",
+        "checkedAt": "2026-10-12"
+      }
+    }
+  ],
+  "cafe": [
+    {
+      "id": "coffee311",
+      "name": "커피311",
+      "kind": "cafe",
+      "address": "구룡포읍 용주로 4",
+      "highlight": "구룡포·호미곶 삼거리의 쉼터",
+      "description": "포항시가 드라마 촬영팀도 쉬어 간 카페로 소개한 곳이에요.",
+      "detour": false,
+      "source": {
+        "title": "포항시 퐝퐝여행",
+        "url": "https://pohang.go.kr/phtour/wmap/tourInformation/view.do?menu_idx=43&tour_info_idx=49",
+        "checkedAt": "2026-10-12"
+      }
+    },
+    {
+      "id": "default-coffee",
+      "name": "디폴트커피바",
+      "kind": "cafe",
+      "address": "구룡포읍 일출로 14, 1층",
+      "highlight": "해수욕장 바다 전망 · 커피와 디저트",
+      "description": "구룡포해수욕장을 바라보며 쉬어 갈 수 있는 카페예요.",
+      "detour": true,
+      "note": "삼정리 해수욕장 쪽으로 이동이 필요해요.",
+      "source": {
+        "title": "포항시 퐝퐝여행",
+        "url": "https://pohang.go.kr/phtour/wmap/tourInformation/view.do?menu_idx=43&tour_info_idx=939",
+        "checkedAt": "2026-10-12"
+      }
+    }
+  ],
+  "hm-food": [
+    {
+      "id": "jinsu-baekban",
+      "name": "진수백반",
+      "kind": "food",
+      "address": "호미곶면 구만리",
+      "highlight": "모래에도 꽃이 핀다 촬영지",
+      "description": "포항시가 호미곶 구만리 식당 촬영지로 소개한 방문 후보예요.",
+      "detour": true,
+      "note": "해맞이광장 밖에 있어요. 현재 메뉴·영업 여부와 이동을 확인해 주세요.",
+      "source": {
+        "title": "포항시 · 모래에도 꽃이 핀다 촬영지",
+        "url": "https://pohang.go.kr/phtour/board/view.do?board_idx=2946&manage_idx=3&menu_idx=96",
+        "checkedAt": "2026-10-12"
+      }
+    }
+  ],
+  "hm-hand": [
+    {
+      "id": "hands",
+      "name": "상생의 손",
+      "kind": "sight",
+      "address": "호미곶면 해맞이로150번길 20 일대",
+      "highlight": "호미곶 해맞이광장 · 바다 사진",
+      "description": "바다와 육지에서 서로 마주하는 손 조형물을 만나봐요.",
+      "detour": false,
+      "source": {
+        "title": "포항시 퐝퐝여행",
+        "url": "https://pohang.go.kr/phtour/wmap/tourInformation/view.do?menu_idx=43&tour_info_idx=184",
+        "checkedAt": "2026-10-12"
+      }
+    }
+  ],
+  "hm-museum": [
+    {
+      "id": "lighthouse-museum",
+      "name": "국립등대박물관",
+      "kind": "sight",
+      "address": "호미곶면 해맞이로150번길 20",
+      "highlight": "등대와 항로표지 전시",
+      "description": "등대의 역사와 항로표지를 살펴보는 실내 관람 후보예요.",
+      "detour": false,
+      "source": {
+        "title": "포항시 퐝퐝여행",
+        "url": "https://pohang.go.kr/phtour/wmap/tourInformation/view.do?menu_idx=43&tour_info_idx=521",
+        "checkedAt": "2026-10-12"
+      }
+    },
+    {
+      "id": "millennium-hall",
+      "name": "새천년기념관",
+      "kind": "sight",
+      "address": "호미곶면 해맞이로 136",
+      "highlight": "전시 · 옥상 전망대",
+      "description": "해맞이광장에서 동해와 호미곶 해안을 조망할 수 있는 곳이에요.",
+      "detour": false,
+      "source": {
+        "title": "포항시 퐝퐝여행",
+        "url": "https://pohang.go.kr/phtour/wmap/tourInformation/view.do?menu_idx=43&tour_info_idx=409",
+        "checkedAt": "2026-10-12"
+      }
+    }
+  ],
+  "hm-cafe": [
+    {
+      "id": "offing",
+      "name": "오핑 카페",
+      "kind": "cafe",
+      "address": "호미곶면 구만리",
+      "highlight": "드라마 속 카페",
+      "description": "포항시가 진수백반과 함께 소개한 호미곶 촬영지 카페예요.",
+      "detour": true,
+      "note": "광장에서 구만리까지 이동을 확인해 주세요.",
+      "source": {
+        "title": "포항시 · 모래에도 꽃이 핀다 촬영지",
+        "url": "https://pohang.go.kr/phtour/board/view.do?board_idx=2946&manage_idx=3&menu_idx=96",
+        "checkedAt": "2026-10-12"
+      }
+    },
+    {
+      "id": "nest",
+      "name": "네스트코퍼레이션",
+      "kind": "cafe",
+      "address": "호미곶면 해맞이로46번길 164",
+      "highlight": "바다 전망 · 심해커피",
+      "description": "바다를 바라보며 쉬어 갈 수 있는 대형 카페로 소개돼요.",
+      "detour": true,
+      "note": "해맞이광장 밖 별도 이동 후보예요.",
+      "source": {
+        "title": "경북 동해안 관광 · 포항시 제공 자료",
+        "url": "https://oceang.kr/ko/cafe/cafe/?i=369",
+        "checkedAt": "2026-10-12"
+      }
+    }
+  ]
+}

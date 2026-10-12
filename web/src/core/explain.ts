@@ -51,6 +51,11 @@ export const explainPlan = (
   obs?: Parameters<typeof readingLine>[0],
 ): string => {
   if (!canTravel(it)) return it.reasons.join(' ')
+  if (plan.agentPlan)
+    return [
+      ...it.reasons,
+      `계산한 총 보행은 ${it.walking}분, 도착 목표 대비 여유는 ${it.slack}분이에요.`,
+    ].join(' ')
   const course = courseById(config, it.course)
   const name = (id: string) =>
     config.places.find((p) => p.id === id)?.attrs.short ?? id

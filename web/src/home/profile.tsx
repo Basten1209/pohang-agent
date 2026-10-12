@@ -83,6 +83,8 @@ export const ProfileForm = ({
   const [form, setForm] = useState(() => initialForm(config, view))
   const [nickname, setNickname] = useState(view.state.plan.nickname ?? '')
   const [saving, setSaving] = useState(false)
+  const [preparing, setPreparing] = useState(0)
+  const saved = useRef<TripView | null>(null)
   const [failed, setFailed] = useState(false)
   const set = <K extends keyof Form>(key: K, value: Form[K]) =>
     setForm((f) => ({ ...f, [key]: value }))
@@ -100,15 +102,37 @@ export const ProfileForm = ({
   const next = () => setStep((s) => Math.min(s + 1, 3))
 
   const save = async () => {
+    if (saving) return
     setSaving(true)
+    setPreparing(0)
     setFailed(false)
     const details: Partial<Details> = { ...form }
     const slots = Object.keys(form) as SlotId[]
     try {
-      const { trip } = await postEvents(tripId, [
-        ...fillSlots(config, view.state, details, slots),
-        { type: 'plan.patched', patch: { nickname: nickname.trim() } },
-      ])
+      const { trip } =
+        saved.current && onboarding
+          ? { trip: saved.current }
+          : await postEvents(tripId, [
+              ...fillSlots(config, view.state, details, slots),
+              { type: 'plan.patched', patch: { nickname: nickname.trim() } },
+            ])
+      saved.current = trip
+      if (onboarding) {
+        for (const [index, part] of ['event', 'guide'].entries()) {
+          setPreparing(index + 1)
+          const response = await fetch('/api/onboarding', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: AbortSignal.timeout(15000),
+            body: JSON.stringify({ tripId, part }),
+          })
+          if (!response.ok) throw new Error('preparation')
+          await response.json()
+        }
+        setPreparing(3)
+        // Brief completion acknowledgement, not simulated work/progress.
+        await new Promise((resolve) => setTimeout(resolve, 700))
+      }
       onSaved(trip)
     } catch {
       setFailed(true)
@@ -116,6 +140,55 @@ export const ProfileForm = ({
       setSaving(false)
     }
   }
+
+  if (onboarding && (saving || (failed && saved.current)))
+    return (
+      <section
+        className="flex min-h-[75dvh] flex-col justify-center gap-6"
+        aria-labelledby="preparing-title"
+      >
+        <GullPose pose="think" className="mx-auto w-40" decorative />
+        <h1 id="preparing-title" className="brand-heading text-center text-2xl">
+          {nickname || '러너'}님의 하루를 준비해요
+        </h1>
+        <ol className="space-y-3" aria-live="polite">
+          {[
+            'Agent에게 정보를 전달하고 있어요',
+            '참여하는 대회 정보를 정리하고 있어요',
+            '주변 여행 정보를 사전 탐색하고 있어요',
+          ].map((label, i) => (
+            <li
+              key={label}
+              className={`flex items-center gap-3 rounded-xl border p-4 text-sm ${i === preparing ? 'border-primary bg-secondary text-primary' : 'bg-card text-muted-foreground'}`}
+            >
+              {i < preparing ? (
+                <Check className="size-5 text-primary" aria-label="완료" />
+              ) : (
+                <span className="grid size-5 shrink-0 place-items-center rounded-full border text-xs">
+                  {i + 1}
+                </span>
+              )}
+              {label}
+            </li>
+          ))}
+        </ol>
+        {preparing === 3 && (
+          <p role="status" className="text-center text-sm text-primary">
+            준비됐어요. 오늘의 여정을 시작해요!
+          </p>
+        )}
+        {failed && (
+          <>
+            <p role="alert" className="text-sm text-destructive">
+              준비를 마치지 못했어요. 저장한 정보는 그대로예요.
+            </p>
+            <Button className="h-12" onClick={() => void save()}>
+              다시 준비하기
+            </Button>
+          </>
+        )}
+      </section>
+    )
 
   return (
     <form
@@ -172,7 +245,7 @@ export const ProfileForm = ({
           <button
             type="button"
             aria-pressed={eventSelected}
-            className={`flex gap-3 rounded-2xl border-2 p-4 text-left transition-colors ${eventSelected ? 'border-primary bg-primary/5' : 'border-border bg-card'}`}
+            className={`flex gap-3 rounded-2xl border-2 p-4 text-left transition-colors ${eventSelected ? 'border-primary bg-secondary' : 'border-border bg-card'}`}
             onClick={() => setEventSelected(true)}
           >
             <Flag className="mt-1 size-5 shrink-0 text-primary" />
@@ -355,6 +428,7 @@ export const ProfileForm = ({
             type="button"
             size="lg"
             variant="outline"
+            className="h-12 w-24 shrink-0"
             disabled={saving}
             onClick={() => setStep((s) => s - 1)}
           >
@@ -365,7 +439,7 @@ export const ProfileForm = ({
         <Button
           type="submit"
           size="lg"
-          className="min-h-12 flex-1"
+          className="h-12 min-w-0 flex-1 whitespace-normal leading-snug"
           disabled={saving || (onboarding && step === 0 && !eventSelected)}
         >
           {saving

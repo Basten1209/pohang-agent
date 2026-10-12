@@ -1,4 +1,5 @@
 .context
+.gstack
 .git
 **/node_modules
 **/.env*

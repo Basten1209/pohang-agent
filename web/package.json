@@ -19,12 +19,14 @@
     "format": "prettier --write src tests",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "seed:images": "node --env-file-if-exists=.env scripts/seed-images.mjs"
+    "seed:images": "node --env-file-if-exists=.env scripts/seed-images.mjs",
+    "seed:community": "node --env-file-if-exists=.env scripts/seed-demo-community.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.86",
     "@ai-sdk/provider": "^4.0.24",
     "@ai-sdk/react": "^4.0.133",
+    "@base-ui/react": "^1.9.0",
     "@electric-sql/pglite": "^0.5.8",
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/noto-sans-kr": "^5.3.1",

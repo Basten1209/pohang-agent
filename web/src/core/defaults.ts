@@ -209,7 +209,7 @@ export const seedConfig: TripConfig = {
     maxSteps: 5,
     maxToolCalls: 4,
     timeoutMs: 20000,
-    maxOutputTokens: 600,
+    maxOutputTokens: 1600,
     suggestions: ['16시로 바뀌었어', '왜 이 코스야?', '다른 코스는?'],
   },
   conversation: {

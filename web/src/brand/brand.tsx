@@ -1,13 +1,8 @@
 import type { ReactNode } from 'react'
 
+/** In-app avatars use the complete cutout; the square logo is for PWA icons. */
 export const Gull = ({ className = 'size-10' }: { className?: string }) => (
-  <img
-    src="/icons/icon-192.png"
-    width="128"
-    height="128"
-    alt="갈매기 여행 친구"
-    className={`rounded-full ${className}`}
-  />
+  <GullPose className={className} />
 )
 
 const gullPoses = {
@@ -18,7 +13,9 @@ const gullPoses = {
 } as const
 type GullPoseName = keyof typeof gullPoses
 
-/** Every pose is a complete transparent image, never a crop from a pose sheet. */
+/** Reserve a square independently of the image's intrinsic size or loading.
+ * Parent flex/grid rules size the frame; they cannot stretch or crop the art.
+ */
 export const GullPose = ({
   pose = 'wave',
   className = '',
@@ -28,14 +25,16 @@ export const GullPose = ({
   className?: string
   decorative?: boolean
 }) => (
-  <img
-    src={`/images/brand/gull-${pose}-transparent.png`}
-    width={gullPoses[pose].size}
-    height={gullPoses[pose].size}
-    alt={decorative ? '' : gullPoses[pose].label}
-    className={`gull-cutout ${className}`}
-    decoding="async"
-  />
+  <span className={`gull-cutout ${className}`} data-gull-pose={pose}>
+    <img
+      src={`/images/brand/gull-${pose}-transparent.png`}
+      width={gullPoses[pose].size}
+      height={gullPoses[pose].size}
+      alt={decorative ? '' : gullPoses[pose].label}
+      className="gull-cutout-image"
+      decoding="async"
+    />
+  </span>
 )
 
 /** A shared, responsive introduction for the app's three main destinations. */
@@ -52,13 +51,13 @@ export const MascotBanner = ({
 }) => (
   <section className="mascot-panel grid grid-cols-[minmax(0,1fr)_6rem] items-center gap-2 rounded-3xl border border-primary/10 px-5 py-5 min-[380px]:grid-cols-[minmax(0,1fr)_8rem] sm:grid-cols-[minmax(0,1fr)_12rem] sm:gap-5 sm:px-7">
     <div className="flex min-w-0 flex-col gap-3">
-      <p className="text-[10px] font-bold tracking-[0.14em] text-primary sm:text-xs">
+      <p className="text-[0.625rem] font-bold tracking-[0.14em] text-primary sm:text-xs">
         {eyebrow}
       </p>
-      <h1 className="brand-heading break-words text-xl leading-snug sm:text-3xl">
+      <h1 className="brand-heading text-xl leading-snug sm:text-3xl">
         {title}
       </h1>
-      <p className="break-words text-sm leading-relaxed text-muted-foreground">
+      <p className="text-sm leading-relaxed text-muted-foreground">
         {description}
       </p>
     </div>
@@ -78,7 +77,7 @@ export const BrandHero = () => (
     />
     <div className="absolute inset-0 -z-10 bg-gradient-to-t from-[#073b50] via-[#073b50]/60 to-[#073b50]/10" />
     <div className="flex min-h-64 flex-col justify-end gap-3 p-6">
-      <span className="text-xs font-semibold tracking-[0.2em] text-cyan-100">
+      <span className="text-xs font-semibold tracking-[0.2em] text-blue-100">
         RUN2 GURYONGPO
       </span>
       <h1 className="text-3xl font-semibold leading-tight tracking-tight">
@@ -96,42 +95,15 @@ export const BrandHero = () => (
 )
 
 export const AssetCredits = () => (
-  <details className="px-1 text-[11px] leading-relaxed text-muted-foreground">
-    <summary className="cursor-pointer">사진·캐릭터 출처</summary>
-    <p>
-      영일대·구룡포 바다 사진: Choi2451,{' '}
-      <a
-        className="underline"
-        href="https://creativecommons.org/licenses/by-sa/3.0/"
-        target="_blank"
-        rel="noreferrer"
-      >
-        CC BY-SA 3.0
-      </a>
-      . 화면 비율에 맞춰 표시. 사진 파생물에도 같은 라이선스를 적용합니다.
-    </p>
-    <p>
-      구룡포 가옥거리: Mobius6,{' '}
-      <a
-        className="underline"
-        href="https://creativecommons.org/licenses/by/4.0/"
-        target="_blank"
-        rel="noreferrer"
-      >
-        CC BY 4.0
-      </a>
-      .
-    </p>
-    <p>
-      <a
-        className="underline"
-        href="/asset-credits.html"
-        target="_blank"
-        rel="noreferrer"
-      >
-        원본 사진과 전체 출처
-      </a>{' '}
-      · 갈매기는 RUN2 자체 캐릭터이며 포항시 공식 캐릭터가 아닙니다.
-    </p>
-  </details>
+  <footer className="px-1 py-4 text-center text-xs text-muted-foreground">
+    <a
+      href="/asset-credits.html"
+      target="_blank"
+      rel="noreferrer"
+      className="rounded hover:text-primary focus-visible:outline-2"
+      aria-label="Copyright 및 이미지 라이선스"
+    >
+      © 2026 RUN2구룡포
+    </a>
+  </footer>
 )

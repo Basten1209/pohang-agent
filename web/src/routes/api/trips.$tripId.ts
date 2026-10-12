@@ -59,6 +59,18 @@ export const Route = createFileRoute('/api/trips/$tripId')({
           return json({ error: 'INVALID_TRIP' }, { status: 400 })
         const body = await parseBody(request, eventsSchema)
         if (!body.ok) return body.response
+        // Model selections are authored and validated by server tools, never by client events.
+        if (
+          body.data.events.some(
+            (event) =>
+              ('patch' in event && 'agentPlan' in event.patch) ||
+              ('plan' in event && event.plan.agentPlan != null),
+          )
+        )
+          return json(
+            { error: 'SERVER_AUTHORED_PLAN_REQUIRED' },
+            { status: 422 },
+          )
         const { config, db, record } = await load(params.tripId)
         const next = await commit(db, record, body.data.events, {
           source: 'client',

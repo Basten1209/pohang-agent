@@ -5,10 +5,16 @@ import type { Evidence } from '#/core/evidence'
 import type { Changes } from '#/core/intents'
 import { explainPlan, interestNoun, josa } from '#/core/explain'
 import { knowledgeOf, searchKnowledge } from '#/core/knowledge'
+import { courseVenues } from '#/core/venues'
 import { liveObservationEvents, readingLine } from '#/core/live'
+import {
+  observationsKey,
+  planningContext,
+  preferencesKey,
+} from '#/core/agent-plan'
 import { directionsUrl } from '#/core/links'
 import { canTravel, planEveryCourse, planner } from '#/core/planner'
-import { planContext, preview } from '#/core/preview'
+import { planContext, preview, toPlanPatch } from '#/core/preview'
 import {
   activeCourses,
   courseById,
@@ -17,7 +23,12 @@ import {
   placesOf,
 } from '#/core/route'
 import type { TripConfig } from '#/core/schema'
-import { AUTO_COURSE, interestSchema, timeSchema } from '#/core/schema'
+import {
+  AUTO_COURSE,
+  interestSchema,
+  timeSchema,
+  itineraryProposalSchema,
+} from '#/core/schema'
 import { clock } from '#/core/time'
 import type { TripEvent } from '#/core/trip'
 import { accept, runScenario } from '#/core/trip'
@@ -71,7 +82,9 @@ export type TurnContext = {
   newId: () => string
   /** Check-in has already saved readiness/condition; the first plan must use them once. */
   canProposeChanges?: boolean
-  progress?: (phase: 'OBSERVE' | 'PLAN' | 'EXPLAIN') => void
+  isAI?: () => boolean
+  canStoreInitialPlan?: boolean
+  progress?: (phase: import('#/core/agent-progress').ProgressPhase) => void
 }
 
 // ── Answer schemas for Ask tools (what the cards send back) ─────────────
@@ -145,6 +158,7 @@ const noChanges: Changes = {
 const isEmpty = (c: Changes) => Object.values(c).every((v) => v === null)
 
 export const makeTools = (ctx: TurnContext) => {
+  let planningRevision: number | undefined
   const { config } = ctx
   const placeIds = config.places.filter((p) => p.active).map((p) => p.id) as [
     string,
@@ -209,27 +223,62 @@ export const makeTools = (ctx: TurnContext) => {
         },
       ],
       outputSchema: z.union([quickReplyAnswerSchema, skippedSchema]),
+      toModelOutput: ({ output }) => ({
+        type: 'json',
+        value:
+          'skipped' in output
+            ? {
+                cardDismissed: true,
+                tripChanged: false,
+                meaning: '카드 대신 새 메시지를 입력함. 장소 건너뛰기가 아님.',
+              }
+            : output,
+      }),
     }),
     await_progress: tool({
       description:
         '이동 중 다음 행동 카드(길찾기, 도착·완료·건너뛰기·휴식 버튼)를 띄우고 사용자의 진행 보고를 기다린다. 여정이 시작된 뒤 답을 마칠 때 쓴다. 출발 전에는 쓰지 않는다. 입력은 없다.',
       inputSchema: z.object({}).strict(),
       outputSchema: z.union([progressAnswerSchema, skippedSchema]),
+      toModelOutput: ({ output }) => ({
+        type: 'json',
+        value:
+          'skipped' in output
+            ? {
+                cardDismissed: true,
+                tripChanged: false,
+                meaning: '카드 대신 새 메시지를 입력함. 장소 건너뛰기가 아님.',
+              }
+            : output,
+      }),
     }),
 
     // ── Read ──────────────────────────────────────────────────────────
     prepare_visit_photo: tool({
       description:
-        '사용자가 관광 사진을 커뮤니티에 남기고 싶다고 할 때 채팅 안에 사진 공유 카드를 연다. 사용자의 원문을 request로 전달한다. 방문 완료한 장소만 제공하며, 방문 기록이나 게시물을 만들지 않는다. 촬영 장소 추천이나 일정 변경에는 쓰지 않는다. 사진 선택과 공개는 사용자가 카드에서 직접 한다.',
+        '사용자가 관광 사진을 커뮤니티에 남기고 싶다고 할 때 채팅 안에 사진 공유 카드를 연다. 사용자의 원문을 request로 전달한다. 현재 관광 중인 장소와 방문 완료한 장소를 제공하며, 방문 기록이나 게시물을 만들지 않는다. 촬영 장소 추천이나 일정 변경에는 쓰지 않는다. 사진 선택과 공개는 사용자가 카드에서 직접 한다.',
       inputSchema: z.object({ request: z.string().max(1000) }).strict(),
       execute: ({ request }) =>
         visitPhotoOffer(config, ctx.trip().state, request),
     }),
+    get_planning_context: tool({
+      description:
+        '일정을 제안하기 전에 반드시 조회한다. 최신 여정 revision, E-UM 관측의 출처·시각·범위, 장소 특성, 수단별 시연 이동시간을 반환한다. 추천은 직접 판단하고 plan_course.proposal로 제출한다. 일정은 바꾸지 않는다.',
+      inputSchema: z.object({}).strict(),
+      execute: async () => {
+        const { state } = ctx.trip()
+        planningRevision = state.plan.revision
+        return planningContext(config, state.plan, state.observations)
+      },
+    }),
     plan_course: tool({
       description:
-        '현재 조건 또는 요청된 변경으로 코스를 계산해 미리보기를 만든다. 코스를 처음 보여줄 때, 사용자가 출발 시각·코스(권역)·걷기·휴식·장소 제외를 바꾸고 싶다고 할 때 쓴다. 여러 코스를 비교만 하려면 compare_courses, 이유를 묻는 질문에는 explain_plan을 쓴다. 저장하지 않으며, 사용자가 말하지 않은 필드는 null이다.',
+        'get_planning_context의 사실과 사용자 요청을 종합해 직접 선택한 proposal을 제출한다. 장소·순서·체류시간·이동수단·교통 여유·추천 근거를 선택한다. 서버는 시간·보행·경로만 검증한다. validationErrors가 있으면 수정해 다시 제출한다. changes는 사용자가 명시한 제약 변경만, 없으면 null. 최초 유효 제안은 저장하며 기존 일정 변경은 미리보기 후 승인으로 적용한다.',
       inputSchema: z
-        .object({ changes: changesSchema(placeIds, courseIds).nullable() })
+        .object({
+          changes: changesSchema(placeIds, courseIds).nullable(),
+          proposal: itineraryProposalSchema.nullable().optional(),
+        })
         .strict(),
       inputExamples: [
         { input: { changes: null } },
@@ -246,13 +295,117 @@ export const makeTools = (ctx: TurnContext) => {
           },
         },
       ],
-      execute: async ({ changes }) => {
+      execute: async ({ changes, proposal }) => {
         ctx.progress?.('PLAN')
         const { state, it: current } = now()
         const request =
           ctx.canProposeChanges === false
             ? noChanges
             : ((changes as Changes | null) ?? noChanges)
+        if (ctx.isAI?.()) {
+          const fail = (errors: string[]) => ({
+            previewId: null as string | null,
+            isChange: false,
+            noEffect: errors.join(' '),
+            validationErrors: errors,
+            revision: state.plan.revision,
+            changes: {},
+            itinerary: current,
+            depart: departLabel(config, state.plan),
+          })
+          if (!proposal)
+            return fail([
+              'get_planning_context를 조회하고 직접 선택한 proposal을 제출해 주세요.',
+            ])
+          if (
+            planningRevision !== state.plan.revision ||
+            proposal.contextRevision !== state.plan.revision
+          )
+            return fail([
+              '관측 또는 여정이 바뀌었어요. get_planning_context를 다시 조회해 주세요.',
+            ])
+          const patch = toPlanPatch(config, state.plan, request)
+          if (request.dropInterests?.length) {
+            patch.excluded = [
+              ...new Set([
+                ...(patch.excluded ?? state.plan.excluded),
+                ...config.places
+                  .filter((p) =>
+                    request.dropInterests!.includes(p.attrs.interest),
+                  )
+                  .map((p) => p.id),
+              ]),
+            ]
+          }
+          const nextPlan = { ...state.plan, ...patch }
+          if (
+            state.plan.stage !== 'BEFORE' &&
+            proposal.course !== current.course
+          )
+            return fail([
+              '이동 중 다른 권역으로 가는 연결 경로 자료가 없어요. 현재 권역 안에서 다시 제안해 주세요.',
+            ])
+          if (
+            proposal.stops.some(
+              (s) =>
+                nextPlan.excluded.includes(s.place) ||
+                nextPlan.completed.includes(s.place),
+            )
+          )
+            return fail([
+              '이미 방문했거나 사용자가 제외한 장소는 제안에 넣을 수 없어요.',
+            ])
+          nextPlan.agentPlan = {
+            proposal,
+            observationsKey: observationsKey(state.observations),
+            preferencesKey: preferencesKey(nextPlan),
+            model: config.agent.model,
+            createdAt: new Date().toISOString(),
+          }
+          const it = planner(config)(nextPlan, state.observations)
+          if (!canTravel(it)) return fail(it.validationErrors ?? it.reasons)
+          const savedChanges = { ...patch, agentPlan: nextPlan.agentPlan }
+          const initial =
+            !state.plan.agentPlan &&
+            state.plan.stage === 'BEFORE' &&
+            isEmpty(request) &&
+            ctx.canStoreInitialPlan !== false
+          if (initial) {
+            const saved = await ctx.commit(
+              [{ type: 'plan.patched', patch: savedChanges }],
+              'agent-initial-plan',
+            )
+            return {
+              previewId: null as string | null,
+              isChange: false,
+              noEffect: null as string | null,
+              validationErrors: [] as string[],
+              revision: saved.state.plan.revision,
+              changes: savedChanges,
+              itinerary: planner(config)(
+                saved.state.plan,
+                saved.state.observations,
+              ),
+              depart: departLabel(config, saved.state.plan),
+            }
+          }
+          const id = ctx.newId()
+          ctx.remember({
+            id,
+            revision: state.plan.revision,
+            changes: savedChanges,
+          })
+          return {
+            previewId: id as string | null,
+            isChange: true,
+            noEffect: null as string | null,
+            validationErrors: [] as string[],
+            revision: state.plan.revision,
+            changes: savedChanges,
+            itinerary: it,
+            depart: departLabel(config, nextPlan),
+          }
+        }
         const p = preview(config, state.plan, state.observations, request)
         // "카페는 빼 줘" when there is no cafe: nothing to approve.
         const onlyRemovals =
@@ -293,33 +446,50 @@ export const makeTools = (ctx: TurnContext) => {
       },
       toModelOutput: ({ output }) => ({
         type: 'json',
-        value: {
-          previewId: output.previewId,
-          isChange: output.isChange,
-          noEffect: output.noEffect,
-          depart: output.depart,
-          course: courseById(config, output.itinerary.course)?.title ?? null,
-          hub: hubOf(config, ctx.trip().state.plan).name,
-          decision: output.itinerary.decision,
-          stops: output.itinerary.stops.map((s) => placeName(s.id)),
-          legs: output.itinerary.legs.map((l) => ({
-            fromTo: l.label,
-            mode: transportLabel[l.mode],
-            minutes: l.totalMin,
-            bufferMin: l.bufferMin,
-            reason: l.reason,
-            provenance: 'DEMO_POLICY',
-          })),
-          planningArrival:
-            output.itinerary.planningArrival === null
-              ? null
-              : clock(output.itinerary.planningArrival),
-          stationTarget: clock(output.itinerary.stationTarget),
-          slackMin: output.itinerary.slack,
-          slackBasis:
-            'stationTarget(거점 도착 목표) 대비 여유. 열차 출발까지의 시간이 아님.',
-          reasons: output.itinerary.reasons,
-        },
+        value:
+          'validationErrors' in output && output.validationErrors?.length
+            ? {
+                status: 'REJECTED',
+                validationErrors: output.validationErrors,
+                instruction:
+                  '일정은 저장되지 않았다. 제안을 수정해서 plan_course로 다시 제출한다.',
+              }
+            : {
+                validationErrors:
+                  'validationErrors' in output ? output.validationErrors : [],
+                previewId: output.previewId,
+                isChange: output.isChange,
+                noEffect: output.noEffect,
+                depart: output.depart,
+                course:
+                  courseById(config, output.itinerary.course)?.title ?? null,
+                hub: hubOf(config, ctx.trip().state.plan).name,
+                decision: output.itinerary.decision,
+                stops: output.itinerary.stops.map((s) => placeName(s.id)),
+                officialCandidates: courseVenues(
+                  config,
+                  output.itinerary.course,
+                ),
+                candidateNote:
+                  '관광 안내·지도 매장 정보로 확인한 실제 방문 후보. 포항 10미 표시는 음식에 대한 분류이며 가게 인증이 아니다. 일정에 자동 추가되지 않으며 detour=true는 별도 이동이 필요하다. 영업 여부와 이동 시간은 방문 전 확인한다.',
+                legs: output.itinerary.legs.map((l) => ({
+                  fromTo: l.label,
+                  mode: transportLabel[l.mode],
+                  minutes: l.totalMin,
+                  bufferMin: l.bufferMin,
+                  reason: l.reason,
+                  provenance: 'DEMO_POLICY',
+                })),
+                planningArrival:
+                  output.itinerary.planningArrival === null
+                    ? null
+                    : clock(output.itinerary.planningArrival),
+                stationTarget: clock(output.itinerary.stationTarget),
+                slackMin: output.itinerary.slack,
+                slackBasis:
+                  'stationTarget(거점 도착 목표) 대비 여유. 열차 출발까지의 시간이 아님.',
+                reasons: output.itinerary.reasons,
+              },
       }),
     }),
     explain_plan: tool({
@@ -347,7 +517,7 @@ export const makeTools = (ctx: TurnContext) => {
     }),
     check_live_conditions: tool({
       description:
-        'E-UM 디지털 트윈(교통 혼잡, 대기)을 지금 조회하고, 2시간 이내의 교통 혼잡 실측값은 일정 계산에 반영한 뒤 결과를 돌려준다. "지금도 괜찮아?", "시간 돼?", "최신 상황" 같은 질문에 쓴다. 답은 verdict의 도착 시각과 여유(분)로 결론부터 말하고, 관측값은 provenance(LIVE=실측, DEMO=시연 조건, SIMULATED=시연값)와 관측 시각을 함께 말한다. 대기(pm25)는 단위 확인 전이라 판단에 쓰지 않는다. 입력은 없다.',
+        'E-UM 디지털 트윈(교통 혼잡, 대기)을 지금 조회하고, 2시간 이내의 교통 혼잡 실측값은 일정 계산에 반영한 뒤 결과를 돌려준다. "지금도 괜찮아?", "시간 돼?", "최신 상황" 같은 질문에 쓴다. 답은 verdict의 도착 시각과 여유(분)로 결론부터 말하고, 관측값은 provenance(LIVE=실측, DEMO=시연 조건, SIMULATED=시연값)와 관측 시각을 함께 말한다. 각 관측의 eligible·단위·지역·최신성을 확인하고, needsReview이면 이전 제안의 타당성을 재검토한다. 입력은 없다.',
       inputSchema: z.object({}).strict(),
       execute: async () => {
         const evidence = await ctx.observe()
@@ -361,6 +531,7 @@ export const makeTools = (ctx: TurnContext) => {
         const hub = hubOf(config, state.plan)
         return {
           verdict: {
+            needsReview: it.needsReview ?? false,
             decision: it.decision,
             decisionScope:
               '관광 코스의 가능 여부. 귀가 일정이나 열차 예약을 취소하는 상태가 아님.',
@@ -411,7 +582,8 @@ export const makeTools = (ctx: TurnContext) => {
               course,
               'RETURN',
               hub.id,
-              assessSignals(config.policy, state.observations).reserveMin,
+              state.plan.agentPlan?.proposal.trafficBufferMin ??
+                assessSignals(config.policy, state.observations).reserveMin,
             )
           : []
         const transit = options.find((o) => o.mode === 'TRANSIT')
@@ -534,6 +706,7 @@ export const makeTools = (ctx: TurnContext) => {
             title: d.title,
             text: d.text.slice(0, 500),
             kind: d.kind,
+            source: d.source ?? null,
           })),
           note: hits.length
             ? '앱에 정리된 안내예요. 운영시간·요금은 바뀔 수 있어요.'
@@ -549,22 +722,26 @@ export const makeTools = (ctx: TurnContext) => {
         const { state, it } = now()
         return {
           current: it.course,
-          courses: planEveryCourse(config, state.plan, state.observations).map(
-            (c) => {
-              const course = courseById(config, c.course)
-              return {
-                id: c.course,
-                title: course?.title ?? c.course,
-                decision: c.decision,
-                stops: c.stops.map((s) => placeName(s.id)),
-                arrival:
-                  c.planningArrival === null ? null : clock(c.planningArrival),
-                slackMin: c.slack,
-                outboundMin: c.outbound,
-                reason: c.reasons[0] ?? null,
-              }
-            },
-          ),
+          context: ctx.isAI?.()
+            ? planningContext(config, state.plan, state.observations)
+            : null,
+          courses: (ctx.isAI?.()
+            ? []
+            : planEveryCourse(config, state.plan, state.observations)
+          ).map((c) => {
+            const course = courseById(config, c.course)
+            return {
+              id: c.course,
+              title: course?.title ?? c.course,
+              decision: c.decision,
+              stops: c.stops.map((s) => placeName(s.id)),
+              arrival:
+                c.planningArrival === null ? null : clock(c.planningArrival),
+              slackMin: c.slack,
+              outboundMin: c.outbound,
+              reason: c.reasons[0] ?? null,
+            }
+          }),
         }
       },
     }),
@@ -590,7 +767,32 @@ export const makeTools = (ctx: TurnContext) => {
         .strict(),
       execute: async ({ near, type, keyword, radiusM }) => {
         const { state } = ctx.trip()
-        const point = resolvePoint(config, state.plan, near)
+        const it = planner(config)(state.plan, state.observations)
+        const point = resolvePoint(config, state.plan, near, it.course)
+        const area =
+          near === 'COURSE' ||
+          (near === 'HERE' && state.plan.currentPlace === 'COURSE')
+            ? courseById(config, it.course)
+            : activeCourses(config).find(
+                (c) => near.includes(c.area) || c.id === near,
+              )
+        const officialCandidates = area
+          ? courseVenues(config, area.id).filter(
+              (v) =>
+                (!type ||
+                  (type === 'food'
+                    ? v.kind !== 'sight'
+                    : ['sight', 'culture'].includes(type)
+                      ? v.kind === 'sight'
+                      : false)) &&
+                (!keyword ||
+                  `${v.name} ${v.highlight} ${v.kind === 'cafe' ? '카페 커피' : ''}`.includes(
+                    keyword,
+                  )),
+            )
+          : []
+        const candidateNote =
+          '관광 안내·지도 매장 정보에서 찾은 방문 후보이며 실시간 영업 확인 결과는 아니에요. 별도 이동 후보는 현재 일정에 포함되지 않아요.'
         const live = keyword
           ? await tourSearch({ keyword, type: type ?? undefined, limit: 8 })
           : point
@@ -611,15 +813,23 @@ export const makeTools = (ctx: TurnContext) => {
           return {
             status: live.status,
             message: live.message,
+            officialCandidates,
+            candidateNote,
             // The curated guide, kept to the area asked about.
             fallback: nearbyDocs(near)
               .slice(0, 4)
-              .map((d) => ({ title: d.title, text: d.text.slice(0, 200) })),
+              .map((d) => ({
+                title: d.title,
+                text: d.text.slice(0, 200),
+                source: d.source ?? null,
+              })),
           }
         return {
           status: 'LIVE' as const,
           near: point?.name ?? near,
           source: '한국관광공사 TourAPI',
+          officialCandidates,
+          candidateNote,
           results: live.data.map((r) => ({
             contentId: r.id,
             typeId: r.typeId,
@@ -933,6 +1143,16 @@ export const makeTools = (ctx: TurnContext) => {
           return { applied: false, reason: 'UNKNOWN_PREVIEW' as const }
         if (stored.revision !== record.state.plan.revision)
           return { applied: false, reason: 'STALE' as const }
+        if (
+          stored.changes.agentPlan &&
+          !canTravel(
+            planner(config)(
+              { ...record.state.plan, ...stored.changes },
+              record.state.observations,
+            ),
+          )
+        )
+          return { applied: false, reason: 'INVALID_PLAN' as const }
         const next = await ctx.commit(
           [{ type: 'plan.patched', patch: stored.changes }],
           'apply_plan_change',
@@ -952,6 +1172,12 @@ export const makeTools = (ctx: TurnContext) => {
       inputSchema: z.object({}).strict(),
       execute: async () => {
         const { state, it } = now()
+        if (ctx.isAI?.() && !state.plan.agentPlan)
+          return {
+            started: false,
+            reason:
+              '먼저 get_planning_context와 plan_course로 일정을 제안해 주세요.',
+          }
         if (!canTravel(it)) return { started: false }
         await ctx.commit(accept(state, it).events, 'start_journey')
         return { started: true }

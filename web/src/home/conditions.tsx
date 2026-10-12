@@ -1,23 +1,7 @@
-import {
-  Activity,
-  Sparkles,
-  ArrowUpRight,
-  Bus,
-  CarTaxiFront,
-  Copy,
-  Sun,
-  Wind,
-} from 'lucide-react'
+import { Sparkles, ArrowUpRight, Bus, CarTaxiFront, Copy } from 'lucide-react'
 import { useState } from 'react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { TripConfig } from '#/core/schema'
 import type { TripView } from '#/core/view'
 import { usableReading } from '#/core/signals'
@@ -50,113 +34,87 @@ export const ConditionsCard = ({
       source.enabled && obs.sources[source.reading]?.provenance === 'DEMO',
   )
   return (
-    <Card className="border-primary/25 bg-secondary/40">
-      <CardHeader>
-        <CardDescription className="font-semibold tracking-wider text-primary">
+    <details className="rounded-xl border bg-card px-4 py-3 text-xs text-muted-foreground">
+      <summary className="cursor-pointer leading-relaxed">
+        <span className="font-semibold text-foreground">
           {hasDemo ? 'E-UM · 구룡포 조건 시연' : 'E-UM · 구룡포의 지금'}
-        </CardDescription>
-        <CardTitle>이 코스를 추천한 이유</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <p className="text-sm leading-relaxed">
-          {[...new Set(view.itinerary.reasons)].join(' ')}
-        </p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {config.sources
-            .filter((s) => s.enabled)
+        </span>
+        <span className="mt-1 block">
+          {[
+            { reading: 'congestion', label: '교통', unit: '%' },
+            { reading: 'pm25', label: '미세먼지', unit: 'μg/m³' },
+            { reading: 'uvIndex', label: '자외선', unit: '' },
+          ]
+            .filter((s) =>
+              config.sources.some(
+                (source) => source.enabled && source.reading === s.reading,
+              ),
+            )
             .map((source) => {
-              const src = obs.sources[source.reading]
-              const demo = src?.provenance === 'DEMO'
-              const value = demo ? obs.readings[source.reading] : src?.value
-              const scoped =
-                source.reading === 'congestion'
-                  ? view.itinerary.legs.some((leg) => leg.trafficScope) ||
-                    view.itinerary.course === 'guryongpo'
-                  : view.itinerary.course === 'guryongpo'
-              const applies =
-                scoped &&
-                view.itinerary.calculationStatus !== 'NOT_RUN' &&
-                usableReading(obs, source.reading) !== null &&
-                (src?.eligible === true || demo)
-              const Icon =
-                source.reading === 'congestion'
-                  ? Activity
-                  : source.reading === 'uvIndex'
-                    ? Sun
-                    : Wind
-              return (
-                <div key={source.id} className="rounded-lg border bg-card p-3">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <Icon className="size-4 text-primary" />
-                    <Badge variant="outline">
-                      {demo
-                        ? '시연 조건'
-                        : src?.provenance === 'SNAPSHOT'
-                          ? '저장 관측'
-                          : src?.freshness === 'STALE'
-                            ? '오래된 관측'
-                            : src?.provenance === 'LIVE'
-                              ? '실응답'
-                              : '확인 불가'}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {source.label.replace('E-UM ', '')}
-                  </p>
-                  <p className="my-1 text-xl font-semibold tabular-nums">
-                    {value == null ? '—' : value}
-                    <span className="ml-1 text-xs font-normal">
-                      {value == null ? '' : source.unit}
-                    </span>
-                  </p>
-                  <p className="text-xs font-medium text-primary">
-                    {applies
+              const value = usableReading(obs, source.reading)
+              return `${source.label} ${value == null ? '확인 중' : `${Math.round(value * 10) / 10}${source.unit}`}`
+            })
+            .join(' · ')}
+        </span>
+      </summary>
+      <div className="mt-3 space-y-3 border-t pt-3 leading-relaxed">
+        <p>{[...new Set(view.itinerary.reasons)].join(' ')}</p>
+        {config.sources
+          .filter((s) => s.enabled)
+          .map((source) => {
+            const src = obs.sources[source.reading]
+            const scoped =
+              view.itinerary.course === 'guryongpo' ||
+              (source.reading === 'congestion' &&
+                view.itinerary.legs.some((leg) => leg.trafficScope))
+            const applies =
+              scoped &&
+              view.itinerary.calculationStatus !== 'NOT_RUN' &&
+              usableReading(obs, source.reading) !== null &&
+              (src?.eligible === true || src?.provenance === 'DEMO')
+            return (
+              <div key={source.id} className="space-y-1">
+                <p className="font-medium text-foreground">{source.label}</p>
+                <p>
+                  {src?.value ?? obs.readings[source.reading] ?? '확인 중'}{' '}
+                  {source.unit}
+                </p>
+                <p>
+                  {src?.provenance === 'DEMO'
+                    ? '시연 조건'
+                    : src?.provenance === 'LIVE'
+                      ? '실응답'
+                      : src?.provenance === 'SNAPSHOT'
+                        ? '저장 관측'
+                        : '확인 불가'}{' '}
+                  · {src?.freshness === 'STALE' ? '오래된 관측 · ' : ''}
+                  {applies && view.itinerary.needsReview
+                    ? '일정 재검토 필요 · 현재 판단에 미반영'
+                    : applies
                       ? '현재 코스 판단에 반영'
                       : '현재 코스 판단에 미반영'}
-                  </p>
-                  <details className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-                    <summary className="cursor-pointer">관측 근거 보기</summary>
-                    <p>
-                      범위: {src?.scope || '구룡포'} · {source.id}
-                    </p>
-                    <p>관측: {at(src?.observedAt)}</p>
-                    <p>조회: {at(src?.fetchedAt)}</p>
-                    <p>
-                      {src?.note ??
-                        (demo
-                          ? '발표를 위한 가상 조건입니다.'
-                          : '실제 API 응답 확인 후 표시합니다.')}
-                    </p>
-                    <a
-                      href={String(source.meta.docs)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="underline"
-                    >
-                      E-UM 제공 정보
-                    </a>
-                  </details>
-                </div>
-              )
-            })}
-        </div>
-        {view.itinerary.course === 'guryongpo' &&
-          (usableReading(obs, 'uvIndex') ?? 0) >= 6 && (
-            <p className="text-xs">
-              자외선이 높은 조건이에요. 그늘에서 쉬거나 실내 장소를 먼저
-              살펴보세요.
-            </p>
-          )}
-        <p className="text-xs text-muted-foreground">
-          대회는 {config.event.date} 오전 일정 재현입니다.{' '}
-          {hasDemo
-            ? '시연 조건은 발표용 가상값이며, 실응답 표시가 있는 값만 실제 E-UM 관측입니다. '
-            : 'E-UM은 실제 조회 시점의 관측입니다. '}
-          구룡포 관측은 포항 전역의 상태를 의미하지 않습니다.{' '}
-          이동시간·여유시간은 앱의 시연 정책입니다.
+                </p>
+                <p>
+                  관측 {at(src?.observedAt)} · 조회 {at(src?.fetchedAt)}
+                </p>
+                <p>{src?.note}</p>
+                <a
+                  href={String(source.meta.docs)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline"
+                >
+                  제공 정보
+                </a>
+              </div>
+            )
+          })}
+        <p>
+          구룡포 관측은 포항 전역의 상태를 의미하지 않아요. 이동시간은 시연
+          추정이에요.
         </p>
-      </CardContent>
-    </Card>
+      </div>
+    </details>
   )
 }
 
@@ -194,7 +152,6 @@ export const TransportCard = ({
   return (
     <Card>
       <CardHeader>
-        <CardDescription>컨디션과 귀가시간을 함께 고려했어요</CardDescription>
         <CardTitle>{rec.title}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">

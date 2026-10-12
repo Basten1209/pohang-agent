@@ -1,3 +1,4 @@
+import { chatLinkSafety, chatUrlTransform } from './external-link'
 import { useChat } from '@ai-sdk/react'
 import {
   DefaultChatTransport,
@@ -7,7 +8,7 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { Camera } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { visitedPlaces } from '#/core/community'
+import { photoEligiblePlaces } from '#/core/community'
 import {
   Conversation,
   ConversationContent,
@@ -25,7 +26,7 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
 } from '@/components/ai-elements/prompt-input'
-import { Shimmer } from '@/components/ai-elements/shimmer'
+import { progressLabels } from '#/core/agent-progress'
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion'
 import { Gull, GullPose } from '#/brand/brand'
 import type { PlanProgress } from '#/server/agent/harness'
@@ -87,9 +88,10 @@ export const useAgent = ({
     () =>
       new DefaultChatTransport<AgentUIMessage>({
         api: '/api/chat',
-        prepareSendMessagesRequest: ({ id, messages }) => ({
-          body: { tripId: id, message: messages.at(-1) },
-        }),
+        prepareSendMessagesRequest: ({ id, messages }) => {
+          setProgress(null)
+          return { body: { tripId: id, message: messages.at(-1) } }
+        },
       }),
     [],
   )
@@ -215,8 +217,8 @@ export const ChatPanel = ({
       <Conversation className="min-h-0 flex-1">
         <ConversationContent className="mx-auto w-full max-w-2xl">
           {messages.length === 0 && !agent.busy && (
-            <div className="mascot-panel flex items-center gap-3 rounded-2xl p-4">
-              <GullPose pose="wave" className="w-24" decorative />
+            <div className="mascot-panel mascot-message gap-3 rounded-2xl p-4">
+              <GullPose pose="wave" className="w-full" decorative />
               <div className="min-w-0">
                 <p className="font-semibold text-[#102a43]">
                   달리기부터 여행까지, 함께할게요
@@ -229,7 +231,7 @@ export const ChatPanel = ({
           )}
           {messages.map((m) => (
             <Message from={m.role} key={m.id}>
-              <MessageContent className="w-full max-w-full">
+              <MessageContent className="w-full max-w-full overflow-visible">
                 {m.role === 'assistant' && (
                   <div className="mb-2 flex items-center gap-2 text-xs font-medium text-primary">
                     <Gull className="size-7" />
@@ -239,7 +241,17 @@ export const ChatPanel = ({
                 {m.parts.map((p, i) => {
                   const key = `${m.id}-${i}`
                   if (p.type === 'text')
-                    return <MessageResponse key={key}>{p.text}</MessageResponse>
+                    return (
+                      <MessageResponse
+                        key={key}
+                        className="chat-prose"
+                        linkSafety={chatLinkSafety}
+                        urlTransform={chatUrlTransform}
+                        isAnimating={m === last && status === 'streaming'}
+                      >
+                        {p.text}
+                      </MessageResponse>
+                    )
                   if (p.type === 'data-choices')
                     return (
                       <Choices
@@ -248,6 +260,17 @@ export const ChatPanel = ({
                         interactive={m === last && !agent.busy}
                       />
                     )
+                  if (
+                    p.type === 'tool-plan_course' &&
+                    m.parts
+                      .slice(i + 1)
+                      .some(
+                        (next) =>
+                          next.type === 'tool-plan_course' &&
+                          next.state === 'output-available',
+                      )
+                  )
+                    return null
                   if (isTool(p))
                     return (
                       <ToolCard
@@ -270,46 +293,19 @@ export const ChatPanel = ({
             <div
               role="status"
               aria-live="polite"
-              className="mascot-panel rounded-2xl border border-primary/10 p-4"
+              className="flex items-center gap-2 rounded-lg bg-secondary px-3 py-2 text-xs text-primary"
             >
-              <div className="flex items-center gap-3">
-                <GullPose
-                  pose="think"
-                  className="brand-pulse w-20"
-                  decorative
-                />
-                <div className="text-sm font-medium">
-                  {agent.progress ? (
-                    `${agent.progress.nickname}님을 위한 구룡포 여행코스를 짜는 중…`
-                  ) : (
-                    <Shimmer>답변을 준비하고 있어요…</Shimmer>
-                  )}
-                </div>
-              </div>
-              {agent.progress && (
-                <div className="mt-3 flex flex-col gap-2 text-xs text-muted-foreground">
-                  <p className="font-medium text-primary">
-                    {
-                      {
-                        OBSERVE: '교통·대기·자외선 관측을 확인하고 있어요',
-                        PLAN: '컨디션과 귀가시간에 맞춰 코스를 계산하고 있어요',
-                        EXPLAIN: '추천 이유와 코스를 정리하고 있어요',
-                      }[agent.progress.phase]
-                    }
-                  </p>
-                  {agent.progress.checks?.map((check) => (
-                    <p key={check.label}>
-                      {check.ok ? '✓ 관측 확인' : '— 최신 관측 확인 불가'} ·{' '}
-                      {check.label}
-                    </p>
-                  ))}
-                </div>
-              )}
+              <span className="size-2 shrink-0 animate-pulse rounded-full bg-primary" />
+              {agent.progress
+                ? progressLabels[agent.progress.phase]
+                : '요청을 확인하고 있어요…'}
             </div>
           )}
           {error && (
             <p role="alert" className="text-sm text-destructive">
-              연결이 끊겼어요.{' '}
+              {error.message?.includes('길이 제한')
+                ? '답변이 길이 제한으로 중단됐어요.'
+                : '답변을 끝까지 받지 못했어요.'}{' '}
               <button
                 className="underline"
                 onClick={() => agent.chat.regenerate()}
@@ -354,7 +350,7 @@ export const ChatPanel = ({
                 disabled={
                   agent.busy ||
                   view.stage === 'SAFETY' ||
-                  !visitedPlaces(config, view.state).length
+                  !photoEligiblePlaces(config, view.state).length
                 }
                 onClick={() => send('여행 사진을 커뮤니티에 올릴래요')}
               >

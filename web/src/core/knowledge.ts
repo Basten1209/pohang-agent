@@ -1,4 +1,5 @@
 import { activeCourses, placesOf } from './route'
+import { courseVenues } from './venues'
 import type { TripConfig } from './schema'
 
 /**
@@ -16,6 +17,7 @@ export type KnowledgeDoc = {
   /** Extra words that should match but need not be shown. */
   keywords: string
   ref?: string
+  source?: { title: string; url: string; checkedAt: string }
 }
 
 export const knowledgeOf = (config: TripConfig): KnowledgeDoc[] => {
@@ -116,7 +118,18 @@ export const knowledgeOf = (config: TripConfig): KnowledgeDoc[] => {
     text: g.body,
     keywords: `${g.topic} ${g.tags.join(' ')}`,
   }))
-  return [...race, ...courses, ...places, ...modes, ...guide]
+  const venues: KnowledgeDoc[] = activeCourses(config).flatMap((c) =>
+    courseVenues(config, c.id).map((v) => ({
+      id: `venue-${v.id}`,
+      kind: 'guide',
+      ref: c.id,
+      title: `${c.area} ${v.name}`,
+      text: `${v.highlight}. ${v.description} 주소: ${v.address}. ${v.tenTaste ? `포항 10미: ${v.tenTaste}. ` : ''}${v.detour ? '현재 일정과 별도 이동 필요. ' : ''}${v.note ?? ''} 방문 전 운영 확인 필요.`,
+      keywords: `${c.area} ${v.kind === 'food' ? '맛집 음식 식당 먹거리' : v.kind === 'cafe' ? '카페 커피 휴식' : '관광 볼거리 명소 거리'} ${v.highlight}`,
+      source: v.source,
+    })),
+  )
+  return [...race, ...courses, ...places, ...modes, ...guide, ...venues]
 }
 
 /** Common endings stripped so "구룡포는", "물회를" match "구룡포", "물회". */

@@ -44,7 +44,10 @@ export const asksInfo = (message: string) =>
 
 /** Questions and comparisons never change the plan. */
 export const isReadOnly = (message: string) =>
-  contextPattern.test(message) || comparePattern.test(message)
+  (contextPattern.test(message) || comparePattern.test(message)) &&
+  !/바꿔|변경해|추천해|짜\s*줘|만들어|제안해|타고\s*갈|타고\s*싶|택시로\s*갈|버스로\s*갈/.test(
+    message,
+  )
 
 const emptyChanges: Changes = {
   departTime: null,

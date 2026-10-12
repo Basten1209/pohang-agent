@@ -3,6 +3,9 @@ import type { TripConfig } from '#/core/schema'
 import type { ConfigIssue } from '#/core/config'
 import { getDb } from './db/client'
 import { readConfig, seed } from './db/repo'
+import { applyDemoQaData } from './db/demo-qa'
+import { refreshVenueCatalog } from './db/refresh-venues'
+import { applyVenueCatalog } from './db/venue-catalog'
 
 /**
  * Runtime configuration = seed ⊕ database documents ⊕ environment.
@@ -52,6 +55,9 @@ const load = async (): Promise<LoadedConfig> => {
   try {
     const db = await getDb()
     await seed(db, seedConfig)
+    await applyDemoQaData(db)
+    await applyVenueCatalog(db)
+    await refreshVenueCatalog(db)
     const { config, issues } = await readConfig(db, seedConfig)
     return { config: withEnv(config), issues, storage }
   } catch (error) {

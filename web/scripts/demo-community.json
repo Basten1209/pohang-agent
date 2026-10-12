@@ -1,0 +1,122 @@
+[
+  {
+    "key": "finish-1",
+    "kind": "FINISH",
+    "course": "guryongpo",
+    "placeId": null,
+    "placeName": null,
+    "author": "파란운동화",
+    "caption": "결승선을 지나니 바다가 더 반갑네요. 오늘의 메달과 함께 구룡포로!",
+    "image": "/images/demo/community-finish-1.webp"
+  },
+  {
+    "key": "finish-2",
+    "kind": "FINISH",
+    "course": "homigot",
+    "placeId": null,
+    "placeName": null,
+    "author": "같이달린셋",
+    "caption": "함께 달리고 함께 웃은 아침. 완주 다음 목적지는 호미곶이에요.",
+    "image": "/images/demo/community-finish-2.webp"
+  },
+  {
+    "key": "finish-3",
+    "kind": "FINISH",
+    "course": "guryongpo",
+    "placeId": null,
+    "placeName": null,
+    "author": "한걸음씩",
+    "caption": "신발엔 모래가, 손에는 메달이. 오늘 오래 기억할 한 장.",
+    "image": "/images/demo/community-finish-3.webp"
+  },
+  {
+    "key": "food-1",
+    "kind": "VISIT",
+    "course": "guryongpo",
+    "placeId": "food",
+    "placeName": "구룡포 시장 일대",
+    "author": "물회한그릇",
+    "caption": "시원한 물회로 채운 한 끼. 걷기 전에 잠깐 앉아 쉬었어요.",
+    "image": "/images/demo/community-food-1.webp"
+  },
+  {
+    "key": "food-2",
+    "kind": "VISIT",
+    "course": "guryongpo",
+    "placeId": "food",
+    "placeName": "구룡포 시장 일대",
+    "author": "바다의식탁",
+    "caption": "과메기에 채소와 김을 곁들여 한 상. 구룡포에서 남긴 맛있는 기억.",
+    "image": "/images/demo/community-food-2.webp"
+  },
+  {
+    "key": "food-3",
+    "kind": "VISIT",
+    "course": "homigot",
+    "placeId": "hm-food",
+    "placeName": "호미곶 식당가",
+    "author": "느긋한점심",
+    "caption": "따뜻한 국물과 든든한 한 끼. 바닷바람을 쐬고 쉬어가는 시간.",
+    "image": "/images/demo/community-food-3.webp"
+  },
+  {
+    "key": "gp-1",
+    "kind": "VISIT",
+    "course": "guryongpo",
+    "placeId": "street",
+    "placeName": "구룡포 항구·가옥거리",
+    "author": "항구산책",
+    "caption": "물결에 비친 배를 한참 바라봤어요. 서두르지 않으니 보이는 풍경.",
+    "image": "/images/demo/community-gp-1.webp"
+  },
+  {
+    "key": "gp-2",
+    "kind": "VISIT",
+    "course": "guryongpo",
+    "placeId": "street",
+    "placeName": "일본인 가옥거리",
+    "author": "골목기록",
+    "caption": "카메라를 들고 골목 한 바퀴. 오래된 목조 건물 사이로 빛이 들었어요.",
+    "image": "/images/demo/community-gp-2.webp"
+  },
+  {
+    "key": "gp-3",
+    "kind": "VISIT",
+    "course": "guryongpo",
+    "placeId": "cafe",
+    "placeName": "골목 카페에서 휴식",
+    "author": "커피와바다",
+    "caption": "창가 자리에서 커피 한 잔. 항구를 바라보며 다리를 쉬어갑니다.",
+    "image": "/images/demo/community-gp-3.webp"
+  },
+  {
+    "key": "hm-1",
+    "kind": "VISIT",
+    "course": "homigot",
+    "placeId": "hm-hand",
+    "placeName": "상생의 손",
+    "author": "동쪽의아침",
+    "caption": "바다 위로 번지는 아침빛. 호미곶에서 만나고 싶은 풍경을 담았어요.",
+    "image": "/images/demo/community-hm-1.webp"
+  },
+  {
+    "key": "hm-2",
+    "kind": "VISIT",
+    "course": "homigot",
+    "placeId": "hm-hand",
+    "placeName": "상생의 손",
+    "author": "둘이걷는길",
+    "caption": "넓은 광장을 천천히 걸었어요. 바람도 풍경도 함께 나누니 좋네요.",
+    "image": "/images/demo/community-hm-2.webp"
+  },
+  {
+    "key": "hm-3",
+    "kind": "VISIT",
+    "course": "homigot",
+    "placeId": "hm-museum",
+    "placeName": "국립등대박물관",
+    "author": "등대수집가",
+    "caption": "푸른 하늘 아래 하얀 등대. 여행 끝에 남겨두고 싶은 장면이에요.",
+    "image": "/images/demo/community-hm-3.webp"
+  }
+]

@@ -69,7 +69,7 @@ export const Choice = ({
   title: string
   description?: string
 }) => (
-  <FieldLabel htmlFor={id}>
+  <FieldLabel htmlFor={id} className="choice-card">
     <Field orientation="horizontal">
       <FieldContent>
         <FieldTitle>{title}</FieldTitle>

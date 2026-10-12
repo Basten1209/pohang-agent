@@ -1,4 +1,4 @@
-import { visitedPlaces } from './community'
+import { photoEligiblePlaces } from './community'
 import type { TripConfig } from './schema'
 import type { TripState } from './trip'
 
@@ -29,7 +29,14 @@ export const visitPhotoOffer = (
       placeIds: [],
       selectedId: null,
     }
-  const places = visitedPlaces(config, state)
+  const places = photoEligiblePlaces(config, state)
+  if (['OUTBOUND', 'RETURN'].includes(state.plan.stage))
+    return {
+      message:
+        '이동을 마친 뒤 사진을 남겨요. 도착하면 방문한 장소의 사진을 공유할 수 있어요.',
+      placeIds: [],
+      selectedId: null,
+    }
   const placeIds = places.map((p) => p.id)
   const compact = (s: string) => s.replace(/\s/g, '').toLowerCase()
   const query = compact(request)
@@ -47,14 +54,14 @@ export const visitPhotoOffer = (
   })
   if (named.length === 1 && !placeIds.includes(named[0].id))
     return {
-      message: `${named[0].attrs.short}의 방문 완료가 아직 기록되지 않았어요. 관광 탭에서 방문 완료를 확인한 뒤 사진을 올려 주세요.`,
+      message: `${named[0].attrs.short}은 아직 방문할 차례가 아니에요. 현재 관광 중인 장소나 방문 완료한 장소의 사진을 올려 주세요.`,
       placeIds: [],
       selectedId: null,
     }
   if (!places.length)
     return {
       message:
-        '관광 탭에서 장소를 둘러본 뒤 방문 완료를 눌러 주세요. 그다음 이 대화에서 사진을 선택해 커뮤니티에 남길 수 있어요.',
+        '관광지에 도착하면 현재 장소의 사진을 올릴 수 있어요. 방문 완료한 장소의 사진도 이 대화에서 공유할 수 있어요.',
       placeIds,
       selectedId: null,
     }
@@ -66,8 +73,8 @@ export const visitPhotoOffer = (
         : undefined
   return {
     message: selected
-      ? `방문 완료한 ${selected.attrs.short}의 사진인가요? 장소와 사진, 한마디를 확인한 뒤 공유해 주세요.`
-      : '어디에서 찍은 사진인가요? 방문한 장소를 고르고 사진과 한마디를 남겨 주세요.',
+      ? `${selected.attrs.short}의 사진인가요? 장소와 사진, 한마디를 확인한 뒤 공유해 주세요.`
+      : '어디에서 찍은 사진인가요? 현재 관광 중이거나 방문한 장소를 고르고 사진과 한마디를 남겨 주세요.',
     placeIds,
     selectedId: selected?.id ?? null,
   }

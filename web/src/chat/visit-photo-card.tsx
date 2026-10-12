@@ -1,7 +1,7 @@
 import { Camera } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { visitedPlaces } from '#/core/community'
+import { photoEligiblePlaces } from '#/core/community'
 import { PhotoComposer } from '#/home/finish'
 import type { PartOf } from './context'
 import { useChatContext } from './context'
@@ -22,7 +22,7 @@ export function VisitPhotoCard({
   const [closed, setClosed] = useState(false)
   if (part.state !== 'output-available') return null
   const offer = part.output
-  const places = visitedPlaces(config, view.state).filter((p) =>
+  const places = photoEligiblePlaces(config, view.state).filter((p) =>
     offer.placeIds.includes(p.id),
   )
   const place = places.find(

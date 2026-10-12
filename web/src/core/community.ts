@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { placeIdSchema, type TripConfig } from './schema'
 import type { TripState } from './trip'
+import { planner, canTravel } from './planner'
 
 export const communityPostSchema = z
   .object({
@@ -50,6 +51,37 @@ export const visitedPlaces = (config: TripConfig, state: TripState) =>
           ? [place]
           : []
       })
+
+/** Current stop is eligible only after arrival in the course area. Sharing never advances it. */
+export const photoEligiblePlaces = (config: TripConfig, state: TripState) => {
+  if (
+    !state.created ||
+    state.phase < 3 ||
+    state.plan.condition === 'UNWELL' ||
+    ['OUTBOUND', 'RETURN'].includes(state.plan.stage)
+  )
+    return []
+  const visited = visitedPlaces(config, state)
+  if (state.plan.stage !== 'LOCAL' || !config.courses.some((c) => c.active))
+    return visited
+  const itinerary = planner(config)(state.plan, state.observations)
+  if (!canTravel(itinerary)) return visited
+  const current = config.places.find(
+    (p) =>
+      p.id === itinerary.stops[0]?.id &&
+      p.active &&
+      ['guryongpo', 'homigot'].includes(p.attrs.course),
+  )
+  return current && !visited.some((p) => p.id === current.id)
+    ? [...visited, current]
+    : visited
+}
+
+export const captionInputSchema = communityPostSchema.pick({
+  tripId: true,
+  placeId: true,
+  photo: true,
+})
 
 /** A nudge after visiting, never while unwell, rushing home or moving. */
 export const photoOpportunity = (

@@ -1,4 +1,5 @@
 import type { Rule } from './fp'
+import { evaluateAgentPlan } from './agent-plan'
 import { decideWith, indexBy, sum } from './fp'
 import { activeCourses, courseById, hubOf, isHub } from './route'
 import type {
@@ -26,7 +27,9 @@ import type { TravelLeg, TravelMode } from './mobility'
 export type { TravelLeg } from './mobility'
 
 /**
- * The decision engine: `planner(config)(plan, observations) → Itinerary`.
+ * Saved AI selections are validated and calculated without reselecting their stops.
+ * With no saved selection, the explicit demo/fallback rule engine is used.
+ * `planner(config)(plan, observations) → Itinerary`.
  *
  * Pure and deterministic. For one course it is a short list of rules tried
  * in priority order (medical first, then completeness, then routes, then the
@@ -50,6 +53,9 @@ export type Decision =
 export type Stop = { id: PlaceId; start: number; end: number; dwell: number }
 
 export type Itinerary = {
+  planningSource?: 'OPENAI' | 'RULES'
+  needsReview?: boolean
+  validationErrors?: string[]
   decision: Decision
   calculationStatus: 'READY' | 'PARTIAL' | 'NOT_RUN' | 'NEEDS_DATA'
   executionMode: 'DEMO'
@@ -612,6 +618,17 @@ const chooseAuto = (config: TripConfig, all: Itinerary[]): Itinerary => {
 export const planner =
   (config: TripConfig) =>
   (plan: Plan, obs: Observations): Itinerary => {
+    if (plan.agentPlan) {
+      const course =
+        courseById(config, plan.agentPlan.proposal.course) ??
+        activeCourses(config)[0]
+      return evaluateAgentPlan(
+        config,
+        plan,
+        obs,
+        contextOf(config, plan, obs, course).base,
+      )
+    }
     const all = planEveryCourse(config, plan, obs)
     const fixed =
       plan.course === AUTO_COURSE ? undefined : courseById(config, plan.course)
@@ -620,6 +637,7 @@ export const planner =
       chooseAuto(config, all)
     return {
       ...pick,
+      planningSource: 'RULES',
       alternatives: all
         .filter((i) => i.course !== pick.course && canTravel(i))
         .slice(0, 3)

@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { Ellipsis, Flag, House, Map as MapIcon, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
@@ -23,7 +23,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  NavigationMenu,
+  NavigationMenuList,
+  NavigationMenuItem,
+  NavigationMenuLink,
+} from '@/components/ui/navigation-menu'
 import { Gull, GullPose, AssetCredits } from '#/brand/brand'
 import { newTripId, postEvents } from '#/app/trip-client'
 import { toast } from 'sonner'
@@ -41,6 +46,7 @@ import { CommunityTab } from './community'
 import { FinishSheet } from './finish'
 import { HomeTab } from './home-tab'
 import { ProfileForm } from './profile'
+import { DisplaySettings } from '#/app/display-settings'
 import { InstallApp } from './install'
 import { TourTab } from './tour-tab'
 
@@ -107,7 +113,12 @@ export const Shell = ({
 }) => {
   const agent = useAgent({ config, tripId, initial })
   const { view } = agent
-  const [tab, setTab] = useState<Tab>('home')
+  const { tab } = useSearch({ from: '/' })
+  const navigate = useNavigate({ from: '/' })
+  const setTab = (next: Tab) => {
+    void navigate({ search: { tab: next } })
+    window.scrollTo({ top: 0 })
+  }
   const [chatOpen, setChatOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [finishOpen, setFinishOpen] = useState(false)
@@ -215,6 +226,9 @@ export const Shell = ({
   if (!view.state.created)
     return (
       <div className="mx-auto flex min-h-dvh max-w-lg flex-col gap-6 px-5 py-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-safe">
+        <div className="flex justify-end">
+          <DisplaySettings />
+        </div>
         <ProfileForm
           onboarding
           config={config}
@@ -239,176 +253,183 @@ export const Shell = ({
         setTab('community')
       }}
     >
-      <Tabs
-        value={tab}
-        onValueChange={(v) => {
-          setTab(v as Tab)
-          window.scrollTo({ top: 0 })
-        }}
-        className="min-h-dvh gap-0"
-      >
+      <div className="min-h-dvh">
         <header className="sticky top-0 z-30 border-b bg-background pt-safe">
-          <div className="mx-auto flex h-14 max-w-2xl items-center gap-2 px-4">
+          <div className="mx-auto flex min-h-14 max-w-2xl items-center gap-1 px-3 py-1 sm:gap-2 sm:px-4">
             <Gull className="size-8" />
             <span className="whitespace-nowrap font-bold tracking-tight text-[#102a43]">
               RUN2구룡포
             </span>
-            <Badge variant="secondary">{stageLabel[view.stage]}</Badge>
+            <Badge variant="secondary">
+              {view.state.plan.stage === 'LOCAL'
+                ? '관광 중'
+                : stageLabel[view.stage]}
+            </Badge>
             {showTools && agent.mode && (
               <Badge variant="outline">{modeLabel[agent.mode]}</Badge>
             )}
             <div className="ml-auto hidden sm:block">
               <InstallApp compact />
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="ml-auto shrink-0 sm:ml-0"
-                  aria-label="메뉴"
-                >
-                  <Ellipsis />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuGroup>
-                  <DropdownMenuItem onSelect={() => setProfileOpen(true)}>
-                    내 일정 수정
-                  </DropdownMenuItem>
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger disabled={agent.busy}>
-                      시연 조건
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent>
-                      <DropdownMenuLabel>
-                        에이전트에게 /시연 명령을 보내요
-                      </DropdownMenuLabel>
-                      {config.scenarios.map((s) => (
-                        <DropdownMenuItem
-                          key={s.id}
-                          onSelect={() => ask(`/시연 ${s.title}`)}
-                        >
-                          {s.title}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                  <DropdownMenuCheckboxItem
-                    checked={showTools}
-                    onCheckedChange={(on) => {
-                      setShowTools(on)
-                      try {
-                        localStorage.setItem(TOOLS_KEY, on ? '1' : '0')
-                      } catch {
-                        // Private mode: the toggle still works for this visit.
-                      }
+            <div className="ml-auto flex shrink-0 items-center sm:ml-0">
+              <DisplaySettings />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="shrink-0"
+                    aria-label="메뉴"
+                  >
+                    <Ellipsis />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem onSelect={() => setProfileOpen(true)}>
+                      내 일정 수정
+                    </DropdownMenuItem>
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger disabled={agent.busy}>
+                        시연 조건
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        <DropdownMenuLabel>
+                          에이전트에게 /시연 명령을 보내요
+                        </DropdownMenuLabel>
+                        {config.scenarios.map((s) => (
+                          <DropdownMenuItem
+                            key={s.id}
+                            onSelect={() => ask(`/시연 ${s.title}`)}
+                          >
+                            {s.title}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                    <DropdownMenuCheckboxItem
+                      checked={showTools}
+                      onCheckedChange={(on) => {
+                        setShowTools(on)
+                        try {
+                          localStorage.setItem(TOOLS_KEY, on ? '1' : '0')
+                        } catch {
+                          // Private mode: the toggle still works for this visit.
+                        }
+                      }}
+                    >
+                      발표 모드 (도구 호출 보기)
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/classic">화면으로 보기</Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      newTripId()
+                      window.location.reload()
                     }}
                   >
-                    발표 모드 (도구 호출 보기)
-                  </DropdownMenuCheckboxItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/classic">화면으로 보기</Link>
+                    새 여정 시작
                   </DropdownMenuItem>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onSelect={() => {
-                    newTripId()
-                    window.location.reload()
-                  }}
-                >
-                  새 여정 시작
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
           <div className="mx-auto max-w-2xl px-4 pb-2">
-            <TabsList className="h-11 w-full">
-              <TabsTrigger value="home">
-                <House />홈
-              </TabsTrigger>
-              <TabsTrigger value="race">
-                <Flag />
-                레이스
-              </TabsTrigger>
-              <TabsTrigger value="tour">
-                <MapIcon />
-                관광
-              </TabsTrigger>
-              <TabsTrigger value="community">
-                <Users />
-                커뮤니티
-              </TabsTrigger>
-            </TabsList>
+            <NavigationMenu aria-label="주 메뉴">
+              <NavigationMenuList>
+                {(
+                  [
+                    { id: 'home', label: '홈', Icon: House },
+                    { id: 'race', label: '레이스', Icon: Flag },
+                    { id: 'tour', label: '관광', Icon: MapIcon },
+                    { id: 'community', label: '커뮤니티', Icon: Users },
+                  ] as const
+                ).map(({ id, label, Icon }) => (
+                  <NavigationMenuItem key={id} className="min-w-0 flex-1">
+                    <NavigationMenuLink
+                      active={tab === id}
+                      render={<Link to="/" search={{ tab: id }} />}
+                    >
+                      <Icon aria-hidden />
+                      {label}
+                    </NavigationMenuLink>
+                  </NavigationMenuItem>
+                ))}
+              </NavigationMenuList>
+            </NavigationMenu>
           </div>
         </header>
 
-        <TabsContent value="home" className="pb-24">
-          <HomeTab
-            config={config}
-            view={view}
-            onEditProfile={() => setProfileOpen(true)}
-            onRace={() => {
-              setTab('race')
-              window.scrollTo({ top: 0 })
-            }}
-          />
-        </TabsContent>
+        {tab === 'home' && (
+          <main className="pb-24" aria-label="home">
+            <HomeTab
+              config={config}
+              view={view}
+              onEditProfile={() => setProfileOpen(true)}
+              onRace={() => {
+                setTab('race')
+                window.scrollTo({ top: 0 })
+              }}
+            />
+          </main>
+        )}
         {/* Kept mounted so the race clock keeps running on other tabs. */}
-        <TabsContent
-          value="race"
-          forceMount
-          className="pb-24 data-[state=inactive]:hidden"
-        >
+        <main hidden={tab !== 'race'} className="pb-24" aria-label="레이스">
           <RaceLive
             tripId={tripId}
             finished={view.state.phase >= 3}
             onFinish={() => setFinishOpen(true)}
           />
-        </TabsContent>
-        <TabsContent value="tour" className="pb-24">
-          <TourTab
-            config={config}
-            view={view}
-            active={tab === 'tour'}
-            refresh={refresh}
-            ask={ask}
-            photoPrompt={photoPrompt}
-            onPhoto={showPhoto}
-            onAdvance={() => void advance()}
-            busy={agent.busy || updating}
-            selectLegTransport={async (id, mode) => {
-              const transportOverrides = {
-                ...view.state.plan.transportOverrides,
-              }
-              if (mode === 'AUTO') delete transportOverrides[id]
-              else transportOverrides[id] = mode
-              const { trip } = await postEvents(tripId, [
-                { type: 'plan.patched', patch: { transportOverrides } },
-              ])
-              agent.setView(trip)
-            }}
-            selectTransport={async (mode) => {
-              const { trip } = await postEvents(tripId, [
-                {
-                  type: 'plan.patched',
-                  patch: { localTransport: mode, transportOverrides: {} },
-                },
-              ])
-              agent.setView(trip)
-            }}
-          />
-        </TabsContent>
-        <TabsContent value="community" className="pb-24">
-          <CommunityTab
-            config={config}
-            revision={communityRevision}
-            onFinish={() => setFinishOpen(true)}
-            onPhoto={() => ask('여행 사진을 커뮤니티에 올릴래요')}
-          />
-        </TabsContent>
-      </Tabs>
+        </main>
+        {tab === 'tour' && (
+          <main className="pb-24" aria-label="tour">
+            <TourTab
+              config={config}
+              view={view}
+              active={tab === 'tour'}
+              refresh={refresh}
+              ask={ask}
+              photoPrompt={photoPrompt}
+              onPhoto={showPhoto}
+              onAdvance={() => void advance()}
+              busy={agent.busy || updating}
+              selectLegTransport={async (id, mode) => {
+                const transportOverrides = {
+                  ...view.state.plan.transportOverrides,
+                }
+                if (mode === 'AUTO') delete transportOverrides[id]
+                else transportOverrides[id] = mode
+                const { trip } = await postEvents(tripId, [
+                  { type: 'plan.patched', patch: { transportOverrides } },
+                ])
+                agent.setView(trip)
+              }}
+              selectTransport={async (mode) => {
+                const { trip } = await postEvents(tripId, [
+                  {
+                    type: 'plan.patched',
+                    patch: { localTransport: mode, transportOverrides: {} },
+                  },
+                ])
+                agent.setView(trip)
+              }}
+            />
+          </main>
+        )}
+        {tab === 'community' && (
+          <main className="pb-24" aria-label="community">
+            <CommunityTab
+              config={config}
+              revision={communityRevision}
+              onFinish={() => setFinishOpen(true)}
+              onPhoto={() => ask('여행 사진을 커뮤니티에 올릴래요')}
+            />
+          </main>
+        )}
+      </div>
 
       <Button
         size="icon-lg"
@@ -416,7 +437,7 @@ export const Shell = ({
         aria-label="에이전트에게 묻기"
         onClick={() => ask()}
       >
-        <GullPose className="w-16" decorative />
+        <GullPose className="w-14" decorative />
       </Button>
 
       <FinishSheet
@@ -429,7 +450,7 @@ export const Shell = ({
         onCommunity={() => setTab('community')}
         onContinue={() => {
           setTab('tour')
-          ask('완주 후 구룡포 여행을 준비할게요.')
+          ask('완주 후 여행을 준비할게요.')
         }}
       />
 

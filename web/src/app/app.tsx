@@ -51,7 +51,7 @@ const Header = () => {
         <span className="font-semibold">RUN2구룡포</span>
         <div className="ml-auto flex gap-1">
           <Button asChild size="sm" variant="ghost">
-            <Link to="/">
+            <Link to="/" search={{ tab: 'home' }}>
               <MessageCircle /> 채팅
             </Link>
           </Button>

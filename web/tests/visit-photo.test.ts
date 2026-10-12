@@ -36,9 +36,12 @@ describe('사진 요청과 장소 확인', () => {
     const s = state()
     expect(
       visitPhotoOffer(seedConfig, s, '가옥거리에서 찍은 사진 올릴래'),
-    ).toMatchObject({ selectedId: 'street', placeIds: ['street', 'cafe'] })
+    ).toMatchObject({
+      selectedId: 'street',
+      placeIds: ['street', 'cafe', 'food'],
+    })
     expect(visitPhotoOffer(seedConfig, s, '여기 사진 올릴래')).toMatchObject({
-      selectedId: 'cafe',
+      selectedId: 'food',
     })
     expect(visitPhotoOffer(seedConfig, s, '사진 공유할래')).toMatchObject({
       selectedId: null,
@@ -67,6 +70,10 @@ describe('사진 요청과 장소 확인', () => {
   })
   it('귀가 후에도 직접 요청으로 공유하지만 안전 단계에서는 카드를 열지 않는다', () => {
     const s = state()
+    for (const stage of ['OUTBOUND', 'RETURN'] as const) {
+      s.plan.stage = stage
+      expect(visitPhotoOffer(seedConfig, s, '사진 공유').placeIds).toEqual([])
+    }
     s.plan.stage = 'DONE'
     expect(visitPhotoOffer(seedConfig, s, '사진 공유').placeIds).toEqual([
       'street',

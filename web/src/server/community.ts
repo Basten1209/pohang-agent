@@ -1,7 +1,8 @@
 import { and, desc, eq } from 'drizzle-orm'
 import type { CommunityPost, CommunityPostInput } from '#/core/community'
-import { visitedPlaces } from '#/core/community'
+import { photoEligiblePlaces } from '#/core/community'
 import type { TripConfig } from '#/core/schema'
+import { visitDemoImages } from '#/core/demo-images'
 import { tripStateSchema } from '#/core/trip'
 import type { Db } from './db/client'
 import { communityPosts, communityVisitPosts, trips } from './db/schema'
@@ -12,22 +13,26 @@ const publicFields = {
   author: communityPosts.author,
   caption: communityPosts.caption,
   photoKind: communityPosts.photoKind,
+  demoImage: communityPosts.demoImage,
   createdAt: communityPosts.createdAt,
 }
 const asPost = (
   row: Omit<typeof communityPosts.$inferSelect, 'tripId' | 'imageData'>,
-): CommunityPost => ({
-  ...row,
-  kind: 'FINISH',
-  placeId: null,
-  placeName: null,
-  photoKind: row.photoKind === 'DEMO' ? 'DEMO' : 'UPLOAD',
-  image:
-    row.photoKind === 'DEMO'
-      ? '/images/finisher-demo.png'
-      : `/api/community/${row.id}/image`,
-  createdAt: row.createdAt.toISOString(),
-})
+): CommunityPost => {
+  const { demoImage, ...post } = row
+  return {
+    ...post,
+    kind: 'FINISH',
+    placeId: null,
+    placeName: null,
+    photoKind: row.photoKind === 'DEMO' ? 'DEMO' : 'UPLOAD',
+    image:
+      row.photoKind === 'DEMO'
+        ? demoImage || '/images/finisher-demo.png'
+        : `/api/community/${row.id}/image`,
+    createdAt: row.createdAt.toISOString(),
+  }
+}
 
 const visitFields = {
   id: communityVisitPosts.id,
@@ -104,13 +109,13 @@ export const shareVisit = async (
     .where(eq(trips.id, input.tripId))
   const state = tripStateSchema.safeParse(trip?.state)
   if (!state.success) return null
-  const place = visitedPlaces(config, state.data).find(
+  const place = photoEligiblePlaces(config, state.data).find(
     (p) => p.id === input.placeId,
   )
   if (
     !place ||
     place.attrs.course !== input.course ||
-    (input.photo.kind === 'DEMO' && !place.attrs.image)
+    (input.photo.kind === 'DEMO' && !visitDemoImages[place.id])
   )
     return null
   const [row] = await db
@@ -125,7 +130,7 @@ export const shareVisit = async (
       caption: input.caption,
       photoKind: input.photo.kind,
       imageData: input.photo.kind === 'UPLOAD' ? input.photo.data : null,
-      demoImage: input.photo.kind === 'DEMO' ? place.attrs.image : null,
+      demoImage: input.photo.kind === 'DEMO' ? visitDemoImages[place.id] : null,
     })
     .onConflictDoNothing({
       target: [communityVisitPosts.tripId, communityVisitPosts.placeId],

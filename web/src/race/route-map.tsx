@@ -67,7 +67,7 @@ export const RaceRouteMap = ({ progress }: { progress: number }) => {
           interactive: false,
         }).addTo(map)
         const trail = L.polyline(latest.current.trail, {
-          color: '#007e88',
+          color: '#005cb9',
           weight: 6,
           opacity: 1,
           interactive: false,
@@ -81,6 +81,15 @@ export const RaceRouteMap = ({ progress }: { progress: number }) => {
         })
           .addTo(map)
           .bindTooltip('출발 · 도착', { permanent: true, direction: 'left' })
+        L.circleMarker(demoRoute[(demoRoute.length - 1) / 2], {
+          radius: 5,
+          color: '#005cb9',
+          fillColor: '#fff',
+          fillOpacity: 1,
+          weight: 2,
+        })
+          .addTo(map)
+          .bindTooltip('5km 반환점', { permanent: true, direction: 'right' })
         const marker = L.circleMarker(latest.current.position, {
           radius: 8,
           color: '#fff',
@@ -91,7 +100,17 @@ export const RaceRouteMap = ({ progress }: { progress: number }) => {
           .addTo(map)
           .bindTooltip('나의 시연 위치', { direction: 'right' })
         layers.current = { trail, marker }
-        resize = new ResizeObserver(() => map?.invalidateSize({ pan: false }))
+        resize = new ResizeObserver(([entry]) => {
+          // The race stays mounted behind navigation. A hidden container has
+          // zero dimensions, so its initial bounds must be fitted once visible.
+          if (!entry.contentRect.width || !entry.contentRect.height) return
+          map?.invalidateSize({ pan: false })
+          map?.fitBounds([...demoRoute], {
+            padding: [28, 32],
+            maxZoom: 14,
+            animate: false,
+          })
+        })
         resize.observe(container.current)
         setStatus('ready')
       })
@@ -130,7 +149,7 @@ export const RaceRouteMap = ({ progress }: { progress: number }) => {
       <div className="relative isolate overflow-hidden rounded-2xl border">
         <div
           ref={container}
-          className="race-map h-72 w-full bg-[#e8f0ef] sm:h-80"
+          className="race-map h-72 w-full bg-[#e7f0ff] sm:h-80"
           role="region"
           aria-label="영일대 주변 가상 GPS 이동 경로 지도"
         />
@@ -164,13 +183,14 @@ export const RaceRouteMap = ({ progress }: { progress: number }) => {
         </div>
       )}
       <p className="text-xs leading-relaxed text-muted-foreground">
-        <span className="font-medium text-[#007e88]">━ 이동한 경로</span>
+        <span className="font-medium text-[#005cb9]">━ 이동한 경로</span>
         {' · '}
         <span className="text-[#005cb9]">● 현재 위치</span>
         {' · '}가상 GPS 시연
       </p>
       <p className="text-xs leading-relaxed text-muted-foreground">
-        영일대 주변을 그린 시연 경로로, 실제 대회 코스와 달라요.
+        영일대에서 해안 도로·보행로를 따라 5km 반환하는 시연 경로예요. 실제 대회
+        코스와 달라요.
       </p>
     </div>
   )

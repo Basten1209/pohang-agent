@@ -11,6 +11,13 @@ import { Shell } from '#/home/shell'
 export const Route = createFileRoute('/')({
   // The device only knows its trip id (localStorage), so render on the client.
   ssr: false,
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { tab: 'home' | 'race' | 'tour' | 'community' } => ({
+    tab: ['home', 'race', 'tour', 'community'].includes(String(search.tab))
+      ? (search.tab as 'home' | 'race' | 'tour' | 'community')
+      : 'home',
+  }),
   loader: loadConfig,
   pendingComponent: Loading,
   component: Home,

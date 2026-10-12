@@ -58,8 +58,8 @@
   --popover-foreground: #102a43;
   --primary: #005cb9;
   --primary-foreground: #ffffff;
-  --secondary: #e0f4f5;
-  --secondary-foreground: #086573;
+  --secondary: #e7f0ff;
+  --secondary-foreground: #164c8c;
   --muted: #edf3f8;
   --muted-foreground: #526579;
   --accent: #dceefc;
@@ -154,20 +154,41 @@
 
 /* App-owned brand tokens; shadcn primitives remain reusable. */
 .gull-cutout {
+  position: relative;
   display: block;
+  aspect-ratio: 1;
+  min-width: 0;
   max-width: 100%;
   height: auto;
-  object-fit: contain;
   flex-shrink: 0;
+  overflow: visible;
+  line-height: 0;
+}
+.gull-cutout-image {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 3%;
+  object-fit: contain;
+  object-position: center;
+  border-radius: 0;
+}
+/* A bounded art column and a wrapping text column, even inside narrow sheets. */
+.mascot-message {
+  display: grid;
+  grid-template-columns: minmax(0, min(24vw, 7rem)) minmax(0, 1fr);
+  align-items: center;
 }
 .mascot-panel {
   background:
-    radial-gradient(ellipse at 95% 90%, #c9eef0 0, transparent 65%),
+    radial-gradient(ellipse at 95% 90%, #d7e8ff 0, transparent 65%),
     linear-gradient(120deg, #ffffff 20%, #edf7ff 100%);
 }
 .launch-sea {
   background:
-    radial-gradient(ellipse at 70% 95%, #c9eef0 0, transparent 55%), #fff;
+    radial-gradient(ellipse at 70% 95%, #d7e8ff 0, transparent 55%), #fff;
 }
 .brand-heading {
   color: #102a43;
@@ -197,5 +218,57 @@
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* App selection and conversation styles stay outside reusable primitives. */
+[data-slot='toggle-group-item'][data-state='on'] {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+[data-slot='toggle-group-item'][data-state='on']::before {
+  content: '✓';
+  font-size: 0.8em;
+}
+.choice-card:has([data-state='checked']) {
+  border-color: var(--primary);
+  background: var(--secondary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+.chat-prose {
+  height: auto;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.chat-prose > p + p,
+.chat-prose > ul,
+.chat-prose > ol {
+  margin-top: 0.85rem;
+}
+.chat-prose li + li {
+  margin-top: 0.35rem;
+}
+.chat-prose a {
+  word-break: break-all;
+}
+.chat-prose pre,
+.chat-prose table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Relative sizes respect both the saved preference and browser text settings. */
+html[data-font-size='large'] {
+  font-size: 112.5%;
+}
+html[data-font-size='largest'] {
+  font-size: 125%;
+}
+@media (max-width: 420px) {
+  html[data-font-size='largest'] [data-slot='navigation-menu'] a {
+    flex-direction: column;
+    white-space: normal;
+    text-align: center;
   }
 }

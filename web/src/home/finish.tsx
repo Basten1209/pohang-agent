@@ -11,6 +11,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { GullPose } from '#/brand/brand'
+import { visitDemoImages } from '#/core/demo-images'
 import type { Place } from '#/core/schema'
 import type { CommunityPost, CommunityPostInput } from '#/core/community'
 
@@ -96,7 +97,7 @@ export function FinishSheet({
   )
 }
 
-/** Shared by the finish sheet and the inline chat card. Images never enter chat/model messages. */
+/** Shared by the finish sheet and chat card. Caption images use a separate AI request. */
 export function PhotoComposer({
   tripId,
   course,
@@ -113,8 +114,82 @@ export function PhotoComposer({
   const [caption, setCaption] = useState(
     place
       ? `${place.attrs.short}에서 남긴 오늘의 한 장 📷`
-      : '마라톤 완주! 메달의 기쁨을 안고 구룡포 여행으로 떠나요 🏅',
+      : '마라톤 완주! 메달의 기쁨을 안고 포항 여행으로 떠나요 🏅',
   )
+  const [drafting, setDrafting] = useState(false)
+  const [draftError, setDraftError] = useState('')
+  const draftController = useRef<AbortController | null>(null)
+  const editVersion = useRef(0)
+  const generation = useRef(0)
+  const demoImage = place
+    ? visitDemoImages[place.id]
+    : '/images/finisher-demo.png'
+  useEffect(
+    () => () => {
+      generation.current++
+      draftController.current?.abort()
+    },
+    [],
+  )
+  const draft = async (selected: CommunityPostInput['photo']) => {
+    draftController.current?.abort()
+    const controller = new AbortController()
+    draftController.current = controller
+    const sequence = ++generation.current
+    const version = editVersion.current
+    setDrafting(true)
+    setDraftError('')
+    try {
+      let photoForAI = selected
+      if (selected.kind === 'DEMO') {
+        const response = await fetch(demoImage, { signal: controller.signal })
+        if (!response.ok) throw new Error('image')
+        const blob = await response.blob()
+        photoForAI = {
+          kind: 'UPLOAD',
+          data: await preparePhoto(
+            new File([blob], 'sample.webp', { type: blob.type }),
+          ),
+        }
+      }
+      if (controller.signal.aborted) return
+      const response = await fetch('/api/community/caption', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.any([
+          controller.signal,
+          AbortSignal.timeout(25000),
+        ]),
+        body: JSON.stringify({
+          tripId,
+          ...(place && { placeId: place.id }),
+          photo: photoForAI,
+        }),
+      })
+      if (!response.ok) throw new Error('caption')
+      const result = (await response.json()) as { caption: string }
+      if (
+        typeof result.caption !== 'string' ||
+        !result.caption.trim() ||
+        result.caption.length > 300
+      )
+        throw new Error('caption')
+      if (sequence === generation.current && version === editVersion.current)
+        setCaption(result.caption)
+    } catch {
+      if (!controller.signal.aborted && sequence === generation.current)
+        setDraftError(
+          'AI 글을 만들지 못했어요. 다시 요청하거나 직접 작성해 주세요.',
+        )
+    } finally {
+      if (sequence === generation.current) setDrafting(false)
+    }
+  }
+  const choosePhoto = (selected: CommunityPostInput['photo']) => {
+    setPhoto(selected)
+    setError('')
+    void draft(selected)
+  }
   const [post, setPost] = useState<CommunityPost | null>(null)
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -188,21 +263,21 @@ export function PhotoComposer({
     })
   const travel = () =>
     run(async () => {
+      draftController.current?.abort()
+      generation.current++
+      setDrafting(false)
       await finish()
       onContinue()
     })
   const preview =
-    post?.image ??
-    (photo?.kind === 'DEMO'
-      ? place?.attrs.image || '/images/finisher-demo.png'
-      : photo?.data)
+    post?.image ?? (photo?.kind === 'DEMO' ? demoImage : photo?.data)
   return (
     <section
       aria-label={place ? `${place.attrs.short} 사진 공유` : '완주 사진 공유'}
       className="flex min-h-0 flex-col gap-4"
     >
-      <div className="mascot-panel flex items-center gap-3 rounded-2xl p-4">
-        <GullPose pose="cheer" className="w-24 sm:w-28" decorative />
+      <div className="mascot-panel mascot-message gap-3 rounded-2xl p-4">
+        <GullPose pose="cheer" className="w-full" decorative />
         <div className="min-w-0 space-y-2">
           <h3 className="text-xl font-bold">
             {place ? '여행의 한 장을 남겨요' : '완주 축하해요!'}
@@ -210,7 +285,7 @@ export function PhotoComposer({
           <p className="text-sm text-muted-foreground">
             {place
               ? `${place.attrs.short}에서의 순간을 커뮤니티에 나눠요.`
-              : '메달의 순간을 남기고, 구룡포에서 오늘의 기쁨을 이어가요.'}
+              : '메달의 순간을 남기고, 포항에서 오늘의 기쁨을 이어가요.'}
           </p>
         </div>
       </div>
@@ -230,7 +305,7 @@ export function PhotoComposer({
               (!post && photo?.kind === 'DEMO')) && (
               <Badge className="absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] whitespace-normal">
                 {place
-                  ? '장소 예시 사진 · 직접 촬영 아님'
+                  ? 'AI 생성 시연 사진 · 직접 촬영 아님'
                   : 'AI 생성 시연 사진'}
               </Badge>
             )}
@@ -264,7 +339,7 @@ export function PhotoComposer({
             )}
             <Button disabled={busy || loading} onClick={travel}>
               {continueLabel ??
-                (place ? '일정으로 돌아가기' : '구룡포 여행 준비하기')}
+                (place ? '일정으로 돌아가기' : '완주 후 여행 준비하기')}
             </Button>
           </>
         ) : (
@@ -281,13 +356,17 @@ export function PhotoComposer({
                 e.target.value = ''
                 if (file)
                   void run(async () =>
-                    setPhoto({
+                    choosePhoto({
                       kind: 'UPLOAD',
                       data: await preparePhoto(file),
                     }),
                   )
               }}
             />
+            <p className="text-xs text-muted-foreground">
+              사진을 선택하면 AI 소개글 작성을 위해 OpenAI로 전송돼요. 커뮤니티
+              공개는 ‘사진 공유하기’를 누른 뒤에만 이루어져요.
+            </p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <Button
                 variant="outline"
@@ -297,25 +376,45 @@ export function PhotoComposer({
                 <Upload />
                 사진 선택
               </Button>
-              {(!place || place.attrs.image) && (
+              {demoImage && (
                 <Button
                   variant="outline"
                   disabled={busy || loading}
                   onClick={() => {
-                    setPhoto({ kind: 'DEMO' })
+                    choosePhoto({ kind: 'DEMO' })
                     setError('')
                   }}
                 >
-                  {place ? '장소 예시 사진 사용' : '시연 사진 사용'}
+                  {place ? '샘플 사진 사용' : '시연 사진 사용'}
                 </Button>
               )}
             </div>
             <p className="text-xs text-muted-foreground">
               JPG·PNG·WebP, 최대 5MB ·{' '}
               {place
-                ? '예시 사진은 해당 장소의 소개 사진이며 직접 촬영한 방문 사진이 아니에요.'
+                ? '샘플은 AI로 만든 시연 이미지이며 직접 촬영한 방문 사진이 아니에요.'
                 : '시연 사진은 AI로 만든 가상 러너예요.'}
             </p>
+            {drafting && (
+              <p role="status" className="text-sm text-primary">
+                사진과 장소를 보고 글을 작성하고 있어요…
+              </p>
+            )}
+            {draftError && (
+              <p role="status" className="text-sm text-muted-foreground">
+                {draftError}
+              </p>
+            )}
+            {photo && (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={busy || drafting}
+                onClick={() => void draft(photo)}
+              >
+                AI로 글 다시 쓰기
+              </Button>
+            )}
             <label htmlFor={captionId} className="text-sm font-medium">
               {place ? '여행 한마디' : '완주 한마디'}
             </label>
@@ -325,7 +424,10 @@ export function PhotoComposer({
               maxLength={300}
               rows={2}
               disabled={busy || loading}
-              onChange={(e) => setCaption(e.target.value)}
+              onChange={(e) => {
+                editVersion.current++
+                setCaption(e.target.value)
+              }}
             />
             <p className="text-xs text-muted-foreground">
               공유하면 사진과 닉네임, {place ? '장소명, ' : ''}한마디가
@@ -335,10 +437,16 @@ export function PhotoComposer({
                 : '여정당 한 번 공유할 수 있어요.'}
             </p>
             <Button
-              disabled={busy || loading || !photo || !caption.trim()}
+              disabled={
+                busy || loading || drafting || !photo || !caption.trim()
+              }
               onClick={share}
             >
-              {busy || loading ? '처리 중…' : '사진 공유하기'}
+              {busy
+                ? '포항에서의 추억을 남기는 중...'
+                : loading
+                  ? '사진을 확인하는 중...'
+                  : '사진 공유하기'}
             </Button>
             <Button variant="ghost" disabled={busy || loading} onClick={travel}>
               {place ? '나중에 할게요' : '사진 없이 여행 준비하기'}

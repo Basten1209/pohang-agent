@@ -41,7 +41,7 @@ describe('방문 사진과 제안', () => {
   it('예정 장소를 방문한 것처럼 게시하거나 다른 권역으로 태그할 수 없다', async () => {
     const { id } = await visit(['food'])
     expect(
-      await shareVisit(db, seedConfig, { ...input(id), placeId: 'street' }),
+      await shareVisit(db, seedConfig, { ...input(id), placeId: 'hm-hand' }),
     ).toBeNull()
     const visited = await visit()
     expect(
@@ -82,7 +82,7 @@ describe('방문 사진과 제안', () => {
       kind: 'VISIT',
       placeId: 'street',
       placeName: '일본인 가옥거리',
-      image: '/images/guryongpo-street-2024.jpg',
+      image: '/images/demo/sample-street.webp',
     })
     expect(first).not.toHaveProperty('tripId')
     expect(first).not.toHaveProperty('imageData')

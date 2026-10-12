@@ -366,6 +366,15 @@ const decideFromResult = (
   const v = r.value ?? {}
   if (r.denied) return { text: '기존 계획을 그대로 둘게요.' }
   switch (r.toolName) {
+    case 'get_planning_context': {
+      const intent = interpret(lastUserText(prompt))
+      return {
+        call: {
+          name: 'plan_course',
+          input: { changes: intent.kind === 'CHANGE' ? intent.changes : null },
+        },
+      }
+    }
     case 'prepare_visit_photo':
       return { text: '사진 카드에서 장소와 공개 내용을 확인해 주세요.' }
     case 'plan_course':
@@ -541,6 +550,11 @@ const decideFromResult = (
       }
     }
     case 'find_nearby': {
+      const candidates = (v.officialCandidates as Json[] | undefined) ?? []
+      if (candidates.length)
+        return {
+          text: `관광 안내·지도 매장 정보에서 찾은 실제 방문 후보예요. 영업 여부는 방문 전에 확인해 주세요.\n${listed(candidates, (r) => `**${r.name}** · ${r.highlight}${r.detour ? ' · 별도 이동' : ''} [장소 정보](${(r.source as Json).url})`, 3)}`,
+        }
       if (v.status !== 'LIVE') {
         const fb = (v.fallback as Json[] | undefined) ?? []
         return {
