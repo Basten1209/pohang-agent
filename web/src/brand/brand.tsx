@@ -47,11 +47,14 @@ export const MascotBanner = ({
   eyebrow,
   title,
   description,
+  action,
 }: {
   pose: GullPoseName
   eyebrow: string
   title: ReactNode
   description: string
+  /** A button across the bottom of the panel. */
+  action?: ReactNode
 }) => (
   <section className="mascot-panel grid grid-cols-[minmax(0,1fr)_6rem] items-center gap-2 rounded-3xl border border-primary/10 px-5 py-5 min-[380px]:grid-cols-[minmax(0,1fr)_8rem] sm:grid-cols-[minmax(0,1fr)_12rem] sm:gap-5 sm:px-7">
     <div className="flex min-w-0 flex-col gap-3">
@@ -66,6 +69,7 @@ export const MascotBanner = ({
       </p>
     </div>
     <GullPose pose={pose} className="w-full" decorative />
+    {action && <div className="col-span-2 pt-2">{action}</div>}
   </section>
 )
 
