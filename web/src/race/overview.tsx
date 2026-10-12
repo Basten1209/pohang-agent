@@ -4,7 +4,6 @@ import {
   Flag,
   MapPin,
   Navigation,
-  Timer,
 } from 'lucide-react'
 import {
   Accordion,
@@ -13,13 +12,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import {
   Item,
   ItemContent,
@@ -44,61 +37,45 @@ export const RaceHeadline = ({ event: source }: { event: RaceEvent }) => {
   const { t, locale } = useI18n()
   const event = eventIn(source, locale)
   return (
-    <Card>
-      {event.image && (
-        <img
-          src={event.image}
-          alt=""
-          width="960"
-          height="540"
-          className="aspect-[2/1] w-full object-cover"
-        />
-      )}
-      <CardHeader>
-        <CardTitle>{event.name}</CardTitle>
-        <CardDescription>
+    <Card className="relative gap-0 overflow-hidden py-0">
+      <img
+        src={event.image || '/images/yeongildae.jpg'}
+        alt=""
+        width="960"
+        height="540"
+        className="aspect-[4/3] w-full object-cover sm:aspect-[2/1]"
+      />
+      {/* The essentials over the photo; the rest lives in the race guide. */}
+      <div className="absolute inset-0 flex flex-col justify-end bg-linear-to-t from-black/75 via-black/30 to-transparent p-4 text-white">
+        <p className="text-xs text-white/80">
           {t('race.bib', { category: event.category, bib })} · {t('race.demo')}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ItemGroup>
-          <Item size="sm">
-            <ItemMedia variant="icon">
-              <CalendarDays />
-            </ItemMedia>
-            <ItemContent>
-              <ItemTitle>{event.dateLabel}</ItemTitle>
-              <ItemDescription>
-                {t('race.gun', { time: event.gun })}
-              </ItemDescription>
-            </ItemContent>
-          </Item>
-          <Item size="sm">
-            <ItemMedia variant="icon">
-              <MapPin />
-            </ItemMedia>
-            <ItemContent>
-              <ItemTitle>{event.venue}</ItemTitle>
-              <ItemDescription>{event.address}</ItemDescription>
-            </ItemContent>
-          </Item>
-          <Item size="sm">
-            <ItemMedia variant="icon">
-              <Timer />
-            </ItemMedia>
-            <ItemContent>
-              <ItemTitle>{t('race.cutoff')}</ItemTitle>
-              <ItemDescription>{event.cutoff}</ItemDescription>
-            </ItemContent>
-          </Item>
-        </ItemGroup>
-        <Button asChild variant="outline" className="mt-3 w-full">
-          <a href={directions} target="_blank" rel="noreferrer">
-            <Navigation />
-            {t('race.directions')}
-          </a>
-        </Button>
-      </CardContent>
+        </p>
+        <h2 className="mt-1 font-heading text-xl leading-snug font-semibold">
+          {event.name}
+        </h2>
+        <div className="mt-2 flex items-end justify-between gap-3">
+          <div className="flex min-w-0 flex-col gap-1 text-sm text-white/90">
+            <span className="flex items-center gap-1.5">
+              <CalendarDays className="size-4 shrink-0" />
+              {event.dateLabel} · {t('race.gun', { time: event.gun })}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <MapPin className="size-4 shrink-0" />
+              <span className="truncate">{event.venue}</span>
+            </span>
+          </div>
+          <Button asChild size="sm" variant="secondary" className="shrink-0">
+            <a
+              href={directions}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={t('race.directions')}
+            >
+              <Navigation />
+            </a>
+          </Button>
+        </div>
+      </div>
     </Card>
   )
 }
