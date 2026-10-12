@@ -3,6 +3,7 @@ import { defineMessages } from '../define'
 export default defineMessages(
   {
     // Tour tab
+    'tour.noRaceTitle': '아직 레이스 완료 기록이 없어요',
     'tour.emptyTitle': '달린 다음의 여행도, 함께해요',
     'tour.emptyBody':
       '완주 후 에이전트가 지금 컨디션과 귀가 시간에 맞춰 코스를 만들어 드려요.',
@@ -76,6 +77,7 @@ export default defineMessages(
   },
   {
     en: {
+      'tour.noRaceTitle': 'No finished race yet',
       'tour.emptyTitle': 'After the run, let’s travel together too',
       'tour.emptyBody':
         'Once you finish, the agent builds a course around how you feel and when you need to head home.',
@@ -150,6 +152,7 @@ export default defineMessages(
         'Sources and map listings checked 2026.10.12. These are suggestions and aren’t added to your plan automatically. Check opening hours, menus and travel time before you go.',
     },
     ja: {
+      'tour.noRaceTitle': 'まだ完走記録がありません',
       'tour.emptyTitle': '走ったあとの旅も、ご一緒します',
       'tour.emptyBody':
         '完走後、エージェントが今の体調と帰りの時間に合わせてコースを作ります。',
@@ -223,6 +226,7 @@ export default defineMessages(
         '2026.10.12 紹介資料・地図登録を確認。訪問候補であり、予定には自動で追加されません。営業状況・メニュー・移動時間は訪問前に確認してください。',
     },
     zh: {
+      'tour.noRaceTitle': '还没有完赛记录',
       'tour.emptyTitle': '跑完之后的旅行，也一起吧',
       'tour.emptyBody':
         '完赛后，助手会根据你当时的状态和返程时间为你规划路线。',

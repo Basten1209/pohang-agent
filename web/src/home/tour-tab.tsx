@@ -11,6 +11,7 @@ import {
 import {
   Empty,
   EmptyDescription,
+  EmptyContent,
   EmptyHeader,
   EmptyTitle,
 } from '@/components/ui/empty'
@@ -45,6 +46,8 @@ export const TourTab = ({
   selectLegTransport,
   onPhoto,
   onAdvance,
+  onRace,
+  onTravel,
   busy,
 }: {
   config: TripConfig
@@ -57,11 +60,15 @@ export const TourTab = ({
   photoPrompt?: ReactNode
   onPhoto: (place: Place) => void
   onAdvance: () => void
+  /** Empty state: go run first, or (after the race) ask the agent for a course. */
+  onRace: () => void
+  onTravel: () => void
   busy: boolean
 }) => {
   const { t, d } = useI18n()
   const { state, itinerary: it, stage } = view
   const planned = ['PLANNING', 'JOURNEY', 'DONE'].includes(stage)
+  const finished = state.phase >= 3
   useEffect(() => {
     if (active && planned) refresh()
   }, [active, planned])
@@ -71,9 +78,22 @@ export const TourTab = ({
         <Empty className="mascot-panel rounded-3xl border px-6 py-8">
           <EmptyHeader>
             <GullPose pose="map" className="mx-auto mb-2 w-36" decorative />
-            <EmptyTitle>{t('tour.emptyTitle')}</EmptyTitle>
+            <EmptyTitle>
+              {finished ? t('tour.emptyTitle') : t('tour.noRaceTitle')}
+            </EmptyTitle>
             <EmptyDescription>{t('tour.emptyBody')}</EmptyDescription>
           </EmptyHeader>
+          <EmptyContent>
+            {finished ? (
+              <Button className="h-11 rounded-full px-6" onClick={onTravel}>
+                {t('home.ctaPlan')}
+              </Button>
+            ) : (
+              <Button className="h-11 rounded-full px-6" onClick={onRace}>
+                {t('home.ctaRace')}
+              </Button>
+            )}
+          </EmptyContent>
         </Empty>
       </div>
     )
