@@ -1,5 +1,5 @@
 import { AssetCredits, MascotBanner } from '#/brand/brand'
-import { Pencil, ArrowRight } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Carousel,
@@ -18,15 +18,8 @@ import { RaceDetails, RaceHeadline } from '#/race/overview'
 import { PlaceThumb } from './thumb'
 import { Section } from './section'
 
-const MyPlan = ({
-  config,
-  view,
-  onEdit,
-}: {
-  config: TripConfig
-  view: TripView
-  onEdit: () => void
-}) => {
+// Editing lives in the menu (⋯ → 일정 수정).
+const MyPlan = ({ config, view }: { config: TripConfig; view: TripView }) => {
   const { t, d } = useI18n()
   const { plan } = view.state
   const hub = hubOf(config, plan)
@@ -43,12 +36,6 @@ const MyPlan = ({
             time: clock(view.itinerary.stationTarget),
           })}
         </span>
-      }
-      action={
-        <Button size="sm" variant="ghost" onClick={onEdit}>
-          <Pencil />
-          {t('home.edit')}
-        </Button>
       }
     >
       <p className="text-sm">
@@ -131,12 +118,10 @@ const AfterRace = ({
 export const HomeTab = ({
   config,
   view,
-  onEditProfile,
   onRace,
 }: {
   config: TripConfig
   view: TripView
-  onEditProfile: () => void
   onRace: () => void
 }) => {
   const { t } = useI18n()
@@ -161,7 +146,7 @@ export const HomeTab = ({
         <ArrowRight />
       </Button>
       <RaceHeadline event={config.event} />
-      <MyPlan config={config} view={view} onEdit={onEditProfile} />
+      <MyPlan config={config} view={view} />
       <AfterRace config={config} view={view} />
       <RaceDetails event={config.event} />
       <AssetCredits />
