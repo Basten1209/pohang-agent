@@ -37,6 +37,7 @@ import { FinishSheet } from './finish'
 import { HomeTab } from './home-tab'
 import { ProfileForm } from './profile'
 import { DisplaySettings } from '#/app/display-settings'
+import { PageFade } from '#/app/page-fade'
 import { InstallApp } from './install'
 import { isRacing } from '#/race/use-race'
 import { MobileMenu, NavTabs, type Tab } from './nav'
@@ -245,6 +246,7 @@ export const Shell = ({
       }}
     >
       <div className="min-h-dvh overflow-x-clip">
+        <PageFade />
         <header
           className={
             tab === 'home'
