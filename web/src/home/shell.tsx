@@ -272,10 +272,21 @@ export const Shell = ({
             />
           )}
           <div className="relative mx-auto flex min-h-14 max-w-5xl items-center gap-1 px-3 py-1 sm:gap-2 sm:px-4">
-            <Gull className="size-8" />
-            <span className="whitespace-nowrap font-medium tracking-tight text-foreground">
-              RUN2구룡포
-            </span>
+            {/* The brand goes home, like on most sites. */}
+            <button
+              type="button"
+              aria-label={t('nav.home')}
+              className="flex cursor-pointer items-center gap-1 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:gap-2"
+              onClick={() => {
+                setTab('home')
+                window.scrollTo({ top: 0 })
+              }}
+            >
+              <Gull className="size-8" />
+              <span className="whitespace-nowrap font-medium tracking-tight text-foreground">
+                RUN2구룡포
+              </span>
+            </button>
             {/* Centred in the row, clear of the logo and the controls. */}
             <div className="absolute left-1/2 hidden -translate-x-1/2 md:block">
               <NavTabs tab={tab} onTab={setTab} />
@@ -376,6 +387,11 @@ export const Shell = ({
               photoPrompt={photoPrompt}
               onPhoto={showPhoto}
               onAdvance={() => void advance()}
+              onRace={() => {
+                setTab('race')
+                window.scrollTo({ top: 0 })
+              }}
+              onTravel={() => setChatOpen(true)}
               busy={agent.busy || updating}
               selectLegTransport={async (id, mode) => {
                 const transportOverrides = {
