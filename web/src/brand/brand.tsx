@@ -91,7 +91,10 @@ export const PhotoHero = ({
   description: ReactNode
   actions?: ReactNode
 }) => (
-  <section className="relative isolate -mx-4 -mt-4 flex min-h-[62svh] flex-col justify-center overflow-hidden px-5 pt-28 pb-10 text-white sm:min-h-[28rem] sm:px-8">
+  <section
+    id="home-hero"
+    className="relative isolate -mx-4 -mt-4 flex min-h-[62svh] flex-col justify-center overflow-hidden px-5 pt-28 pb-10 text-white sm:min-h-[28rem] sm:px-8"
+  >
     <picture className="absolute inset-0 -z-20">
       {portrait && <source media="(max-width: 639px)" srcSet={portrait} />}
       <img

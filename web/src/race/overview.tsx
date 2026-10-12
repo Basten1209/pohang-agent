@@ -78,85 +78,97 @@ export const RaceDetails = ({ event: source }: { event: RaceEvent }) => {
           <AccordionItem value="schedule">
             <AccordionTrigger>{t('race.detail.schedule')}</AccordionTrigger>
             <AccordionContent>
-              <ol className="flex flex-col gap-2">
-                {event.schedule.map((s) => (
-                  <li key={s.time} className="flex gap-3">
-                    <span className="w-12 shrink-0 font-medium tabular-nums">
-                      {s.time}
-                    </span>
-                    <span className="text-muted-foreground">{s.label}</span>
-                  </li>
-                ))}
-              </ol>
+              <div className="max-h-64 overflow-y-auto scroll-fade no-scrollbar">
+                <ol className="flex flex-col gap-2">
+                  {event.schedule.map((s) => (
+                    <li key={s.time} className="flex gap-3">
+                      <span className="w-12 shrink-0 font-medium tabular-nums">
+                        {s.time}
+                      </span>
+                      <span className="text-muted-foreground">{s.label}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
             </AccordionContent>
           </AccordionItem>
           <AccordionItem value="course">
             <AccordionTrigger>{t('race.detail.course')}</AccordionTrigger>
             <AccordionContent className="flex flex-col gap-2">
-              <p className="text-muted-foreground">{event.course.summary}</p>
-              <ItemGroup>
-                {event.course.route.map((c, i) => (
-                  <Item key={c} size="sm">
-                    <ItemMedia variant="icon">
-                      {i === 0 ? (
-                        <MapPin />
-                      ) : i === last ? (
-                        <Flag />
-                      ) : (
-                        <CircleDot />
-                      )}
-                    </ItemMedia>
-                    <ItemContent>
-                      <ItemTitle>{c}</ItemTitle>
-                    </ItemContent>
-                  </Item>
-                ))}
-              </ItemGroup>
+              <div className="max-h-64 overflow-y-auto scroll-fade no-scrollbar">
+                <p className="text-muted-foreground">{event.course.summary}</p>
+                <ItemGroup>
+                  {event.course.route.map((c, i) => (
+                    <Item key={c} size="sm">
+                      <ItemMedia variant="icon">
+                        {i === 0 ? (
+                          <MapPin />
+                        ) : i === last ? (
+                          <Flag />
+                        ) : (
+                          <CircleDot />
+                        )}
+                      </ItemMedia>
+                      <ItemContent>
+                        <ItemTitle>{c}</ItemTitle>
+                      </ItemContent>
+                    </Item>
+                  ))}
+                </ItemGroup>
+              </div>
             </AccordionContent>
           </AccordionItem>
           <AccordionItem value="kit">
             <AccordionTrigger>{t('race.detail.kit')}</AccordionTrigger>
             <AccordionContent>
-              <ul className="flex list-disc flex-col gap-1 pl-5">
-                {event.kit.map((k) => (
-                  <li key={k}>{k}</li>
-                ))}
-              </ul>
+              <div className="max-h-64 overflow-y-auto scroll-fade no-scrollbar">
+                <ul className="flex list-disc flex-col gap-1 pl-5">
+                  {event.kit.map((k) => (
+                    <li key={k}>{k}</li>
+                  ))}
+                </ul>
+              </div>
             </AccordionContent>
           </AccordionItem>
           <AccordionItem value="facilities">
             <AccordionTrigger>{t('race.detail.facilities')}</AccordionTrigger>
             <AccordionContent>
-              <ItemGroup>
-                {event.facilities.map((f) => (
-                  <Item key={f.label} size="sm">
-                    <ItemContent>
-                      <ItemTitle>{f.label}</ItemTitle>
-                      <ItemDescription>{f.detail}</ItemDescription>
-                    </ItemContent>
-                  </Item>
-                ))}
-              </ItemGroup>
+              <div className="max-h-64 overflow-y-auto scroll-fade no-scrollbar">
+                <ItemGroup>
+                  {event.facilities.map((f) => (
+                    <Item key={f.label} size="sm">
+                      <ItemContent>
+                        <ItemTitle>{f.label}</ItemTitle>
+                        <ItemDescription>{f.detail}</ItemDescription>
+                      </ItemContent>
+                    </Item>
+                  ))}
+                </ItemGroup>
+              </div>
             </AccordionContent>
           </AccordionItem>
           <AccordionItem value="notes">
             <AccordionTrigger>{t('race.detail.notes')}</AccordionTrigger>
             <AccordionContent>
-              <ul className="flex list-disc flex-col gap-1 pl-5 text-muted-foreground">
-                {event.notes.map((n) => (
-                  <li key={n}>{n}</li>
-                ))}
-              </ul>
+              <div className="max-h-64 overflow-y-auto scroll-fade no-scrollbar">
+                <ul className="flex list-disc flex-col gap-1 pl-5 text-muted-foreground">
+                  {event.notes.map((n) => (
+                    <li key={n}>{n}</li>
+                  ))}
+                </ul>
+              </div>
             </AccordionContent>
           </AccordionItem>
           <AccordionItem value="rules">
             <AccordionTrigger>{t('race.detail.rules')}</AccordionTrigger>
             <AccordionContent>
-              <ul className="flex list-disc flex-col gap-1 pl-5 text-muted-foreground">
-                {event.rules.map((n) => (
-                  <li key={n}>{n}</li>
-                ))}
-              </ul>
+              <div className="max-h-64 overflow-y-auto scroll-fade no-scrollbar">
+                <ul className="flex list-disc flex-col gap-1 pl-5 text-muted-foreground">
+                  {event.rules.map((n) => (
+                    <li key={n}>{n}</li>
+                  ))}
+                </ul>
+              </div>
             </AccordionContent>
           </AccordionItem>
         </Accordion>
