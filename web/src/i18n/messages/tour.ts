@@ -70,8 +70,6 @@ export default defineMessages(
     'tour.viewMap': '지도 보기',
     'tour.viewMapOf': '{name} 지도 보기',
     'tour.viewSourceOf': '{name} {source} 소개 보기',
-    'tour.collapse': '접기',
-    'tour.showMore': '후보 {n}곳 더 보기',
     'tour.candidatesNote':
       '2026.10.12 소개 자료·지도 등록 확인. 방문 후보이며 일정에 자동 추가되지 않아요. 영업 여부·메뉴·이동 시간은 방문 전에 확인해 주세요.',
   },
@@ -146,8 +144,6 @@ export default defineMessages(
       'tour.viewMap': 'View map',
       'tour.viewMapOf': 'View {name} on the map',
       'tour.viewSourceOf': 'View {name} on {source}',
-      'tour.collapse': 'Show less',
-      'tour.showMore': 'Show {n} more',
       'tour.candidatesNote':
         'Sources and map listings checked 2026.10.12. These are suggestions and aren’t added to your plan automatically. Check opening hours, menus and travel time before you go.',
     },
@@ -220,8 +216,6 @@ export default defineMessages(
       'tour.viewMap': '地図を見る',
       'tour.viewMapOf': '{name}の地図を見る',
       'tour.viewSourceOf': '{name}の{source}紹介を見る',
-      'tour.collapse': '閉じる',
-      'tour.showMore': '候補をあと{n}件見る',
       'tour.candidatesNote':
         '2026.10.12 紹介資料・地図登録を確認。訪問候補であり、予定には自動で追加されません。営業状況・メニュー・移動時間は訪問前に確認してください。',
     },
@@ -291,8 +285,6 @@ export default defineMessages(
       'tour.viewMap': '查看地图',
       'tour.viewMapOf': '在地图上查看{name}',
       'tour.viewSourceOf': '查看{name}的{source}介绍',
-      'tour.collapse': '收起',
-      'tour.showMore': '再看 {n} 个候选',
       'tour.candidatesNote':
         '已于 2026.10.12 核对介绍资料和地图登记。这些是到访候选，不会自动加入行程。营业情况、菜单和交通时间请在出发前确认。',
     },
