@@ -1,6 +1,11 @@
 import { AssetCredits, MascotBanner } from '#/brand/brand'
 import { Pencil, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+} from '@/components/ui/carousel'
 import { planner } from '#/core/planner'
 import { courseById, hubOf } from '#/core/route'
 import type { TripConfig } from '#/core/schema'
@@ -90,14 +95,19 @@ const AfterRace = ({
     >
       {places.length > 0 && (
         <div className="flex flex-col gap-3">
-          <div className="grid grid-cols-3 gap-2">
-            {places.slice(0, 3).map((p) => (
-              <div key={p.id} className="flex flex-col gap-1">
-                <PlaceThumb place={p} />
-                <span className="text-xs leading-relaxed">{p.attrs.short}</span>
-              </div>
-            ))}
-          </div>
+          {/* The next photo peeks in, so it reads as swipeable. */}
+          <Carousel opts={{ align: 'start' }}>
+            <CarouselContent>
+              {places.map((p) => (
+                <CarouselItem key={p.id} className="basis-4/5 sm:basis-1/2">
+                  <div className="flex flex-col gap-1.5">
+                    <PlaceThumb place={p} />
+                    <span className="text-sm">{p.attrs.short}</span>
+                  </div>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+          </Carousel>
           <p className="text-sm text-muted-foreground tabular-nums">
             {t('home.total', {
               duration: durationText(
