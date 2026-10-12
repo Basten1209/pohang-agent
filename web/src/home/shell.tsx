@@ -1,9 +1,8 @@
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
-import { Ellipsis, Flag, House, Map as MapIcon, Users } from 'lucide-react'
+import { Ellipsis } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { localizeDeep } from '#/i18n/phrases'
 import { useI18n } from '#/i18n/react'
 import {
@@ -46,6 +45,7 @@ import { ProfileForm } from './profile'
 import { DisplaySettings } from '#/app/display-settings'
 import { InstallApp } from './install'
 import { isRacing } from '#/race/use-race'
+import { MobileMenu, NavTabs, type Tab } from './nav'
 import { TourTab } from './tour-tab'
 
 /**
@@ -53,8 +53,6 @@ import { TourTab } from './tour-tab'
  * agent one tap away in a bottom sheet. Every screen reads the same trip
  * the agent changes.
  */
-
-type Tab = 'home' | 'race' | 'tour' | 'community'
 
 /** Questions worth asking from each screen, for where the trip is now. */
 const tabChips = (
@@ -273,12 +271,12 @@ export const Shell = ({
         setTab('community')
       }}
     >
-      <div className="min-h-dvh">
+      <div className="min-h-dvh overflow-x-clip">
         <header
           className={
             tab === 'home'
-              ? `fixed inset-x-0 top-0 z-30 border-b pt-safe text-foreground transition-colors ${heroState === 'rest' ? 'border-transparent bg-transparent' : heroState === 'photo' ? 'border-transparent bg-transparent backdrop-blur-xl' : 'bg-background/40 backdrop-blur-xl'}`
-              : 'sticky top-0 z-30 border-b bg-background/40 pt-safe text-foreground backdrop-blur-xl'
+              ? `fixed inset-x-0 top-0 z-30 isolate border-b pt-safe text-foreground transition-colors ${heroState === 'page' ? '' : 'border-transparent'}`
+              : 'sticky top-0 z-30 isolate border-b pt-safe text-foreground'
           }
           // Over the photo the header reads in white: swap the theme's ink.
           style={
@@ -292,7 +290,15 @@ export const Shell = ({
               : undefined
           }
         >
-          <div className="mx-auto flex min-h-14 max-w-2xl items-center gap-1 px-3 py-1 sm:gap-2 sm:px-4">
+          {/* The blur reaches past the screen edges: blurring at the very
+              edge reads beyond the page and rounds the corners while scrolling. */}
+          {!(tab === 'home' && heroState === 'rest') && (
+            <div
+              aria-hidden
+              className={`pointer-events-none absolute -inset-x-8 -top-8 bottom-0 -z-10 backdrop-blur-xl ${overHero ? '' : 'bg-background/40'}`}
+            />
+          )}
+          <div className="mx-auto flex min-h-14 max-w-5xl items-center gap-1 px-3 py-1 sm:gap-2 sm:px-4">
             <Gull className="size-8" />
             <span className="whitespace-nowrap font-bold tracking-tight text-foreground">
               RUN2구룡포
@@ -300,116 +306,125 @@ export const Shell = ({
             {showTools && agent.mode && (
               <Badge variant="outline">{t(`mode.${agent.mode}`)}</Badge>
             )}
-            <div className="ml-auto hidden sm:block">
-              <InstallApp compact />
+            <div className="ml-4 hidden md:block">
+              <NavTabs tab={tab} onTab={setTab} />
             </div>
-            <div className="ml-auto flex shrink-0 items-center sm:ml-0">
+            <div className="ml-auto flex shrink-0 items-center gap-1">
               <DisplaySettings />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="shrink-0"
-                    aria-label={t('menu.label')}
-                  >
-                    <Ellipsis />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem onSelect={() => setProfileOpen(true)}>
-                      {t('menu.editPlan')}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="sm:hidden"
-                      onSelect={() => setInstallOpen(true)}
-                    >
-                      {t('install.button')}
-                    </DropdownMenuItem>
-                    <DropdownMenuSub>
-                      <DropdownMenuSubTrigger disabled={agent.busy}>
-                        {t('menu.demo')}
-                      </DropdownMenuSubTrigger>
-                      <DropdownMenuSubContent>
-                        <DropdownMenuLabel>
-                          {t('menu.demoHint')}
-                        </DropdownMenuLabel>
-                        {config.scenarios.map((s) => (
-                          <DropdownMenuItem
-                            key={s.id}
-                            onSelect={() => ask(`/시연 ${s.title}`)}
-                          >
-                            {s.title}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuSubContent>
-                    </DropdownMenuSub>
-                    <DropdownMenuCheckboxItem
-                      checked={showTools}
-                      onCheckedChange={(on) => {
+              <div className="md:hidden">
+                <MobileMenu
+                  tab={tab}
+                  onTab={setTab}
+                  busy={agent.busy}
+                  actions={[
+                    {
+                      label: t('menu.editPlan'),
+                      onSelect: () => setProfileOpen(true),
+                    },
+                    {
+                      label: t('install.button'),
+                      onSelect: () => setInstallOpen(true),
+                    },
+                  ]}
+                  scenarios={config.scenarios}
+                  onScenario={(title) => ask(`/시연 ${title}`)}
+                  toggles={[
+                    {
+                      label: t('menu.presentation'),
+                      checked: showTools,
+                      onChange: (on) => {
                         setShowTools(on)
                         writeFlag(TOOLS_KEY, on)
-                      }}
-                    >
-                      {t('menu.presentation')}
-                    </DropdownMenuCheckboxItem>
-                    <DropdownMenuCheckboxItem
-                      checked={voiceBeta}
-                      onCheckedChange={(on) => {
+                      },
+                    },
+                    {
+                      label: t('menu.voice'),
+                      checked: voiceBeta,
+                      onChange: (on) => {
                         setVoiceBeta(on)
                         writeFlag(VOICE_KEY, on)
+                      },
+                    },
+                  ]}
+                  onNewTrip={() => {
+                    newTripId()
+                    window.location.reload()
+                  }}
+                />
+              </div>
+              <div className="hidden md:block">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="shrink-0"
+                      aria-label={t('menu.label')}
+                    >
+                      <Ellipsis />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem onSelect={() => setProfileOpen(true)}>
+                        {t('menu.editPlan')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => setInstallOpen(true)}>
+                        {t('install.button')}
+                      </DropdownMenuItem>
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger disabled={agent.busy}>
+                          {t('menu.demo')}
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent>
+                          <DropdownMenuLabel>
+                            {t('menu.demoHint')}
+                          </DropdownMenuLabel>
+                          {config.scenarios.map((s) => (
+                            <DropdownMenuItem
+                              key={s.id}
+                              onSelect={() => ask(`/시연 ${s.title}`)}
+                            >
+                              {s.title}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                      <DropdownMenuCheckboxItem
+                        checked={showTools}
+                        onCheckedChange={(on) => {
+                          setShowTools(on)
+                          writeFlag(TOOLS_KEY, on)
+                        }}
+                      >
+                        {t('menu.presentation')}
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem
+                        checked={voiceBeta}
+                        onCheckedChange={(on) => {
+                          setVoiceBeta(on)
+                          writeFlag(VOICE_KEY, on)
+                        }}
+                      >
+                        {t('menu.voice')}
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/classic">{t('menu.classic')}</Link>
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        newTripId()
+                        window.location.reload()
                       }}
                     >
-                      {t('menu.voice')}
-                    </DropdownMenuCheckboxItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/classic">{t('menu.classic')}</Link>
+                      {t('menu.newTrip')}
                     </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onSelect={() => {
-                      newTripId()
-                      window.location.reload()
-                    }}
-                  >
-                    {t('menu.newTrip')}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
-          </div>
-          <div className="mx-auto max-w-2xl px-4 pb-2">
-            <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
-              <TabsList
-                variant="line"
-                aria-label={t('nav.label')}
-                className="w-full"
-              >
-                {(
-                  [
-                    { id: 'home', Icon: House },
-                    { id: 'race', Icon: Flag },
-                    { id: 'tour', Icon: MapIcon },
-                    { id: 'community', Icon: Users },
-                  ] as const
-                ).map(({ id, Icon }) => (
-                  <TabsTrigger
-                    key={id}
-                    value={id}
-                    className="text-xs sm:text-sm"
-                  >
-                    {/* At the largest text size the labels need the room. */}
-                    <Icon
-                      aria-hidden
-                      className="max-[420px]:[html[data-font-size=largest]_&]:hidden"
-                    />
-                    {t(`nav.${id}`)}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
           </div>
         </header>
 
@@ -423,10 +438,7 @@ export const Shell = ({
                 setTab('race')
                 window.scrollTo({ top: 0 })
               }}
-              onPlan={() => {
-                setTab('tour')
-                window.scrollTo({ top: 0 })
-              }}
+              onPlan={() => setChatOpen(true)}
             />
           </main>
         )}

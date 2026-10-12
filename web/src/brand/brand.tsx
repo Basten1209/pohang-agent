@@ -93,7 +93,7 @@ export const PhotoHero = ({
 }) => (
   <section
     id="home-hero"
-    className="relative isolate -mx-4 -mt-4 flex min-h-[62svh] flex-col justify-center overflow-hidden px-5 pt-28 pb-10 text-white sm:min-h-[28rem] sm:px-8"
+    className="relative isolate -mt-4 mx-[calc(50%-50vw)] flex min-h-[62svh] flex-col justify-center overflow-hidden px-5 pt-20 pb-10 text-white sm:min-h-[28rem] sm:px-8"
   >
     <picture className="absolute inset-0 -z-20">
       {portrait && <source media="(max-width: 639px)" srcSet={portrait} />}
@@ -107,13 +107,15 @@ export const PhotoHero = ({
       />
     </picture>
     <div className="absolute inset-0 -z-10 bg-linear-to-b from-black/45 via-black/25 to-black/55" />
-    <h1 className="text-3xl leading-tight font-bold tracking-tight sm:text-4xl">
-      {title}
-    </h1>
-    <p className="mt-3 max-w-md text-base leading-relaxed text-white/85">
-      {description}
-    </p>
-    {actions && <div className="mt-6 flex flex-wrap gap-3">{actions}</div>}
+    <div className="mx-auto w-full max-w-5xl sm:px-1">
+      <h1 className="text-3xl leading-tight font-bold tracking-tight sm:text-4xl">
+        {title}
+      </h1>
+      <p className="mt-3 max-w-md text-base leading-relaxed text-white/85">
+        {description}
+      </p>
+      {actions && <div className="mt-6 flex flex-wrap gap-3">{actions}</div>}
+    </div>
   </section>
 )
 
