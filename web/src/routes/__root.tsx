@@ -21,7 +21,12 @@ export const Route = createRootRoute({
       { name: 'theme-color', content: '#102a43' },
       { name: 'apple-mobile-web-app-capable', content: 'yes' },
       { name: 'mobile-web-app-capable', content: 'yes' },
-      { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
+      // The home-screen app draws under the status bar (its text is white);
+      // see .status-bar-scrim for screens without a dark photo behind it.
+      {
+        name: 'apple-mobile-web-app-status-bar-style',
+        content: 'black-translucent',
+      },
       { name: 'apple-mobile-web-app-title', content: 'RUN2구룡포' },
     ],
     links: [
@@ -54,6 +59,7 @@ function RootDocument({ children }: { children: ReactNode }) {
       </head>
       <body>
         <LocaleProvider>{children}</LocaleProvider>
+        <div aria-hidden className="status-bar-scrim" />
         <Scripts />
       </body>
     </html>

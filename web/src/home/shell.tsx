@@ -117,6 +117,17 @@ export const Shell = ({
   const chatSheet = useKeyboardSheet(chatOpen)
   const [profileOpen, setProfileOpen] = useState(false)
   const profileSheet = useKeyboardSheet(profileOpen)
+  // The status bar shows the photo only while nothing light covers its top.
+  const photoUnderStatusBar =
+    overHero && !chatSheet.fullScreen && !profileSheet.fullScreen
+  useEffect(() => {
+    const root = document.documentElement
+    if (photoUnderStatusBar) root.dataset.statusBar = 'photo'
+    else delete root.dataset.statusBar
+    return () => {
+      delete root.dataset.statusBar
+    }
+  }, [photoUnderStatusBar])
   const [installOpen, setInstallOpen] = useState(false)
   const [finishOpen, setFinishOpen] = useState(false)
   const [communityRevision, setCommunityRevision] = useState(0)

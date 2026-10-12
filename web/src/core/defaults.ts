@@ -16,7 +16,8 @@ export const seedConfig: TripConfig = {
   // 6: Guryongpo/Homigot scope and precise demo-route diagnostics.
   // Operator-edited documents are preserved.
   // 7: distinct modal estimates; official route references do not supply these minutes.
-  version: 12,
+  // 13: shorter spoken voice replies.
+  version: 13,
   event,
   courses,
   modes,
@@ -223,7 +224,7 @@ export const seedConfig: TripConfig = {
         '위임 결과를 받으면 그 내용만 자연스럽게 말한다. 숫자·시간·버스 번호·요금을 지어내지 않는다.',
         '어지럽거나 아프다는 말은 바로 위임한다. 진단하지 않는다.',
       ].join('\n'),
-      maxReplyChars: 400,
+      maxReplyChars: 200,
     },
   },
   conversation: {
