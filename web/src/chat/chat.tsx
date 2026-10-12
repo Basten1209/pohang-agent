@@ -29,6 +29,7 @@ import {
   PromptInputTextarea,
 } from '@/components/ai-elements/prompt-input'
 import { progressLabels } from '#/core/agent-progress'
+import { approvalAnsweredBy } from './approval-intent'
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion'
 import { Gull, GullPose } from '#/brand/brand'
 import type { PlanProgress } from '#/server/agent/harness'
@@ -138,6 +139,13 @@ export const useAgent = ({
   const send = (text: string) => {
     if (!text.trim() || busy) return
     setProgress(null)
+    // "네"/"이걸로 갈게요" while a change waits for approval means approve it,
+    // the same as pressing the button; otherwise the wait would be declined.
+    const approval = approvalAnsweredBy(chat.messages, text)
+    if (approval) {
+      chat.addToolApprovalResponse({ id: approval, approved: true })
+      return
+    }
     chat.sendMessage({ text: text.trim() })
   }
   /**

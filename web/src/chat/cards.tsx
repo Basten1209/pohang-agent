@@ -23,7 +23,6 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { PlaceIcon } from '#/app/bits'
 import { photoEligiblePlaces } from '#/core/community'
 import { ItineraryTimeline } from '#/home/timeline'
-import { CourseCandidates } from '#/home/candidates'
 import { mapUrl, pointOf, directionsUrl } from '#/core/links'
 import type { Itinerary } from '#/core/planner'
 import type { ChoicePrompt } from '#/core/slots'
@@ -352,14 +351,9 @@ export const CourseSummary = ({
       </CardHeader>
       {it.stops.length > 0 && (
         <CardContent>
+          {/* Venue picks live in the tour tab; here they would push the
+              approve button far below the plan. */}
           <ItineraryTimeline config={config} itinerary={it} />
-          <div className="mt-5 border-t pt-4">
-            <CourseCandidates
-              key={it.course}
-              config={config}
-              course={it.course}
-            />
-          </div>
         </CardContent>
       )}
     </Card>
