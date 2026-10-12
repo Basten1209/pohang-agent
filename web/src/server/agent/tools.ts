@@ -7,6 +7,7 @@ import { explainPlan, interestNoun, josa } from '#/core/explain'
 import { knowledgeOf, searchKnowledge } from '#/core/knowledge'
 import { courseVenues } from '#/core/venues'
 import { liveObservationEvents, readingLine } from '#/core/live'
+import { defaultDwellOf, interestOfTourType } from '#/core/extra-places'
 import {
   observationsKey,
   planningContext,
@@ -159,7 +160,8 @@ const isEmpty = (c: Changes) => Object.values(c).every((v) => v === null)
 
 export const makeTools = (ctx: TurnContext) => {
   let planningRevision: number | undefined
-  const { config } = ctx
+  // Refreshed after add_nearby_stop so the added spot plans in the same turn.
+  let config = ctx.config
   const placeIds = config.places.filter((p) => p.active).map((p) => p.id) as [
     string,
     ...string[],
@@ -843,6 +845,93 @@ export const makeTools = (ctx: TurnContext) => {
                 ? distanceM(point, { lat: r.lat, lng: r.lng })
                 : null),
           })),
+        }
+      },
+    }),
+    add_nearby_stop: tool({
+      description:
+        'find_nearby로 찾은 주변 장소를 이 여행에서 고를 수 있는 장소로 등록한다(일정은 아직 그대로). 사용자가 "그곳도 코스에 넣어 줘"처럼 코스 밖 장소 추가를 원할 때 쓴다. contentId만 넘기면 이름·좌표는 한국관광공사 관광정보에서 다시 확인한다. 등록 뒤 get_planning_context → plan_course proposal의 stops에 돌려받은 placeId를 넣고, 변경은 apply_plan_change 승인으로 확정한다.',
+      inputSchema: z
+        .object({
+          contentId: z
+            .string()
+            .regex(/^\d{1,12}$/)
+            .describe('find_nearby 결과의 contentId'),
+          interest: interestSchema
+            .nullable()
+            .describe('food·cafe·view·walk·indoor 중 성격. 모르면 null'),
+          dwell: z
+            .number()
+            .int()
+            .min(10)
+            .max(120)
+            .nullable()
+            .describe('머무를 분. 모르면 null'),
+        })
+        .strict(),
+      execute: async ({ contentId, interest, dwell }) => {
+        const { state, it } = now()
+        const course = courseById(config, it.course)
+        if (!course)
+          return {
+            added: false,
+            message: '먼저 코스가 정해져야 주변 장소를 더할 수 있어요.',
+          }
+        const live = await tourDetail(contentId)
+        if (live.status !== 'LIVE')
+          return { added: false, message: live.message }
+        const found = live.data
+        if (found.lat === null || found.lng === null)
+          return {
+            added: false,
+            message: '관광정보에 위치가 없어 일정에 넣을 수 없어요.',
+          }
+        const geo = { lat: found.lat, lng: found.lng }
+        const far = distanceM(geo, course.geo)
+        if (far > 5000)
+          return {
+            added: false,
+            message: `${course.area}에서 ${Math.round(far / 100) / 10}km 떨어져 있어 이 코스에 넣기 어려워요.`,
+          }
+        const kind = interest ?? interestOfTourType(found.typeId)
+        const extra = {
+          id: `tour-${contentId}`,
+          contentId,
+          title: found.title.slice(0, 80),
+          address: found.address.slice(0, 200),
+          image: found.image.slice(0, 500),
+          interest: kind,
+          course: course.id,
+          geo,
+          dwell: dwell ?? defaultDwellOf[kind],
+        }
+        const others = (state.plan.extraPlaces ?? []).filter(
+          (e) => e.id !== extra.id,
+        )
+        if (others.length >= 8)
+          return {
+            added: false,
+            message:
+              '이 여행에 더한 주변 장소가 이미 많아요. 하나를 빼고 다시 시도해 주세요.',
+          }
+        await ctx.commit(
+          [
+            {
+              type: 'plan.patched',
+              patch: { extraPlaces: [...others, extra] },
+            },
+          ],
+          'agent',
+        )
+        config = ctx.config
+        return {
+          added: true,
+          placeId: extra.id,
+          title: extra.title,
+          interest: kind,
+          dwell: extra.dwell,
+          course: course.id,
+          next: 'get_planning_context를 다시 조회한 뒤 plan_course proposal의 stops에 placeId를 넣어 제출하고, apply_plan_change로 확정한다.',
         }
       },
     }),

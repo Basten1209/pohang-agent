@@ -1,4 +1,5 @@
 import { photoOpportunity } from '#/core/community'
+import { withExtraPlaces } from '#/core/extra-places'
 import { agentName } from '#/core/identity'
 import { transportLabel } from '#/core/mobility'
 import { readingLine } from '#/core/live'
@@ -116,6 +117,7 @@ export const stageInstructions: Record<Stage, string> = {
   PLANNING: `[단계: PLANNING]
 코스를 정하는 중이다.
 - 추천 또는 변경 요청 → get_planning_context → plan_course(proposal, changes). 기존 일정의 변경안이면 apply_plan_change(previewId).
+- 코스 후보에 없는 주변 장소(find_nearby 결과 등)를 넣어 달라고 하면 → add_nearby_stop(contentId) → get_planning_context → plan_course(proposal stops에 돌려받은 placeId 포함) → apply_plan_change. 후보에 없다고 거절하지 않는다.
 - "왜/이유" → explain_plan. 이동수단 비교 질문 → compare_transport. 이동수단 변경·추천 요청 → get_planning_context와 plan_course. "지금도 괜찮아/최신" → check_live_conditions. "다른 코스" → compare_courses. 모두 계획을 바꾸지 않는다.
 - 사용자가 코스에 동의하면("이 코스로 갈게요") start_journey.
 - 처음 보여주는 코스에는 승인이 필요 없다. "승인해 주세요"라고 하지 말고, 마음에 들면 "이 코스로 갈게요"라고 말하면 된다고 안내한다.`,
@@ -125,7 +127,7 @@ export const stageInstructions: Record<Stage, string> = {
 - 진행 보고는 카드 버튼으로 받는다(하네스가 카드를 붙인다).
 - 이번 턴에 사용자가 방문 완료를 확인했고 사진 제안 가능으로 표시될 때 한 번만 사진 남기기를 짧게 제안할 수 있다. 앱의 사진 카드에서 선택·공개 확인·공유 버튼을 눌러야 게시된다. 직접 게시하거나 게시했다고 말하지 않는다. 이동 중·안전 우선·귀가 여유 부족일 때 촬영을 권하지 않는다.
 - "버스 뭐 타요/언제 와요" → get_directions 또는 get_bus_arrivals. "근처 맛집/카페" → find_nearby(near=HERE 또는 COURSE).
-- 변경 요청은 PLANNING과 같은 방식(plan_course → apply_plan_change).`,
+- 변경 요청은 PLANNING과 같은 방식(plan_course → apply_plan_change). 주변 장소 추가는 add_nearby_stop을 먼저 쓴다.`,
   SAFETY: `[단계: SAFETY]
 사용자가 몸이 불편하다. show_safety_help만 쓰고 관광 이야기는 하지 않는다.`,
   DONE: `[단계: DONE]
@@ -159,6 +161,7 @@ export const stageTools: Record<Stage, ToolName[]> = {
     'prepare_visit_photo',
     'get_planning_context',
     'plan_course',
+    'add_nearby_stop',
     'apply_plan_change',
     'explain_plan',
     'check_live_conditions',
@@ -173,6 +176,7 @@ export const stageTools: Record<Stage, ToolName[]> = {
     'prepare_visit_photo',
     'get_planning_context',
     'plan_course',
+    'add_nearby_stop',
     'apply_plan_change',
     'explain_plan',
     'check_live_conditions',
@@ -186,10 +190,15 @@ export const stageTools: Record<Stage, ToolName[]> = {
 }
 
 /** Tools that change the trip; withheld when the user only asked or compared. */
-export const commitTools: ToolName[] = ['apply_plan_change', 'start_journey']
+export const commitTools: ToolName[] = [
+  'add_nearby_stop',
+  'apply_plan_change',
+  'start_journey',
+]
 
 /** A compact, model-safe view of the trip (no ids, no health detail beyond the code). */
-export const nextActionLine = (config: TripConfig, state: TripState) => {
+export const nextActionLine = (catalogue: TripConfig, state: TripState) => {
+  const config = withExtraPlaces(catalogue, state.plan)
   const it = planner(config)(state.plan, state.observations)
   if (it.validationErrors?.length)
     return `일정을 다시 검토해야 해요. ${it.validationErrors.join(' ')}`
@@ -207,10 +216,11 @@ export const nextActionLine = (config: TripConfig, state: TripState) => {
 }
 
 export const snapshot = (
-  config: TripConfig,
+  catalogue: TripConfig,
   state: TripState,
   stage: Stage,
 ) => {
+  const config = withExtraPlaces(catalogue, state.plan)
   const it = planner(config)(state.plan, state.observations)
   const name = (id: string) =>
     config.places.find((p) => p.id === id)?.attrs.short ?? id

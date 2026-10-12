@@ -35,6 +35,7 @@ import { Gull, GullPose } from '#/brand/brand'
 import type { PlanProgress } from '#/server/agent/harness'
 import { cacheView } from '#/app/trip-client'
 import type { TripConfig } from '#/core/schema'
+import { withExtraPlaces } from '#/core/extra-places'
 import { suggestionsFor } from '#/core/stage'
 import type { TripView } from '#/core/view'
 import type { AgentMode, AgentUIMessage } from '#/server/agent/harness'
@@ -80,7 +81,7 @@ const shouldContinue = ({ messages }: { messages: AgentUIMessage[] }) => {
 export type Agent = ReturnType<typeof useAgent>
 
 export const useAgent = ({
-  config,
+  config: catalogue,
   tripId,
   initial,
 }: {
@@ -90,6 +91,14 @@ export const useAgent = ({
 }) => {
   const { locale } = useI18n()
   const [view, setView] = useState(initial.trip)
+  // The catalogue plus the nearby spots this trip added, in the runner's language.
+  const extras = view.state.plan.extraPlaces
+  const config = useMemo(() => {
+    const merged = withExtraPlaces(catalogue, { extraPlaces: extras })
+    return merged === catalogue
+      ? catalogue
+      : { ...merged, places: localizeDeep(merged.places, locale) }
+  }, [catalogue, extras, locale])
   const [progress, setProgress] = useState<PlanProgress | null>(null)
   /** Callers of `ask` waiting for the reply to finish streaming. */
   const waiting = useRef<((message: AgentUIMessage | null) => void)[]>([])

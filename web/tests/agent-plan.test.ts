@@ -240,6 +240,51 @@ describe('model-selected itinerary and deterministic validation', () => {
   })
 })
 
+describe('nearby spots added to a trip', () => {
+  const harbour = {
+    id: 'tour-2610501',
+    contentId: '2610501',
+    title: '구룡포항',
+    address: '경상북도 포항시 남구 구룡포읍',
+    image: '',
+    interest: 'view' as const,
+    course: 'guryongpo',
+    geo: { lat: 35.9879, lng: 129.5556 },
+    dwell: 20,
+  }
+  const withHarbour: ItineraryProposal = {
+    ...proposal,
+    stops: [
+      proposal.stops[0],
+      {
+        place: harbour.id,
+        dwell: 20,
+        travelMode: 'WALK',
+        reason: '항구를 보고 싶다는 요청이에요.',
+      },
+      proposal.stops[1],
+    ],
+  }
+
+  it('plans a model-selected nearby spot once the trip has added it', () => {
+    const plan = planSchema.parse({
+      ...selected(withHarbour),
+      extraPlaces: [harbour],
+    })
+    const it = calculate(plan, obs)
+    expect(it.validationErrors ?? []).toEqual([])
+    expect(it.stops.map((s) => s.id)).toEqual(['street', harbour.id, 'cafe'])
+    expect(
+      tripView(config, { ...initialTrip(config), plan }).itinerary.stops,
+    ).toHaveLength(3)
+  })
+
+  it('still rejects a spot the trip never added', () => {
+    const it = calculate(selected(withHarbour), obs)
+    expect(it.validationErrors?.join(' ')).toContain('이 권역에 없는 장소')
+  })
+})
+
 describe('proposal tool lifecycle', () => {
   it('requires approval when adopting AI planning during an existing rule-based journey', async () => {
     const f = fixture()
