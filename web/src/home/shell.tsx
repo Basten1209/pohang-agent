@@ -112,15 +112,26 @@ export const Shell = ({
     [agent.view, locale],
   )
   const { tab } = useSearch({ from: '/' })
-  // On home the header floats over the hero photo until the photo scrolls away.
-  const [overHero, setOverHero] = useState(true)
+  // On home the header floats over the hero photo: clear at rest, then a
+  // strong untinted blur, in white while the photo is still behind it.
+  const [heroState, setHeroState] = useState<'rest' | 'photo' | 'page'>('rest')
   useEffect(() => {
     if (tab !== 'home') return
-    const sync = () => setOverHero(window.scrollY < window.innerHeight * 0.55)
+    const sync = () => {
+      const hero = document.getElementById('home-hero')
+      const header = document.querySelector('header')
+      const behind =
+        hero && header
+          ? hero.getBoundingClientRect().bottom >
+            header.getBoundingClientRect().bottom
+          : false
+      setHeroState(window.scrollY < 8 ? 'rest' : behind ? 'photo' : 'page')
+    }
     sync()
     window.addEventListener('scroll', sync, { passive: true })
     return () => window.removeEventListener('scroll', sync)
   }, [tab])
+  const overHero = tab === 'home' && heroState !== 'page'
   const navigate = useNavigate({ from: '/' })
   const setTab = (next: Tab) => {
     void navigate({ search: { tab: next } })
@@ -266,12 +277,12 @@ export const Shell = ({
         <header
           className={
             tab === 'home'
-              ? `fixed inset-x-0 top-0 z-30 pt-safe text-foreground transition-colors ${overHero ? 'border-b border-transparent bg-transparent' : 'border-b bg-background'}`
-              : 'sticky top-0 z-30 border-b bg-background pt-safe text-foreground'
+              ? `fixed inset-x-0 top-0 z-30 border-b pt-safe text-foreground transition-colors ${heroState === 'rest' ? 'border-transparent bg-transparent' : heroState === 'photo' ? 'border-transparent bg-transparent backdrop-blur-xl' : 'bg-background/40 backdrop-blur-xl'}`
+              : 'sticky top-0 z-30 border-b bg-background/40 pt-safe text-foreground backdrop-blur-xl'
           }
           // Over the photo the header reads in white: swap the theme's ink.
           style={
-            tab === 'home' && overHero
+            overHero
               ? ({
                   '--foreground': '#ffffff',
                   '--muted-foreground': 'rgb(255 255 255 / 0.75)',
