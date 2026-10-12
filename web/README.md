@@ -120,9 +120,9 @@ OpenAI가 연결되면 `plan_course`는 직접 작성한 proposal과 최신 cont
 
 시연 조건은 채팅에 `/시연 혼잡만 82%로`처럼 보내거나 헤더 메뉴 → 시연 조건에서 고릅니다.
 
-## 음성 모드 (베타)
+## 음성 모드
 
-메뉴 → "음성 모드 (베타)"를 켜면 에이전트 시트 입력창에 마이크 버튼이 생깁니다. OpenAI Live(`gpt-live-1`, speech-to-speech)가 듣고 말하지만 **결정은 하지 않습니다.** Live가 요청을 위임(client delegation)하면, 받아 적은 사용자 말을 기존 채팅 에이전트(`/api/chat`)에 그대로 보내고 — 같은 도구·안전 게이트·승인·여정 — 그 답을 `context-append`(commentary)로 돌려줘 Live가 읽습니다. 대화 기록에도 그대로 남습니다.
+에이전트 대화창 입력창에 마이크 버튼이 기본으로 있습니다(서버에 `OPENAI_API_KEY`가 없으면 숨김). OpenAI Live(`gpt-live-1`, speech-to-speech)가 듣고 말하지만 **결정은 하지 않습니다.** Live가 요청을 위임(client delegation)하면, 받아 적은 사용자 말을 기존 채팅 에이전트(`/api/chat`)에 그대로 보내고 — 같은 도구·안전 게이트·승인·여정 — 그 답을 `context-append`(commentary)로 돌려줘 Live가 읽습니다. 대화 기록에도 그대로 남습니다.
 
 - 서버 `POST /api/voice/session?trip=…`: 브라우저의 WebRTC offer를 OpenAI Live answer로 교환. 세션 설정(위임·목소리·허용 이벤트)은 서버가 정하고 브라우저가 보낸 설정은 무시합니다. API 키는 서버에만 있고 오디오는 브라우저↔OpenAI 직접 연결이라 Vercel 함수가 음성을 중계하지 않습니다.
 - 설정: `agent.voice`(모델·목소리·지시문·답변 길이). `OPENAI_API_KEY`가 없으면 `/api/status`의 `voice:false`로 버튼이 숨겨집니다.

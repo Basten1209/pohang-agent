@@ -11,7 +11,7 @@ import type { Agent } from './chat'
 import { useI18n } from '#/i18n/react'
 
 /**
- * Voice mode (beta). OpenAI Live hears the runner and speaks; when it
+ * Voice mode. OpenAI Live hears the runner and speaks; when it
  * delegates, what the runner said goes to the same text agent as typing
  * does — same tools, safety gate, approvals and trip — and the agent's
  * answer is handed back for Live to say. The conversation shows both.

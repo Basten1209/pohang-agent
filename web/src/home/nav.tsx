@@ -1,16 +1,7 @@
-import { Link } from '@tanstack/react-router'
 import type { LucideIcon } from 'lucide-react'
 import { Flag, House, Map as MapIcon, Menu, Users } from 'lucide-react'
 import { useState } from 'react'
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Field, FieldLabel } from '@/components/ui/field'
 import { Separator } from '@/components/ui/separator'
 import {
   Sheet,
@@ -42,9 +33,8 @@ export const NavTabs = ({
   return (
     <Tabs value={tab} onValueChange={(v) => onTab(v as Tab)}>
       <TabsList variant="line" aria-label={t('nav.label')}>
-        {tabs.map(({ id, Icon }) => (
-          <TabsTrigger key={id} value={id}>
-            <Icon aria-hidden />
+        {tabs.map(({ id }) => (
+          <TabsTrigger key={id} value={id} className="px-3">
             {t(`nav.${id}`)}
           </TabsTrigger>
         ))}
@@ -53,30 +43,16 @@ export const NavTabs = ({
   )
 }
 
-export type MenuToggle = {
-  label: string
-  checked: boolean
-  onChange: (on: boolean) => void
-}
-
 /** Phones: sections and the menu behind one ☰ button, dropping down from the top. */
 export const MobileMenu = ({
   tab,
   onTab,
   actions,
-  toggles,
-  scenarios,
-  onScenario,
-  busy,
   onNewTrip,
 }: {
   tab: Tab
   onTab: (tab: Tab) => void
   actions: ReadonlyArray<{ label: string; onSelect: () => void }>
-  toggles: ReadonlyArray<MenuToggle>
-  scenarios: ReadonlyArray<{ id: string; title: string }>
-  onScenario: (title: string) => void
-  busy: boolean
   onNewTrip: () => void
 }) => {
   const { t } = useI18n()
@@ -131,48 +107,6 @@ export const MobileMenu = ({
                 {a.label}
               </Button>
             ))}
-            <Accordion type="single" collapsible className="px-2.5">
-              <AccordionItem value="demo" className="border-0">
-                <AccordionTrigger className="py-2.5" disabled={busy}>
-                  {t('menu.demo')}
-                </AccordionTrigger>
-                <AccordionContent className="flex flex-col">
-                  <p className="pb-1 text-xs text-muted-foreground">
-                    {t('menu.demoHint')}
-                  </p>
-                  {scenarios.map((s) => (
-                    <Button
-                      key={s.id}
-                      variant="ghost"
-                      size="sm"
-                      className="justify-start"
-                      onClick={then(() => onScenario(s.title))}
-                    >
-                      {s.title}
-                    </Button>
-                  ))}
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-            {toggles.map((o) => (
-              <Field
-                key={o.label}
-                orientation="horizontal"
-                className="h-10 px-2.5"
-              >
-                <Checkbox
-                  id={`menu-${o.label}`}
-                  checked={o.checked}
-                  onCheckedChange={(on) => o.onChange(on === true)}
-                />
-                <FieldLabel htmlFor={`menu-${o.label}`} className="font-normal">
-                  {o.label}
-                </FieldLabel>
-              </Field>
-            ))}
-            <Button asChild variant="ghost" className="h-10 justify-start">
-              <Link to="/classic">{t('menu.classic')}</Link>
-            </Button>
           </div>
           <Separator className="my-3" />
           <div className="px-2 pb-6">

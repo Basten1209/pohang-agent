@@ -137,7 +137,7 @@ export const HomeTab = ({
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4">
       <PhotoHero
-        image={config.event.image || '/images/yeongildae-pier.jpg'}
+        image={config.event.image || '/images/yeongildae-pier-wide.jpg'}
         portrait="/images/yeongildae-pier-portrait.jpg"
         title={
           <>
