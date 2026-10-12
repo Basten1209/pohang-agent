@@ -41,7 +41,7 @@ const MyPlan = ({
         </span>
       }
       action={
-        <Button size="sm" variant="outline" onClick={onEdit}>
+        <Button size="sm" variant="ghost" onClick={onEdit}>
           <Pencil />
           {t('home.edit')}
         </Button>
