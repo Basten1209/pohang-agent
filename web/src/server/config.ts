@@ -6,6 +6,7 @@ import { readConfig, seed } from './db/repo'
 import { applyDemoQaData } from './db/demo-qa'
 import { refreshVenueCatalog } from './db/refresh-venues'
 import { applyVenueCatalog } from './db/venue-catalog'
+import { removeRequestedCommunityPost } from './db/community-cleanup'
 
 /**
  * Runtime configuration = seed ⊕ database documents ⊕ environment.
@@ -56,6 +57,7 @@ const load = async (): Promise<LoadedConfig> => {
     const db = await getDb()
     await seed(db, seedConfig)
     await applyDemoQaData(db)
+    await removeRequestedCommunityPost(db)
     await applyVenueCatalog(db)
     await refreshVenueCatalog(db)
     const { config, issues } = await readConfig(db, seedConfig)

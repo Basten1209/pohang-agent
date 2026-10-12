@@ -1,6 +1,7 @@
 import { Camera } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { GullPose } from '#/brand/brand'
+import { agentName } from '#/core/identity'
 import type { Place } from '#/core/schema'
 
 export function VisitPhotoPrompt({
@@ -19,7 +20,7 @@ export function VisitPhotoPrompt({
     >
       <GullPose pose="cheer" className="w-full self-start" decorative />
       <div className="min-w-0">
-        <p className="text-xs font-medium text-primary">구룡포 여행 친구</p>
+        <p className="text-xs font-medium text-primary">{agentName}</p>
         <p className="mt-1 text-sm font-semibold">
           {place.attrs.short}에서의 순간, 사진으로 남겨볼까요?
         </p>

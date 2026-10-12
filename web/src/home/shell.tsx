@@ -34,6 +34,7 @@ import { newTripId, postEvents } from '#/app/trip-client'
 import { toast } from 'sonner'
 import { advance as advanceTrip, startReturn } from '#/core/trip'
 import { photoOpportunity, type CommunityPost } from '#/core/community'
+import { agentName } from '#/core/identity'
 import { VisitPhotoPrompt } from './visit-photos'
 import type { Place } from '#/core/schema'
 import type { TripConfig } from '#/core/schema'
@@ -462,7 +463,7 @@ export const Shell = ({
           <SheetHeader className="border-b">
             <SheetTitle className="flex items-center gap-2">
               <GullPose className="w-12" decorative />
-              구룡포 여행 친구
+              {agentName}
             </SheetTitle>
             <SheetDescription>
               대회·코스·맛집·버스, 무엇이든 물어보세요
