@@ -17,8 +17,8 @@ describe('키보드가 열렸을 때 바텀시트 위치', () => {
     expect(sheetFrame({ innerHeight: 844, height: 508, offsetTop: 0 })).toEqual(
       {
         bottom: 336,
-        height: 500,
-        maxHeight: 500,
+        height: 508,
+        maxHeight: 508,
       },
     )
   })
@@ -30,8 +30,8 @@ describe('키보드가 열렸을 때 바텀시트 위치', () => {
       sheetFrame({ innerHeight: 844, height: 508, offsetTop: 336 }),
     ).toEqual({
       bottom: 0,
-      height: 500,
-      maxHeight: 500,
+      height: 508,
+      maxHeight: 508,
     })
   })
 })

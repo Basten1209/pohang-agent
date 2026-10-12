@@ -11,7 +11,9 @@ import type { CSSProperties } from 'react'
  * blank space below it.
  *
  * Instead, turn vaul's repositioning off and pin the sheet to the visual
- * viewport: its bottom sits on the keyboard and it fills the visible area.
+ * viewport: its bottom sits on the keyboard and it fills the whole visible
+ * area, like a full-screen chat — the little room left above a keyboard is
+ * too small for a sheet with a rounded top and a drag handle.
  */
 
 export type Viewport = {
@@ -22,14 +24,12 @@ export type Viewport = {
 
 /** Below this, a smaller visual viewport is browser chrome, not a keyboard. */
 const KEYBOARD_MIN = 120
-/** Room left above the sheet so its rounded top stays visible. */
-const TOP_GAP = 8
 
 /** Pure: where the sheet goes for a given viewport, or null when no keyboard is open. */
 export const sheetFrame = (v: Viewport): CSSProperties | null => {
   const hidden = v.innerHeight - v.height
   if (hidden < KEYBOARD_MIN) return null
-  const height = Math.max(0, v.height - TOP_GAP)
+  const height = Math.max(0, v.height)
   return {
     // The layout viewport's bottom is under the keyboard; sit on top of it.
     bottom: Math.max(0, v.innerHeight - v.offsetTop - v.height),
@@ -67,5 +67,10 @@ export const useKeyboardSheet = (open: boolean) => {
     drawer: { repositionInputs: false } as const,
     style: frame ?? undefined,
     keyboardOpen: frame !== null,
+    /** Full screen while typing: square corners, no top border, no drag handle. */
+    className:
+      frame === null
+        ? ''
+        : 'data-[vaul-drawer-direction=bottom]:rounded-none data-[vaul-drawer-direction=bottom]:border-t-0 [&>div:first-child]:hidden',
   }
 }
