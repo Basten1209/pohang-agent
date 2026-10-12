@@ -9,6 +9,7 @@ import { Spinner } from '@/components/ui/spinner'
 import type { VoiceConfig } from '#/core/voice'
 import { spokenReply, utterance } from '#/core/voice'
 import type { Agent } from './chat'
+import { useI18n } from '#/i18n/react'
 
 /**
  * Voice mode (beta). OpenAI Live hears the runner and speaks; when it
@@ -54,10 +55,15 @@ const VoiceSession = ({
   const agentRef = useRef(agent)
   agentRef.current = agent
   const [failed, setFailed] = useState(false)
+  const { t, locale } = useI18n()
+  const api = useMemo(
+    () => ({ session: `/api/voice/session?trip=${tripId}&locale=${locale}` }),
+    [tripId, locale],
+  )
 
   const realtime = experimental_useRealtime({
     model,
-    api: { session: `/api/voice/session?trip=${tripId}` },
+    api,
     sessionConfig,
     onError: () => setFailed(true),
     onEvent: (event: Experimental_RealtimeServerEvent) => {
@@ -86,19 +92,18 @@ const VoiceSession = ({
   /** One delegated request: the words since the last one, through the text agent. */
   const delegate = async (delegationId: string) => {
     const said = utterance(heard.current.splice(0))
-    if (!said)
-      return answer(delegationId, '잘 못 들었어요. 한 번만 더 말씀해 주세요.')
-    if (agentRef.current.busy)
-      return answer(
-        delegationId,
-        '앞 요청을 확인하고 있어요. 끝나면 다시 말씀해 주세요.',
-      )
+    if (!said) return answer(delegationId, t('voice.didntHear'))
+    if (agentRef.current.busy) return answer(delegationId, t('voice.busy'))
     const reply = await agentRef.current.ask(said)
     return answer(
       delegationId,
       reply
-        ? spokenReply(reply.parts, voice.maxReplyChars)
-        : '지금은 답을 받지 못했어요. 화면에서 다시 시도해 주세요.',
+        ? spokenReply(reply.parts, voice.maxReplyChars, {
+            approval: t('voice.approval'),
+            seeScreen: t('voice.seeScreen'),
+            rest: t('voice.rest'),
+          })
+        : t('voice.noAnswer'),
     )
   }
 
@@ -119,16 +124,18 @@ const VoiceSession = ({
         }}
       >
         {starting ? <Spinner /> : live ? <MicOff /> : <Mic />}
-        {live ? '음성 끄기' : '음성'}
+        {live ? t('voice.stop') : t('voice.start')}
       </Button>
       {live && (
         <Badge variant="secondary" className="tabular-nums">
-          듣는 중 · {minutes(realtime.session?.usage?.seconds ?? 0)}
+          {t('voice.listening', {
+            time: minutes(realtime.session?.usage?.seconds ?? 0),
+          })}
         </Badge>
       )}
       {!live && !starting && (failed || realtime.status === 'error') && (
         <span role="alert" className="text-xs text-destructive">
-          음성 연결이 끊겼어요
+          {t('voice.disconnected')}
         </span>
       )}
     </div>

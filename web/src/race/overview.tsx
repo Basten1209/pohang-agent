@@ -20,6 +20,7 @@ import {
 import { Separator } from '@/components/ui/separator'
 import type { RaceEvent } from '#/core/schema'
 import { bib } from './mock'
+import { useI18n } from '#/i18n/react'
 
 const directionsTo = (event: RaceEvent) =>
   `https://map.kakao.com/link/to/${encodeURIComponent(event.venue)},${event.geo.lat},${event.geo.lng}`
@@ -27,6 +28,7 @@ const directionsTo = (event: RaceEvent) =>
 /** When and where: the race at a glance. */
 export const RaceHeadline = ({ event }: { event: RaceEvent }) => {
   const directions = directionsTo(event)
+  const { t } = useI18n()
   return (
     <Card>
       {event.image && (
@@ -41,10 +43,10 @@ export const RaceHeadline = ({ event }: { event: RaceEvent }) => {
       <CardHeader>
         <CardTitle>{event.name}</CardTitle>
         <CardDescription>
-          {event.category} · 배번 {bib}
+          {t('race.bib', { category: event.category, bib })}
         </CardDescription>
         <CardAction>
-          <Badge variant="outline">발표용 가상 대회</Badge>
+          <Badge variant="outline">{t('race.demo')}</Badge>
         </CardAction>
       </CardHeader>
       <CardContent>
@@ -55,7 +57,9 @@ export const RaceHeadline = ({ event }: { event: RaceEvent }) => {
             </ItemMedia>
             <ItemContent>
               <ItemTitle>{event.dateLabel}</ItemTitle>
-              <ItemDescription>{event.gun} 출발</ItemDescription>
+              <ItemDescription>
+                {t('race.gun', { time: event.gun })}
+              </ItemDescription>
             </ItemContent>
           </Item>
           <Item size="sm">
@@ -72,7 +76,7 @@ export const RaceHeadline = ({ event }: { event: RaceEvent }) => {
               <Timer />
             </ItemMedia>
             <ItemContent>
-              <ItemTitle>제한시간</ItemTitle>
+              <ItemTitle>{t('race.cutoff')}</ItemTitle>
               <ItemDescription>{event.cutoff}</ItemDescription>
             </ItemContent>
           </Item>
@@ -80,7 +84,7 @@ export const RaceHeadline = ({ event }: { event: RaceEvent }) => {
         <Button asChild variant="outline" className="mt-3 w-full">
           <a href={directions} target="_blank" rel="noreferrer">
             <Navigation />
-            대회장 길찾기
+            {t('race.directions')}
           </a>
         </Button>
       </CardContent>

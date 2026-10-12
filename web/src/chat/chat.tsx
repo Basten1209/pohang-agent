@@ -41,6 +41,7 @@ import { Choices, ToolCard } from './cards'
 import { VoiceControl } from './voice'
 import type { AgentPart, ChatContext, ToolPart } from './context'
 import { ChatProvider, useChatContext } from './context'
+import { readLocale, useI18n } from '#/i18n/react'
 
 /**
  * The agent: one conversation per trip, held above the screens so the sheet
@@ -94,7 +95,13 @@ export const useAgent = ({
         api: '/api/chat',
         prepareSendMessagesRequest: ({ id, messages }) => {
           setProgress(null)
-          return { body: { tripId: id, message: messages.at(-1) } }
+          return {
+            body: {
+              tripId: id,
+              message: messages.at(-1),
+              locale: readLocale(),
+            },
+          }
         },
       }),
     [],
@@ -231,6 +238,7 @@ export const ChatPanel = ({
   voice?: boolean
 }) => {
   const { view, config, tripId } = useChatContext()
+  const { t } = useI18n()
   const { messages, status, stop, error } = agent.chat
   const [input, setInput] = useState('')
   const last = messages.at(-1)
@@ -254,10 +262,10 @@ export const ChatPanel = ({
               <GullPose pose="wave" className="w-full" decorative />
               <div className="min-w-0">
                 <p className="font-semibold text-foreground">
-                  달리기부터 여행까지, 함께할게요
+                  {t('chat.introTitle')}
                 </p>
                 <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                  대회 준비나 완주 후 가고 싶은 곳을 편하게 물어보세요.
+                  {t('chat.introBody')}
                 </p>
               </div>
             </div>
@@ -331,21 +339,21 @@ export const ChatPanel = ({
               <span className="size-2 shrink-0 animate-pulse rounded-full bg-primary" />
               {agent.progress
                 ? progressLabels[agent.progress.phase]
-                : '요청을 확인하고 있어요…'}
+                : t('chat.checking')}
             </div>
           )}
           {error && (
             <p role="alert" className="text-sm text-destructive">
               {error.message?.includes('길이 제한')
-                ? '답변이 길이 제한으로 중단됐어요.'
-                : '답변을 끝까지 받지 못했어요.'}{' '}
+                ? t('chat.lengthLimit')
+                : t('chat.incomplete')}{' '}
               <Button
                 variant="link"
                 size="sm"
                 className="h-auto p-0"
                 onClick={() => agent.chat.regenerate()}
               >
-                다시 시도
+                {t('common.retry')}
               </Button>
             </p>
           )}
@@ -373,7 +381,7 @@ export const ChatPanel = ({
               <PromptInputTextarea
                 value={input}
                 onChange={(e) => setInput(e.currentTarget.value)}
-                placeholder={open?.hint ?? '무엇이든 물어보세요'}
+                placeholder={open?.hint ?? t('chat.placeholder')}
                 maxLength={1000}
               />
             </PromptInputBody>
@@ -389,9 +397,9 @@ export const ChatPanel = ({
                     view.stage === 'SAFETY' ||
                     !photoEligiblePlaces(config, view.state).length
                   }
-                  onClick={() => send('여행 사진을 커뮤니티에 올릴래요')}
+                  onClick={() => send(t('say.sharePhoto'))}
                 >
-                  <Camera /> 여행 사진
+                  <Camera /> {t('chat.photo')}
                 </Button>
               </div>
               <PromptInputSubmit

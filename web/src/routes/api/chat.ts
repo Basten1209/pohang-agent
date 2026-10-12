@@ -4,6 +4,7 @@ import { z } from 'zod'
 import type { AgentUIMessage } from '#/server/agent/harness'
 import { runTurn } from '#/server/agent/harness'
 import { modelFor } from '#/server/agent/model'
+import { locales } from '#/i18n'
 import { getConfig } from '#/server/config'
 import { getDb } from '#/server/db/client'
 import { parseBody } from '#/server/http'
@@ -23,6 +24,7 @@ const bodySchema = z.object({
       parts: z.array(z.object({ type: z.string() }).passthrough()).max(40),
     })
     .passthrough(),
+  locale: z.enum(locales).optional(),
 })
 
 export const Route = createFileRoute('/api/chat')({
@@ -42,6 +44,7 @@ export const Route = createFileRoute('/api/chat')({
           {
             tripId: body.data.tripId,
             message: body.data.message as unknown as AgentUIMessage,
+            locale: body.data.locale,
           },
         )
         return createUIMessageStreamResponse({
