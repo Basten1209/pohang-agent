@@ -52,7 +52,7 @@ export const MascotBanner = ({
   pose: GullPoseName
   eyebrow: string
   title: ReactNode
-  description: string
+  description: ReactNode
   /** A button across the bottom of the panel. */
   action?: ReactNode
 }) => (
@@ -70,6 +70,41 @@ export const MascotBanner = ({
     </div>
     <GullPose pose={pose} className="w-full" decorative />
     {action && <div className="col-span-2 pt-2">{action}</div>}
+  </section>
+)
+
+/**
+ * Full-bleed photo hero: a dimmed photo with the headline, one line of copy
+ * and the actions underneath.
+ */
+export const PhotoHero = ({
+  image,
+  title,
+  description,
+  actions,
+}: {
+  image: string
+  title: ReactNode
+  description: ReactNode
+  actions?: ReactNode
+}) => (
+  <section className="relative isolate -mx-4 -mt-4 flex min-h-[70svh] flex-col justify-end overflow-hidden px-5 pt-24 pb-8 text-white sm:min-h-[28rem] sm:px-8">
+    <img
+      src={image}
+      alt=""
+      width="1200"
+      height="728"
+      fetchPriority="high"
+      className="absolute inset-0 -z-20 h-full w-full object-cover"
+    />
+    <div className="absolute inset-0 -z-10 bg-linear-to-b from-black/20 via-black/35 to-black/70" />
+    <h1 className="text-3xl leading-tight font-bold tracking-tight sm:text-4xl">
+      {title}
+    </h1>
+    <p className="mt-3 max-w-md text-base leading-relaxed text-white/80">
+      {description}
+    </p>
+    {actions && <div className="mt-6 flex flex-wrap gap-3">{actions}</div>}
   </section>
 )
 
