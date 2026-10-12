@@ -19,12 +19,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer'
 import { Gull, GullPose, AssetCredits } from '#/brand/brand'
 import { newTripId, postEvents } from '#/app/trip-client'
 import { toast } from 'sonner'
@@ -459,36 +459,30 @@ export const Shell = ({
         }}
       />
 
-      <Sheet open={chatOpen} onOpenChange={setChatOpen}>
-        <SheetContent
-          side="bottom"
-          className="gap-0 p-0 data-[side=bottom]:h-[88dvh]"
-        >
-          <SheetHeader className="border-b">
-            <SheetTitle className="flex items-center gap-2">
+      <Drawer open={chatOpen} onOpenChange={setChatOpen}>
+        <DrawerContent className="h-[88dvh] data-[vaul-drawer-direction=bottom]:max-h-[88dvh]">
+          <DrawerHeader className="border-b">
+            <DrawerTitle className="flex items-center justify-center gap-2 md:justify-start">
               <GullPose className="w-12" decorative />
               {agentName}
-            </SheetTitle>
-            <SheetDescription>{t('agent.sheetDescription')}</SheetDescription>
-          </SheetHeader>
+            </DrawerTitle>
+            <DrawerDescription>{t('agent.sheetDescription')}</DrawerDescription>
+          </DrawerHeader>
           <ChatPanel
             agent={agent}
             suggestions={tabChips(tab, view, t)}
             photoPrompt={photoPrompt}
             voice={voiceBeta}
           />
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
 
-      <Sheet open={profileOpen} onOpenChange={setProfileOpen}>
-        <SheetContent
-          side="bottom"
-          className="gap-0 p-0 data-[side=bottom]:h-[88dvh]"
-        >
-          <SheetHeader className="border-b">
-            <SheetTitle>{t('edit.title')}</SheetTitle>
-            <SheetDescription>{t('edit.description')}</SheetDescription>
-          </SheetHeader>
+      <Drawer open={profileOpen} onOpenChange={setProfileOpen}>
+        <DrawerContent className="h-[88dvh] data-[vaul-drawer-direction=bottom]:max-h-[88dvh]">
+          <DrawerHeader className="border-b">
+            <DrawerTitle>{t('edit.title')}</DrawerTitle>
+            <DrawerDescription>{t('edit.description')}</DrawerDescription>
+          </DrawerHeader>
           <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-safe">
             <ProfileForm
               config={config}
@@ -501,8 +495,8 @@ export const Shell = ({
               }}
             />
           </div>
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
     </AgentProvider>
   )
 }
