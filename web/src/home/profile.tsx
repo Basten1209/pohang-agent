@@ -23,6 +23,15 @@ import { AUTO_COURSE } from '#/core/schema'
 import type { Details } from '#/core/slots'
 import { fillSlots } from '#/core/slots'
 import type { TripView } from '#/core/view'
+import { chipOn } from '#/app/bits'
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from '@/components/ui/item'
 
 /**
  * Onboarding asks one group at a time; later edits remain a single form.
@@ -203,7 +212,7 @@ export const ProfileForm = ({
       {onboarding && (
         <>
           <div className="flex items-center justify-between">
-            <span className="font-extrabold tracking-tight text-[#102a43]">
+            <span className="font-extrabold tracking-tight text-foreground">
               RUN2구룡포
             </span>
             <InstallApp compact />
@@ -242,28 +251,37 @@ export const ProfileForm = ({
           <div className="flex justify-center">
             <GullPose className="w-52" />
           </div>
-          <button
-            type="button"
-            aria-pressed={eventSelected}
-            className={`flex gap-3 rounded-2xl border-2 p-4 text-left transition-colors ${eventSelected ? 'border-primary bg-secondary' : 'border-border bg-card'}`}
-            onClick={() => setEventSelected(true)}
+          <Item
+            asChild
+            variant="outline"
+            className="aria-pressed:border-primary aria-pressed:bg-secondary"
           >
-            <Flag className="mt-1 size-5 shrink-0 text-primary" />
-            <span className="flex flex-1 flex-col gap-2">
-              <span className="text-xs font-semibold text-primary">
-                발표용 가상 대회
-              </span>
-              <span className="font-bold">{config.event.name}</span>
-              <span className="text-sm text-muted-foreground">
-                {config.event.dateLabel} · {config.event.gun}
-                <br />
-                {config.event.venue} · {config.event.category}
-              </span>
-            </span>
-            {eventSelected && (
-              <Check className="mt-1 size-5 shrink-0 text-primary" />
-            )}
-          </button>
+            <button
+              type="button"
+              aria-pressed={eventSelected}
+              onClick={() => setEventSelected(true)}
+            >
+              <ItemMedia variant="icon">
+                <Flag className="text-primary" />
+              </ItemMedia>
+              <ItemContent>
+                <ItemDescription className="font-semibold text-primary">
+                  발표용 가상 대회
+                </ItemDescription>
+                <ItemTitle>{config.event.name}</ItemTitle>
+                <ItemDescription>
+                  {config.event.dateLabel} · {config.event.gun}
+                  <br />
+                  {config.event.venue} · {config.event.category}
+                </ItemDescription>
+              </ItemContent>
+              {eventSelected && (
+                <ItemActions>
+                  <Check className="size-5 text-primary" />
+                </ItemActions>
+              )}
+            </button>
+          </Item>
           <p className="text-xs leading-relaxed text-muted-foreground">
             현재는 이 대회로 체험할 수 있어요. 완주 후 여행은 구룡포·호미곶을
             중심으로 안내해요.
@@ -309,7 +327,7 @@ export const ProfileForm = ({
                 }
               >
                 {config.modes.map((m) => (
-                  <ToggleGroupItem key={m.id} value={m.id}>
+                  <ToggleGroupItem className={chipOn} key={m.id} value={m.id}>
                     {m.label}
                   </ToggleGroupItem>
                 ))}
@@ -386,6 +404,7 @@ export const ProfileForm = ({
               >
                 {interests.map((c) => (
                   <ToggleGroupItem
+                    className={chipOn}
                     key={String(c.value)}
                     value={String(c.value)}
                   >

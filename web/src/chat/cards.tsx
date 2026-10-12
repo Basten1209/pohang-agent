@@ -36,6 +36,7 @@ import { clock } from '#/core/time'
 import type { PartOf, ToolPart } from './context'
 import { useChatContext } from './context'
 import { VisitPhotoCard } from './visit-photo-card'
+import { chipOn } from '#/app/bits'
 
 /**
  * One component per agent tool. A card is interactive only while it is the
@@ -83,7 +84,11 @@ export const Choices = ({
           onValueChange={setPicked}
         >
           {prompt.choices.map((c) => (
-            <ToggleGroupItem key={String(c.value)} value={String(c.value)}>
+            <ToggleGroupItem
+              className={chipOn}
+              key={String(c.value)}
+              value={String(c.value)}
+            >
               {icon(c.value)}
               {c.label}
             </ToggleGroupItem>

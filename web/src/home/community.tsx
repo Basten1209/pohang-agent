@@ -13,6 +13,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import type { CommunityPost } from '#/core/community'
 import { activeCourses } from '#/core/route'
 import type { TripConfig } from '#/core/schema'
+import { chipOn } from '#/app/bits'
 
 export const CommunityTab = ({
   config,
@@ -79,9 +80,11 @@ export const CommunityTab = ({
         value={tag}
         onValueChange={(v) => v && setTag(v)}
       >
-        <ToggleGroupItem value="all">전체</ToggleGroupItem>
+        <ToggleGroupItem className={chipOn} value="all">
+          전체
+        </ToggleGroupItem>
         {courses.map((c) => (
-          <ToggleGroupItem key={c.id} value={c.id}>
+          <ToggleGroupItem className={chipOn} key={c.id} value={c.id}>
             {c.area}
           </ToggleGroupItem>
         ))}

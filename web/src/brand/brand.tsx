@@ -66,7 +66,7 @@ export const MascotBanner = ({
 )
 
 export const BrandHero = () => (
-  <div className="brand-hero relative isolate overflow-hidden rounded-2xl bg-primary text-white">
+  <div className="brand-hero relative isolate overflow-hidden rounded-2xl bg-primary text-primary-foreground">
     <img
       src="/images/guryongpo-sea.jpg"
       alt="구룡포 해안의 바다"
@@ -75,9 +75,9 @@ export const BrandHero = () => (
       className="absolute inset-0 -z-20 h-full w-full object-cover"
       fetchPriority="high"
     />
-    <div className="absolute inset-0 -z-10 bg-gradient-to-t from-[#073b50] via-[#073b50]/60 to-[#073b50]/10" />
+    <div className="absolute inset-0 -z-10 bg-gradient-to-t from-brand-deep via-brand-deep/60 to-brand-deep/10" />
     <div className="flex min-h-64 flex-col justify-end gap-3 p-6">
-      <span className="text-xs font-semibold tracking-[0.2em] text-blue-100">
+      <span className="text-xs font-semibold tracking-[0.2em] text-primary-foreground/80">
         RUN2 GURYONGPO
       </span>
       <h1 className="text-3xl font-semibold leading-tight tracking-tight">
@@ -85,7 +85,7 @@ export const BrandHero = () => (
         <br />
         구룡포를 더 가까이.
       </h1>
-      <p className="max-w-xs text-sm leading-relaxed text-white/90">
+      <p className="max-w-xs text-sm leading-relaxed text-primary-foreground/90">
         완주 후의 컨디션부터 돌아갈 시간까지.
         <br />
         당신에게 맞는 바다 여행을 함께 만들어요.

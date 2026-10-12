@@ -69,7 +69,7 @@ export const Choice = ({
   title: string
   description?: string
 }) => (
-  <FieldLabel htmlFor={id} className="choice-card">
+  <FieldLabel htmlFor={id}>
     <Field orientation="horizontal">
       <FieldContent>
         <FieldTitle>{title}</FieldTitle>
@@ -79,3 +79,7 @@ export const Choice = ({
     </Field>
   </FieldLabel>
 )
+
+/** A selected chip in a ToggleGroup, in brand colours (tokens, not a global override). */
+export const chipOn =
+  'data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground'

@@ -27,6 +27,11 @@ import { AssetCredits, GullPose } from '#/brand/brand'
 import { PlaceThumb } from './thumb'
 import { ItineraryTimeline } from './timeline'
 import { CourseCandidates } from './candidates'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 
 export const TourTab = ({
   config,
@@ -238,17 +243,19 @@ export const TourTab = ({
             </p>
           )}
           {stage !== 'DONE' && (
-            <details className="mt-4 text-xs text-muted-foreground">
-              <summary className="cursor-pointer py-2">
+            <Collapsible className="mt-4 text-xs text-muted-foreground">
+              <CollapsibleTrigger className="cursor-pointer py-2 w-full text-left">
                 이동수단 기본 설정
-              </summary>
-              <TransportCard
-                config={config}
-                view={view}
-                select={selectTransport}
-                disabled={busy}
-              />
-            </details>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <TransportCard
+                  config={config}
+                  view={view}
+                  select={selectTransport}
+                  disabled={busy}
+                />
+              </CollapsibleContent>
+            </Collapsible>
           )}
         </CardContent>
       </Card>
@@ -262,25 +269,27 @@ export const TourTab = ({
         </CardContent>
       </Card>
       {others.length > 0 && stage === 'PLANNING' && (
-        <details className="group rounded-xl border bg-card px-4 py-3">
-          <summary className="flex cursor-pointer list-none items-center justify-between text-sm">
+        <Collapsible className="group rounded-xl border bg-card px-4 py-3">
+          <CollapsibleTrigger className="flex cursor-pointer items-center justify-between text-sm w-full text-left">
             다른 코스 보기
-            <ChevronDown className="size-4 group-open:rotate-180" />
-          </summary>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {others.map((c) => (
-              <Button
-                key={c.id}
-                size="sm"
-                variant="outline"
-                disabled={busy}
-                onClick={() => ask(`${c.area} 코스로 보여줘`)}
-              >
-                {c.title}
-              </Button>
-            ))}
-          </div>
-        </details>
+            <ChevronDown className="size-4 group-data-[state=open]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {others.map((c) => (
+                <Button
+                  key={c.id}
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => ask(`${c.area} 코스로 보여줘`)}
+                >
+                  {c.title}
+                </Button>
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       )}
       <ConditionsCard config={config} view={view} />
       <AssetCredits />

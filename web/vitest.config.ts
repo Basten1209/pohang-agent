@@ -5,5 +5,8 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
     environment: 'node',
+    // In-memory Postgres (PGlite) tests are slow when every file runs at once.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 })

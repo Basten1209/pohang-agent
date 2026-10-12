@@ -83,6 +83,7 @@ import {
   TrainCard,
 } from './cards'
 import { useApp } from './context'
+import { chipOn } from './bits'
 
 const patch = (p: Partial<Plan>) => ({
   events: [{ type: 'plan.patched' as const, patch: p }],
@@ -147,7 +148,7 @@ export const PlanScreen = () => {
                 }
               >
                 {config.modes.map((m) => (
-                  <ToggleGroupItem key={m.id} value={m.id}>
+                  <ToggleGroupItem className={chipOn} key={m.id} value={m.id}>
                     {m.label}
                   </ToggleGroupItem>
                 ))}
@@ -180,9 +181,11 @@ export const PlanScreen = () => {
                 value={plan.course}
                 onValueChange={(v) => v && run(patch({ course: v }))}
               >
-                <ToggleGroupItem value="auto">추천</ToggleGroupItem>
+                <ToggleGroupItem className={chipOn} value="auto">
+                  추천
+                </ToggleGroupItem>
                 {activeCourses(config).map((c) => (
-                  <ToggleGroupItem key={c.id} value={c.id}>
+                  <ToggleGroupItem className={chipOn} key={c.id} value={c.id}>
                     {c.title}
                   </ToggleGroupItem>
                 ))}
@@ -201,6 +204,7 @@ export const PlanScreen = () => {
               >
                 {interests.map((c) => (
                   <ToggleGroupItem
+                    className={chipOn}
                     key={String(c.value)}
                     value={String(c.value)}
                   >

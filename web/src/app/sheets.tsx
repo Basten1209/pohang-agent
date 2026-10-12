@@ -33,6 +33,7 @@ import { clock } from '#/core/time'
 import { changeDepart, runScenario } from '#/core/trip'
 import { useApp } from './context'
 import type { Sheet } from './context'
+import { chipOn } from './bits'
 
 type SheetSpec = {
   title: string
@@ -275,7 +276,7 @@ const TrainBody = () => {
         onValueChange={(v) => v && setDraft(v)}
       >
         {['16:00', '17:00', '18:30'].map((t) => (
-          <ToggleGroupItem key={t} value={t}>
+          <ToggleGroupItem className={chipOn} key={t} value={t}>
             {t}
           </ToggleGroupItem>
         ))}

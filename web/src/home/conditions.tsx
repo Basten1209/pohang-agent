@@ -8,6 +8,11 @@ import { usableReading } from '#/core/signals'
 import { recommendTransport } from '#/core/transport'
 import { mapUrl } from '#/core/links'
 import { hubOf } from '#/core/route'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 
 const at = (iso?: string | null) =>
   iso && Number.isFinite(Date.parse(iso))
@@ -34,8 +39,8 @@ export const ConditionsCard = ({
       source.enabled && obs.sources[source.reading]?.provenance === 'DEMO',
   )
   return (
-    <details className="rounded-xl border bg-card px-4 py-3 text-xs text-muted-foreground">
-      <summary className="cursor-pointer leading-relaxed">
+    <Collapsible className="rounded-xl border bg-card px-4 py-3 text-xs text-muted-foreground">
+      <CollapsibleTrigger className="cursor-pointer leading-relaxed w-full text-left">
         <span className="font-semibold text-foreground">
           {hasDemo ? 'E-UM · 구룡포 조건 시연' : 'E-UM · 구룡포의 지금'}
         </span>
@@ -56,65 +61,67 @@ export const ConditionsCard = ({
             })
             .join(' · ')}
         </span>
-      </summary>
-      <div className="mt-3 space-y-3 border-t pt-3 leading-relaxed">
-        <p>{[...new Set(view.itinerary.reasons)].join(' ')}</p>
-        {config.sources
-          .filter((s) => s.enabled)
-          .map((source) => {
-            const src = obs.sources[source.reading]
-            const scoped =
-              view.itinerary.course === 'guryongpo' ||
-              (source.reading === 'congestion' &&
-                view.itinerary.legs.some((leg) => leg.trafficScope))
-            const applies =
-              scoped &&
-              view.itinerary.calculationStatus !== 'NOT_RUN' &&
-              usableReading(obs, source.reading) !== null &&
-              (src?.eligible === true || src?.provenance === 'DEMO')
-            return (
-              <div key={source.id} className="space-y-1">
-                <p className="font-medium text-foreground">{source.label}</p>
-                <p>
-                  {src?.value ?? obs.readings[source.reading] ?? '확인 중'}{' '}
-                  {source.unit}
-                </p>
-                <p>
-                  {src?.provenance === 'DEMO'
-                    ? '시연 조건'
-                    : src?.provenance === 'LIVE'
-                      ? '실응답'
-                      : src?.provenance === 'SNAPSHOT'
-                        ? '저장 관측'
-                        : '확인 불가'}{' '}
-                  · {src?.freshness === 'STALE' ? '오래된 관측 · ' : ''}
-                  {applies && view.itinerary.needsReview
-                    ? '일정 재검토 필요 · 현재 판단에 미반영'
-                    : applies
-                      ? '현재 코스 판단에 반영'
-                      : '현재 코스 판단에 미반영'}
-                </p>
-                <p>
-                  관측 {at(src?.observedAt)} · 조회 {at(src?.fetchedAt)}
-                </p>
-                <p>{src?.note}</p>
-                <a
-                  href={String(source.meta.docs)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline"
-                >
-                  제공 정보
-                </a>
-              </div>
-            )
-          })}
-        <p>
-          구룡포 관측은 포항 전역의 상태를 의미하지 않아요. 이동시간은 시연
-          추정이에요.
-        </p>
-      </div>
-    </details>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="mt-3 space-y-3 border-t pt-3 leading-relaxed">
+          <p>{[...new Set(view.itinerary.reasons)].join(' ')}</p>
+          {config.sources
+            .filter((s) => s.enabled)
+            .map((source) => {
+              const src = obs.sources[source.reading]
+              const scoped =
+                view.itinerary.course === 'guryongpo' ||
+                (source.reading === 'congestion' &&
+                  view.itinerary.legs.some((leg) => leg.trafficScope))
+              const applies =
+                scoped &&
+                view.itinerary.calculationStatus !== 'NOT_RUN' &&
+                usableReading(obs, source.reading) !== null &&
+                (src?.eligible === true || src?.provenance === 'DEMO')
+              return (
+                <div key={source.id} className="space-y-1">
+                  <p className="font-medium text-foreground">{source.label}</p>
+                  <p>
+                    {src?.value ?? obs.readings[source.reading] ?? '확인 중'}{' '}
+                    {source.unit}
+                  </p>
+                  <p>
+                    {src?.provenance === 'DEMO'
+                      ? '시연 조건'
+                      : src?.provenance === 'LIVE'
+                        ? '실응답'
+                        : src?.provenance === 'SNAPSHOT'
+                          ? '저장 관측'
+                          : '확인 불가'}{' '}
+                    · {src?.freshness === 'STALE' ? '오래된 관측 · ' : ''}
+                    {applies && view.itinerary.needsReview
+                      ? '일정 재검토 필요 · 현재 판단에 미반영'
+                      : applies
+                        ? '현재 코스 판단에 반영'
+                        : '현재 코스 판단에 미반영'}
+                  </p>
+                  <p>
+                    관측 {at(src?.observedAt)} · 조회 {at(src?.fetchedAt)}
+                  </p>
+                  <p>{src?.note}</p>
+                  <a
+                    href={String(source.meta.docs)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline"
+                  >
+                    제공 정보
+                  </a>
+                </div>
+              )
+            })}
+          <p>
+            구룡포 관측은 포항 전역의 상태를 의미하지 않아요. 이동시간은 시연
+            추정이에요.
+          </p>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }
 

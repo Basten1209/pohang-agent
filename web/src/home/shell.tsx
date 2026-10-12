@@ -3,6 +3,7 @@ import { Ellipsis, Flag, House, Map as MapIcon, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -23,12 +24,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import {
-  NavigationMenu,
-  NavigationMenuList,
-  NavigationMenuItem,
-  NavigationMenuLink,
-} from '@/components/ui/navigation-menu'
 import { Gull, GullPose, AssetCredits } from '#/brand/brand'
 import { newTripId, postEvents } from '#/app/trip-client'
 import { toast } from 'sonner'
@@ -258,7 +253,7 @@ export const Shell = ({
         <header className="sticky top-0 z-30 border-b bg-background pt-safe">
           <div className="mx-auto flex min-h-14 max-w-2xl items-center gap-1 px-3 py-1 sm:gap-2 sm:px-4">
             <Gull className="size-8" />
-            <span className="whitespace-nowrap font-bold tracking-tight text-[#102a43]">
+            <span className="whitespace-nowrap font-bold tracking-tight text-foreground">
               RUN2구룡포
             </span>
             <Badge variant="secondary">
@@ -339,8 +334,8 @@ export const Shell = ({
             </div>
           </div>
           <div className="mx-auto max-w-2xl px-4 pb-2">
-            <NavigationMenu aria-label="주 메뉴">
-              <NavigationMenuList>
+            <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
+              <TabsList aria-label="주 메뉴" className="w-full">
                 {(
                   [
                     { id: 'home', label: '홈', Icon: House },
@@ -349,18 +344,17 @@ export const Shell = ({
                     { id: 'community', label: '커뮤니티', Icon: Users },
                   ] as const
                 ).map(({ id, label, Icon }) => (
-                  <NavigationMenuItem key={id} className="min-w-0 flex-1">
-                    <NavigationMenuLink
-                      active={tab === id}
-                      render={<Link to="/" search={{ tab: id }} />}
-                    >
-                      <Icon aria-hidden />
-                      {label}
-                    </NavigationMenuLink>
-                  </NavigationMenuItem>
+                  <TabsTrigger key={id} value={id}>
+                    {/* At the largest text size the labels need the room. */}
+                    <Icon
+                      aria-hidden
+                      className="max-[420px]:[html[data-font-size=largest]_&]:hidden"
+                    />
+                    {label}
+                  </TabsTrigger>
                 ))}
-              </NavigationMenuList>
-            </NavigationMenu>
+              </TabsList>
+            </Tabs>
           </div>
         </header>
 
@@ -434,7 +428,7 @@ export const Shell = ({
 
       <Button
         size="icon-lg"
-        className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 size-16 rounded-full border border-primary/15 bg-white p-0 text-primary shadow-lg hover:bg-secondary"
+        className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 size-16 rounded-full border border-primary/15 bg-card p-0 text-primary shadow-lg hover:bg-secondary"
         aria-label="에이전트에게 묻기"
         onClick={() => ask()}
       >
