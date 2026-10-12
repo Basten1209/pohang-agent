@@ -945,4 +945,19 @@ export default definePhrases([
     ja: 'エージェントが今回の日程で選ばなかった場所',
     zh: '智能助手本次行程未选择的地点',
   },
+  {
+    ko: '주변 추천 장소',
+    en: 'Nearby spot',
+    ja: '周辺のおすすめスポット',
+    zh: '周边推荐地点',
+  },
+  {
+    ko: '한국관광공사 관광정보에서 찾아 일정에 더한 주변 장소예요.',
+    en: 'A nearby spot found in Korea Tourism Organization data and added to your plan.',
+    ja: '韓国観光公社の観光情報で見つけて日程に加えた周辺スポットです。',
+    zh: '这是从韩国观光公社旅游信息中找到并加入行程的周边地点。',
+  },
+  { ko: '휴식', en: 'Rest', ja: '休憩', zh: '休息' },
+  { ko: '구경', en: 'Look around', ja: '見物', zh: '参观' },
+  { ko: '관람', en: 'Visit', ja: '観覧', zh: '观览' },
 ])

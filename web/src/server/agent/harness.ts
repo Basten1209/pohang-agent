@@ -43,6 +43,7 @@ import {
 } from './prompts'
 import type { Locale } from '#/i18n'
 import { languageInstruction } from '#/i18n'
+import { withExtraPlaces } from '#/core/extra-places'
 import { scriptedModel, withFallback } from './scripted-model'
 import type { AgentTools, AskTool, ToolName, TurnContext } from './tools'
 import { askTools, makeTools, progressAnswerSchema } from './tools'
@@ -269,7 +270,9 @@ export const runTurn = async (
     const parsed = progressAnswerSchema.safeParse(answer.output)
     if (answer.tool === 'await_progress' && parsed.success && events.length) {
       const it = planner(config)(record.state.plan, record.state.observations)
-      const place = config.places.find((p) => p.id === it.stops[0]?.id)
+      const place = withExtraPlaces(config, record.state.plan).places.find(
+        (p) => p.id === it.stops[0]?.id,
+      )
       const name = place?.attrs.short ?? '이 장소'
       progressReply = {
         ARRIVED: '관광지에 도착했어요.',
@@ -463,7 +466,10 @@ export const runTurn = async (
   let progress: TurnContext['progress']
   let checks: { label: string; ok: boolean }[] = []
   const ctx: TurnContext = {
-    config,
+    // Read per call: a spot added this turn is plannable on the next step.
+    get config() {
+      return withExtraPlaces(config, current.state.plan)
+    },
     isAI: () => mode === 'OPENAI',
     canStoreInitialPlan:
       !isReadOnly(text) &&

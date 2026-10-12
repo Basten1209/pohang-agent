@@ -82,8 +82,27 @@ export const agentPlanSchema = z.object({
   createdAt: z.string(),
 })
 
+/**
+ * A nearby spot the runner asked to add, from the Korea Tourism listing
+ * (coordinates and title come from TourAPI, never from the model).
+ */
+export const extraPlaceSchema = z.object({
+  id: z.string().regex(/^tour-\d{1,12}$/),
+  contentId: z.string().regex(/^\d{1,12}$/),
+  title: z.string().min(1).max(80),
+  address: z.string().max(200).default(''),
+  image: z.string().max(500).default(''),
+  interest: interestSchema,
+  course: courseIdSchema,
+  geo: z.object({ lat: z.number(), lng: z.number() }),
+  dwell: z.number().int().min(10).max(120),
+})
+export type ExtraPlace = z.infer<typeof extraPlaceSchema>
+
 export const planSchema = z.object({
   agentPlan: agentPlanSchema.nullable().optional(),
+  /** Nearby spots added to this trip on top of the course catalogue. */
+  extraPlaces: z.array(extraPlaceSchema).max(8).optional(),
   revision: z.number().int().nonnegative(),
   nickname: z.string().trim().max(20).optional(),
   localTransport: z.enum(['AUTO', 'TRANSIT', 'TAXI']).optional(),

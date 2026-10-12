@@ -73,7 +73,7 @@ const tabChips = (
 }
 
 export const Shell = ({
-  config,
+  config: catalogue,
   tripId,
   initial,
 }: {
@@ -82,7 +82,8 @@ export const Shell = ({
   initial: { trip: TripView; messages: AgentUIMessage[] }
 }) => {
   const { t, tx, locale } = useI18n()
-  const agent = useAgent({ config, tripId, initial })
+  const agent = useAgent({ config: catalogue, tripId, initial })
+  const { config } = agent
   const view = useMemo(
     () => localizeDeep(agent.view, locale),
     [agent.view, locale],

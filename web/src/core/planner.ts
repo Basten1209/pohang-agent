@@ -1,4 +1,5 @@
 import type { Rule } from './fp'
+import { withExtraPlaces } from './extra-places'
 import { evaluateAgentPlan } from './agent-plan'
 import { decideWith, indexBy, sum } from './fp'
 import { activeCourses, courseById, hubOf, isHub } from './route'
@@ -616,8 +617,10 @@ const chooseAuto = (config: TripConfig, all: Itinerary[]): Itinerary => {
 }
 
 export const planner =
-  (config: TripConfig) =>
+  (catalogue: TripConfig) =>
   (plan: Plan, obs: Observations): Itinerary => {
+    // The spots this trip added plan alongside the shared catalogue.
+    const config = withExtraPlaces(catalogue, plan)
     if (plan.agentPlan) {
       const course =
         courseById(config, plan.agentPlan.proposal.course) ??
