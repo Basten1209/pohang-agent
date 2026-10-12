@@ -275,6 +275,8 @@ export const Shell = ({
               ? ({
                   '--foreground': '#ffffff',
                   '--muted-foreground': 'rgb(255 255 255 / 0.75)',
+                  // Hover and open states: a light veil, not the page's grey.
+                  '--muted': 'rgb(255 255 255 / 0.16)',
                 } as React.CSSProperties)
               : undefined
           }
