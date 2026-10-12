@@ -170,7 +170,7 @@ export function ItineraryTimeline({
         return (
           <li
             key={key}
-            className="mx-2 rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground"
+            className="-my-1.5 px-3 text-xs text-muted-foreground"
           >
             <Accordion type="single" collapsible>
               <AccordionItem value="leg">

@@ -27,6 +27,7 @@ import { PlaceThumb } from './thumb'
 import { ItineraryTimeline } from './timeline'
 import { CourseCandidates } from './candidates'
 import { useI18n } from '#/i18n/react'
+import { Section } from './section'
 import {
   Accordion,
   AccordionContent,
@@ -224,18 +225,19 @@ export const TourTab = ({
           )}
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('tour.schedule')}</CardTitle>
-          <CardDescription className="leading-relaxed tabular-nums">
+      <Section
+        title={t('tour.schedule')}
+        description={
+          <span className="tabular-nums">
             {t('tour.arrivalTarget', {
               hub: hubName,
               time: clock(it.stationTarget),
             })}
             {it.slack !== null && ` · ${t('tour.slack', { min: it.slack })}`}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+          </span>
+        }
+      >
+        <div>
           <ItineraryTimeline
             config={config}
             itinerary={it}
@@ -275,46 +277,40 @@ export const TourTab = ({
               </AccordionItem>
             </Accordion>
           )}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent>
-          <CourseCandidates
-            key={it.course}
-            config={config}
-            course={it.course}
-          />
-        </CardContent>
-      </Card>
+        </div>
+      </Section>
+      <Section>
+        <CourseCandidates key={it.course} config={config} course={it.course} />
+      </Section>
       {others.length > 0 && stage === 'PLANNING' && (
-        <Accordion
-          type="single"
-          collapsible
-          className="rounded-xl border bg-card px-4"
-        >
-          <AccordionItem value="others">
-            <AccordionTrigger className="py-3 font-normal">
-              {t('tour.otherCourses')}
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="flex flex-wrap gap-2">
-                {others.map((c) => (
-                  <Button
-                    key={c.id}
-                    size="sm"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => ask(`${c.area} 코스로 보여줘`)}
-                  >
-                    {d(`course.${c.id}`, c.title)}
-                  </Button>
-                ))}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+        <Section>
+          <Accordion type="single" collapsible>
+            <AccordionItem value="others">
+              <AccordionTrigger className="py-3 font-normal">
+                {t('tour.otherCourses')}
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="flex flex-wrap gap-2">
+                  {others.map((c) => (
+                    <Button
+                      key={c.id}
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => ask(`${c.area} 코스로 보여줘`)}
+                    >
+                      {d(`course.${c.id}`, c.title)}
+                    </Button>
+                  ))}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </Section>
       )}
-      <ConditionsCard config={config} view={view} />
+      <Section>
+        <ConditionsCard config={config} view={view} />
+      </Section>
       <AssetCredits />
     </div>
   )

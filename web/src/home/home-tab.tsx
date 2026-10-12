@@ -1,15 +1,6 @@
 import { AssetCredits, MascotBanner } from '#/brand/brand'
 import { Pencil, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { planner } from '#/core/planner'
 import { courseById, hubOf } from '#/core/route'
 import type { TripConfig } from '#/core/schema'
@@ -21,6 +12,7 @@ import { useI18n } from '#/i18n/react'
 import { RaceDetails, RaceHeadline } from '#/race/overview'
 import { PlaceThumb } from './thumb'
 import { InstallApp } from './install'
+import { Section } from './section'
 
 const MyPlan = ({
   config,
@@ -37,31 +29,32 @@ const MyPlan = ({
   const course =
     plan.course === AUTO_COURSE ? null : courseById(config, plan.course)
   return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle>{t('home.myPlan')}</CardTitle>
-        <CardDescription className="tabular-nums">
+    <Section
+      title={t('home.myPlan')}
+      description={
+        <span className="tabular-nums">
           {plan.departTime} {d(`noun.${hub.mode.id}`, hub.mode.noun)} ·{' '}
           {t('home.arrivalTarget', {
             hub: d(`hub.${hub.id}`, hub.name),
             time: clock(view.itinerary.stationTarget),
           })}
-        </CardDescription>
-        <CardAction>
-          <Button size="sm" variant="outline" onClick={onEdit}>
-            <Pencil />
-            {t('home.edit')}
-          </Button>
-        </CardAction>
-      </CardHeader>
-      <CardContent className="text-sm">
+        </span>
+      }
+      action={
+        <Button size="sm" variant="outline" onClick={onEdit}>
+          <Pencil />
+          {t('home.edit')}
+        </Button>
+      }
+    >
+      <p className="text-sm">
         {t('home.wantToGo', {
           course: course
             ? d(`course.${course.id}`, course.title)
             : t('home.recommend'),
         })}
-      </CardContent>
-    </Card>
+      </p>
+    </Section>
   )
 }
 
@@ -92,15 +85,12 @@ const AfterRace = ({
   if (!course) return null
   const hub = hubOf(config, state.plan)
   return (
-    <Card size="sm">
-      <CardHeader>
-        <CardDescription>
-          {t('home.afterRace')} · {t('home.preview')}
-        </CardDescription>
-        <CardTitle>{d(`course.${course.id}`, course.title)}</CardTitle>
-      </CardHeader>
+    <Section
+      eyebrow={`${t('home.afterRace')} · ${t('home.preview')}`}
+      title={d(`course.${course.id}`, course.title)}
+    >
       {places.length > 0 && (
-        <CardContent className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3">
           <div className="grid grid-cols-3 gap-2">
             {places.slice(0, 3).map((p) => (
               <div key={p.id} className="flex flex-col gap-1">
@@ -122,12 +112,10 @@ const AfterRace = ({
                 time: clock(it.planningArrival),
               })}`}
           </p>
-        </CardContent>
+        </div>
       )}
-      <CardFooter className="text-xs text-muted-foreground">
-        {t('home.recalc')}
-      </CardFooter>
-    </Card>
+      <p className="text-xs text-muted-foreground">{t('home.recalc')}</p>
+    </Section>
   )
 }
 
