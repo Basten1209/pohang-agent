@@ -79,29 +79,35 @@ export const MascotBanner = ({
  */
 export const PhotoHero = ({
   image,
+  portrait,
   title,
   description,
   actions,
 }: {
   image: string
+  /** A taller crop for phones. */
+  portrait?: string
   title: ReactNode
   description: ReactNode
   actions?: ReactNode
 }) => (
-  <section className="relative isolate -mx-4 -mt-4 flex min-h-[70svh] flex-col justify-end overflow-hidden px-5 pt-24 pb-8 text-white sm:min-h-[28rem] sm:px-8">
-    <img
-      src={image}
-      alt=""
-      width="1200"
-      height="728"
-      fetchPriority="high"
-      className="absolute inset-0 -z-20 h-full w-full object-cover"
-    />
-    <div className="absolute inset-0 -z-10 bg-linear-to-b from-black/20 via-black/35 to-black/70" />
+  <section className="relative isolate -mx-4 -mt-4 flex min-h-[88svh] flex-col justify-center overflow-hidden px-5 pt-28 pb-12 text-white sm:min-h-[34rem] sm:px-8">
+    <picture className="absolute inset-0 -z-20">
+      {portrait && <source media="(max-width: 639px)" srcSet={portrait} />}
+      <img
+        src={image}
+        alt=""
+        width="1200"
+        height="728"
+        fetchPriority="high"
+        className="h-full w-full object-cover"
+      />
+    </picture>
+    <div className="absolute inset-0 -z-10 bg-linear-to-b from-black/45 via-black/25 to-black/55" />
     <h1 className="text-3xl leading-tight font-bold tracking-tight sm:text-4xl">
       {title}
     </h1>
-    <p className="mt-3 max-w-md text-base leading-relaxed text-white/80">
+    <p className="mt-3 max-w-md text-base leading-relaxed text-white/85">
       {description}
     </p>
     {actions && <div className="mt-6 flex flex-wrap gap-3">{actions}</div>}
