@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { seedConfig } from '#/core/defaults'
 import { eventIn } from '#/core/race-event'
 import { localizeConfig } from '#/i18n/config'
+import { localizeDeep, translateText } from '#/i18n/phrases'
 import { activeCourses } from '#/core/route'
 import { liveSessionConfig } from '#/core/voice'
 import {
@@ -116,5 +117,20 @@ describe('다국어 (ko/en/ja/zh)', () => {
       expect(race.name).not.toBe('영일대해수욕장')
       expect(c.modes.find((m) => m.id === 'LOCAL')!.noun).not.toBe('귀가')
     }
+  })
+
+  it('서버가 쓴 문장도 아는 문구면 번역, 모르는 말은 그대로', () => {
+    expect(translateText('ko', '포항역')).toBe('포항역')
+    expect(translateText('en', '포항역')).toBe('Pohang Station')
+    // " · " lists and sentences are translated piece by piece.
+    expect(translateText('en', '버스 · 시연 추정')).not.toMatch(/[가-힣]/)
+    expect(
+      translateText('en', '가까운 장소는 걸어서 이어가요. 포항역'),
+    ).not.toMatch(/[가-힣]/)
+    // Names and the agent's own words that are not phrases stay as they are.
+    expect(translateText('en', '파란운동화')).toBe('파란운동화')
+    // What the runner says to the agent keeps its Korean.
+    const deep = localizeDeep({ label: '포항역', say: '포항역' }, 'en')
+    expect(deep).toEqual({ label: 'Pohang Station', say: '포항역' })
   })
 })

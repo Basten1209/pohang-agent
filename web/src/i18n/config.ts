@@ -2,6 +2,7 @@ import { eventIn } from '#/core/race-event'
 import type { TripConfig } from '#/core/schema'
 import type { Locale } from './index'
 import { translateData } from './index'
+import { localizeDeep } from './phrases'
 
 /**
  * The config as a runner reading in `locale` sees it: names and seed text
@@ -13,6 +14,14 @@ export const localizeConfig = (
   locale: Locale,
 ): TripConfig => {
   if (locale === 'ko') return config
+  return localizeDeep(structured(config, locale), locale)
+}
+
+/** Names and seed text that have their own translations. */
+const structured = (
+  config: TripConfig,
+  locale: Exclude<Locale, 'ko'>,
+): TripConfig => {
   const d = (key: string, korean: string) => translateData(locale, key, korean)
   return {
     ...config,

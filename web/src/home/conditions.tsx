@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/accordion'
 import { htmlLang } from '#/i18n'
 import type { Locale } from '#/i18n'
+import { localizeDeep } from '#/i18n/phrases'
 import { Rich, useI18n } from '#/i18n/react'
 
 const at = (locale: Locale, unknown: string, iso?: string | null) =>
@@ -168,16 +169,19 @@ export const TransportCard = ({
   disabled?: boolean
   select: (mode: 'AUTO' | 'TAXI' | 'TRANSIT') => Promise<void>
 }) => {
-  const rec = recommendTransport(
-    view.state.plan,
-    view.state.observations,
-    view.itinerary,
+  const { t, locale } = useI18n()
+  const rec = localizeDeep(
+    recommendTransport(
+      view.state.plan,
+      view.state.observations,
+      view.itinerary,
+    ),
+    locale,
   )
   const [pending, setPending] = useState(false)
   const [message, setMessage] = useState('')
   const selected = view.state.plan.localTransport ?? 'AUTO'
   const hub = hubOf(config, view.state.plan)
-  const { t } = useI18n()
   const choose = async (mode: 'AUTO' | 'TAXI' | 'TRANSIT') => {
     setPending(true)
     setMessage('')

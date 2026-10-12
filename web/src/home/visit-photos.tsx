@@ -14,7 +14,7 @@ export function VisitPhotoPrompt({
   share: () => void
   dismiss: () => void
 }) {
-  const { t } = useI18n()
+  const { t, tx } = useI18n()
   return (
     <section
       aria-label={t('journey.promptLabel')}
@@ -22,7 +22,7 @@ export function VisitPhotoPrompt({
     >
       <GullPose pose="cheer" className="w-full self-start" decorative />
       <div className="min-w-0">
-        <p className="text-xs font-medium text-primary">{agentName}</p>
+        <p className="text-xs font-medium text-primary">{tx(agentName)}</p>
         <p className="mt-1 text-sm font-semibold">
           {t('journey.promptQuestion', { place: place.attrs.short })}
         </p>

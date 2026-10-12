@@ -8,6 +8,7 @@ import {
 } from 'react'
 import type { ReactNode } from 'react'
 import type { Locale, MessageKey } from './index'
+import { translateText } from './phrases'
 import {
   defaultLocale,
   htmlLang,
@@ -37,6 +38,8 @@ type I18n = {
   t: (key: MessageKey, vars?: Record<string, string | number>) => string
   /** A config name (mode, course, interest, hub) in this language. */
   d: (key: string, korean: string) => string
+  /** Server-written Korean text, translated when it is a known phrase. */
+  tx: (text: string) => string
 }
 
 const make = (locale: Locale, setLocale: (l: Locale) => void): I18n => ({
@@ -44,6 +47,7 @@ const make = (locale: Locale, setLocale: (l: Locale) => void): I18n => ({
   setLocale,
   t: (key, vars) => translate(locale, key, vars),
   d: (key, korean) => translateData(locale, key, korean),
+  tx: (text) => translateText(locale, text),
 })
 
 const Context = createContext<I18n>(make(defaultLocale, () => undefined))
