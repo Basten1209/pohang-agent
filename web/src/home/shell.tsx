@@ -380,7 +380,6 @@ export const Shell = ({
             <HomeTab
               config={config}
               view={view}
-              onEditProfile={() => setProfileOpen(true)}
               onRace={() => {
                 setTab('race')
                 window.scrollTo({ top: 0 })
