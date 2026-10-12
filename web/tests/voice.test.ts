@@ -8,7 +8,9 @@ describe('음성 모드 (OpenAI Live 위임)', () => {
   it('Live 세션은 서버가 정함: 클라이언트 위임, 목소리, 허용 이벤트', () => {
     const c = liveSessionConfig(voice)
     expect(c.providerOptions.openai.delegation).toEqual({ type: 'client' })
-    expect(c.providerOptions.openai.voice).toEqual({ id: voice.voice })
+    // Built-in voices go by name; OpenAI rejects them as `{ id }`.
+    expect(c.voice).toBe(voice.voice)
+    expect(c.providerOptions.openai).not.toHaveProperty('voice')
     expect(c.providerOptions.openai.store).toBe(false)
     const { allowedClientEvents, allowedServerEvents } =
       c.providerOptions.openai.client.dataChannel
