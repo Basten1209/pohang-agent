@@ -1,6 +1,5 @@
 import type { RaceEvent } from '../schema'
 import { eventTranslations } from './event-translations'
-import { images } from './images'
 
 /**
  * The race, as data. Name, date, schedule, course and the FAQ are demo
@@ -20,7 +19,7 @@ const dateLabel = new Intl.DateTimeFormat('ko-KR', {
 
 export const event: RaceEvent = {
   name: '2026 포항 영일만 해변런',
-  image: images.event?.url ?? '/images/yeongildae.jpg',
+  image: '/images/yeongildae-pier.jpg',
   category: '10km · 5km',
   date: raceDate,
   dateLabel,

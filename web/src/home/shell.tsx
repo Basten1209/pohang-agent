@@ -45,6 +45,7 @@ import { HomeTab } from './home-tab'
 import { ProfileForm } from './profile'
 import { DisplaySettings } from '#/app/display-settings'
 import { InstallApp } from './install'
+import { isRacing } from '#/race/use-race'
 import { TourTab } from './tour-tab'
 
 /**
@@ -380,8 +381,13 @@ export const Shell = ({
             <HomeTab
               config={config}
               view={view}
+              racing={view.state.phase < 3 && isRacing(tripId)}
               onRace={() => {
                 setTab('race')
+                window.scrollTo({ top: 0 })
+              }}
+              onPlan={() => {
+                setTab('tour')
                 window.scrollTo({ top: 0 })
               }}
             />

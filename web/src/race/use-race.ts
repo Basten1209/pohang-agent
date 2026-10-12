@@ -9,9 +9,26 @@ import type { RaceAction } from '#/core/race-session'
 import { timeAt } from '#/core/race'
 import { race } from './mock'
 
+const keyOf = (tripId: string) => `run2-race-v1:${tripId}`
+
+/** Whether the runner is mid-race (running or paused), read from the saved session. */
+export const isRacing = (tripId: string) => {
+  try {
+    const total = timeAt(race.paces, race.distance)
+    const { status } = restoreRace(
+      localStorage.getItem(keyOf(tripId)),
+      Date.now(),
+      total,
+    )
+    return status === 'RUNNING' || status === 'PAUSED'
+  } catch {
+    return false
+  }
+}
+
 export const useRace = (tripId: string, finished: boolean) => {
   const total = timeAt(race.paces, race.distance)
-  const key = `run2-race-v1:${tripId}`
+  const key = keyOf(tripId)
   const [session, setSession] = useState(() => {
     try {
       return restoreRace(localStorage.getItem(key), Date.now(), total)

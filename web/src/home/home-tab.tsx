@@ -1,5 +1,4 @@
-import { AssetCredits, MascotBanner } from '#/brand/brand'
-import { ArrowRight } from 'lucide-react'
+import { AssetCredits, PhotoHero } from '#/brand/brand'
 import { Button } from '@/components/ui/button'
 import {
   Carousel,
@@ -115,21 +114,30 @@ const AfterRace = ({
   )
 }
 
+const pill = 'h-12 rounded-full px-6 text-base'
+const pillGhost = `${pill} border-white/60 bg-transparent text-white hover:bg-white/10 hover:text-white`
+
 export const HomeTab = ({
   config,
   view,
+  racing = false,
   onRace,
+  onPlan,
 }: {
   config: TripConfig
   view: TripView
+  /** The race clock is running or paused. */
+  racing?: boolean
   onRace: () => void
+  onPlan: () => void
 }) => {
   const { t } = useI18n()
+  const raceLabel =
+    view.state.phase >= 3 ? t('home.viewRecord') : t('home.ctaRace')
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4">
-      <MascotBanner
-        pose={view.state.phase >= 3 ? 'cheer' : 'map'}
-        eyebrow="RUN2 GURYONGPO"
+      <PhotoHero
+        image={config.event.image || '/images/yeongildae-pier.jpg'}
         title={
           <>
             {t('home.heroTitle1')}
@@ -140,16 +148,30 @@ export const HomeTab = ({
         description={t('home.heroBody', {
           name: view.state.plan.nickname || t('common.runner'),
         })}
-        action={
-          <Button size="lg" className="min-h-12 w-full" onClick={onRace}>
-            {view.state.phase >= 3
-              ? t('home.viewRecord')
-              : t('home.prepareRace')}
-            <ArrowRight />
-          </Button>
+        actions={
+          // Mid-race the race comes first; otherwise planning the trip does.
+          racing ? (
+            <>
+              <Button className={pill} onClick={onRace}>
+                {raceLabel}
+              </Button>
+              <Button variant="outline" className={pillGhost} onClick={onPlan}>
+                {t('home.ctaPlan')}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button className={pill} onClick={onPlan}>
+                {t('home.ctaPlan')}
+              </Button>
+              <Button variant="outline" className={pillGhost} onClick={onRace}>
+                {raceLabel}
+              </Button>
+            </>
+          )
         }
       />
-      <RaceHeadline event={config.event} />
+      <RaceHeadline event={config.event} finished={view.state.phase >= 3} />
       <MyPlan config={config} view={view} />
       <AfterRace config={config} view={view} />
       <RaceDetails event={config.event} />

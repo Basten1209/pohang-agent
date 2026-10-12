@@ -5,7 +5,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
-import { Card } from '@/components/ui/card'
 import {
   Item,
   ItemContent,
@@ -17,7 +16,7 @@ import {
 import { eventIn } from '#/core/race-event'
 import type { RaceEvent } from '#/core/schema'
 import { bib } from './mock'
-import { ProgressiveBlur } from '#/app/progressive-blur'
+import { MascotBanner } from '#/brand/brand'
 import { useI18n } from '#/i18n/react'
 import { Section } from '#/home/section'
 
@@ -25,36 +24,27 @@ const directionsTo = (event: RaceEvent) =>
   `https://map.kakao.com/link/to/${encodeURIComponent(event.venue)},${event.geo.lat},${event.geo.lng}`
 
 /** When and where: the race at a glance. */
-export const RaceHeadline = ({ event: source }: { event: RaceEvent }) => {
-  // Directions search the Korean venue name; the card reads in the runner's language.
+export const RaceHeadline = ({
+  event: source,
+  finished = false,
+}: {
+  event: RaceEvent
+  finished?: boolean
+}) => {
+  // Directions search the Korean venue name; the panel reads in the runner's language.
   const directions = directionsTo(source)
   const { t, locale } = useI18n()
   const event = eventIn(source, locale)
   return (
-    <Card className="relative gap-0 overflow-hidden py-0">
-      <img
-        src={event.image || '/images/yeongildae.jpg'}
-        alt=""
-        width="960"
-        height="540"
-        className="aspect-[4/3] w-full object-cover sm:aspect-[2/1]"
-      />
-      {/* The essentials over the photo; the rest lives in the race guide. */}
-      <div className="absolute inset-x-0 bottom-0 h-3/5">
-        <ProgressiveBlur />
-        <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent" />
-      </div>
-      <div className="absolute inset-x-0 bottom-0 flex flex-col p-4 text-white">
-        <p className="text-xs text-white/80">
-          {t('race.bib', {
-            category: `${event.course.distanceKm}km`,
-            bib,
-          })}
-        </p>
-        <h2 className="mt-1 font-heading text-xl leading-snug font-semibold">
-          {event.name}
-        </h2>
-        <div className="mt-2 flex flex-col gap-1 text-sm text-white/90">
+    <MascotBanner
+      pose={finished ? 'cheer' : 'map'}
+      eyebrow={t('race.bib', {
+        category: `${event.course.distanceKm}km`,
+        bib,
+      })}
+      title={event.name}
+      description={
+        <span className="flex flex-col gap-1">
           <span className="flex items-center gap-1.5">
             <CalendarDays className="size-4 shrink-0" />
             {event.dateLabel} · {t('race.gun', { time: event.gun })}
@@ -65,16 +55,14 @@ export const RaceHeadline = ({ event: source }: { event: RaceEvent }) => {
             target="_blank"
             rel="noreferrer"
             aria-label={`${event.venue} · ${t('race.directions')}`}
-            className="flex w-fit items-center gap-1.5 underline-offset-2 hover:underline"
+            className="flex w-fit items-center gap-1.5 text-primary underline underline-offset-2"
           >
             <MapPin className="size-4 shrink-0" />
-            <span className="truncate underline decoration-white/50">
-              {event.venue}
-            </span>
+            {event.venue}
           </a>
-        </div>
-      </div>
-    </Card>
+        </span>
+      }
+    />
   )
 }
 
