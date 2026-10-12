@@ -5,6 +5,12 @@
  * (places, guide notes) stays Korean in config and is translated in replies.
  */
 
+import chat from './messages/chat'
+import classic from './messages/classic'
+import journey from './messages/journey'
+import race from './messages/race'
+import tour from './messages/tour'
+
 export const locales = ['ko', 'en', 'ja', 'zh'] as const
 export type Locale = (typeof locales)[number]
 export const defaultLocale: Locale = 'ko'
@@ -207,10 +213,20 @@ const ko = {
   'install.note':
     '설치한 앱에서 처음 한 번 일정을 입력해 주세요. 여행 추천·실시간 관측·사진 공유에는 인터넷 연결이 필요해요.',
 }
-export type MessageKey = keyof typeof ko
+// Each area keeps its own messages; the app sees one dictionary per language.
+const areas = { race, tour, journey, chat, classic }
+const all = {
+  ...ko,
+  ...race.ko,
+  ...tour.ko,
+  ...journey.ko,
+  ...chat.ko,
+  ...classic.ko,
+}
+export type MessageKey = keyof typeof all
 type Dictionary = Record<MessageKey, string>
 
-const en: Dictionary = {
+const en: Record<keyof typeof ko, string> = {
   'stage.ONBOARDING': 'Profile',
   'stage.PRE_RACE': 'Before race',
   'stage.CHECK_IN': 'Finished',
@@ -388,7 +404,7 @@ const en: Dictionary = {
     'Enter your plan once in the installed app. Trip suggestions, live updates and photo sharing need an internet connection.',
 }
 
-const ja: Dictionary = {
+const ja: Record<keyof typeof ko, string> = {
   'stage.ONBOARDING': 'プロフィール',
   'stage.PRE_RACE': '大会前',
   'stage.CHECK_IN': '完走後',
@@ -567,7 +583,7 @@ const ja: Dictionary = {
     'インストールしたアプリで最初に一度予定を入力してください。旅行の提案・リアルタイム情報・写真共有にはインターネット接続が必要です。',
 }
 
-const zh: Dictionary = {
+const zh: Record<keyof typeof ko, string> = {
   'stage.ONBOARDING': '个人资料',
   'stage.PRE_RACE': '赛前',
   'stage.CHECK_IN': '完赛后',
@@ -735,7 +751,19 @@ const zh: Dictionary = {
     '请在安装的应用中先输入一次行程。旅行推荐、实时信息和照片分享需要网络连接。',
 }
 
-const dictionaries: Record<Locale, Dictionary> = { ko, en, ja, zh }
+const withAreas = (locale: Locale, base: Record<string, string>) =>
+  Object.assign(
+    {},
+    base,
+    ...Object.values(areas).map((area) => area[locale]),
+  ) as Dictionary
+
+const dictionaries: Record<Locale, Dictionary> = {
+  ko: all,
+  en: withAreas('en', en),
+  ja: withAreas('ja', ja),
+  zh: withAreas('zh', zh),
+}
 
 /** `{name}` placeholders are filled from `vars`. */
 export const translate = (
