@@ -63,7 +63,7 @@ export function ItineraryTimeline({
     return (
       <li
         key={`stop-${id}`}
-        className={`rounded-xl border p-3 ${status === 'done' ? 'border-secondary bg-secondary/40' : 'border-primary/25 bg-secondary/60'}`}
+        className={`py-1 ${status === 'done' ? 'opacity-70' : ''}`}
       >
         <div className="flex gap-3">
           {p && <PlaceThumb place={p} className="size-16 shrink-0" />}
