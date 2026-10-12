@@ -182,6 +182,8 @@ export const venueSchema = z.object({
     .optional(),
   source: z.object({ title: z.string(), url: z.url(), checkedAt: z.string() }),
   translations: z.partialRecord(translatedLocale, venueTextSchema).optional(),
+  /** A licensed photo of the venue, when one is known. */
+  image: z.string().optional(),
 })
 export type Venue = z.infer<typeof venueSchema>
 /** A place's readable text in another language; missing fields stay Korean. */
