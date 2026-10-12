@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Camera } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { photoEligiblePlaces } from '#/core/community'
+import { agentName } from '#/core/identity'
 import {
   Conversation,
   ConversationContent,
@@ -235,7 +236,7 @@ export const ChatPanel = ({
                 {m.role === 'assistant' && (
                   <div className="mb-2 flex items-center gap-2 text-xs font-medium text-primary">
                     <Gull className="size-7" />
-                    구룡포 여행 친구
+                    {agentName}
                   </div>
                 )}
                 {m.parts.map((p, i) => {
