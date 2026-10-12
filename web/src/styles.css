@@ -221,3 +221,20 @@ html[data-font-size='large'] {
 html[data-font-size='largest'] {
   font-size: 125%;
 }
+
+/* iOS home-screen app: the page runs under a status bar whose text is white
+   (black-translucent). Behind it, a strip in the theme colour keeps the clock
+   readable on light screens; over the home photo the photo shows instead.
+   Its height is the safe-area inset, so it is nothing in a normal browser tab. */
+.status-bar-scrim {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  z-index: 70;
+  height: env(safe-area-inset-top);
+  background: #102a43;
+  pointer-events: none;
+}
+html[data-status-bar='photo'] .status-bar-scrim {
+  display: none;
+}
