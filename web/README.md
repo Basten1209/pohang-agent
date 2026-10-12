@@ -91,7 +91,7 @@ SELECT payload #>> '{patch,departTime}' FROM trip_events WHERE payload -> 'patch
           → data-trip(요약 바), 대화·meta 저장
 ```
 
-도구는 세 종류입니다. **Ask**(`ask_quick_reply`, `await_progress`)는 `execute`가 없어 루프가 멈추고 카드가 뜹니다. **Read**(`plan_course`, `compare_courses`, `explain_plan`, `check_live_conditions`, `compare_transport`, `summarize_trip`, `show_safety_help`와 아래 지식·실시간 도구)는 여정을 바꾸지 않습니다. **Commit**(`update_trip_details`, `record_race_progress`, `apply_plan_change`, `start_journey`, `set_demo_observation`)만 이벤트를 남깁니다.
+**Ask**(`ask_quick_reply`, `await_progress`)는 `execute`가 없어 루프가 멈추고 카드가 뜹니다. **Read**(`get_planning_context`, `compare_courses`, `explain_plan`, `compare_transport`, `summarize_trip`, `show_safety_help`와 아래 지식·실시간 조회 도구)는 계획을 바꾸지 않습니다. `update_trip_details`, `record_race_progress`, `apply_plan_change`, `start_journey`, `set_demo_observation`은 이벤트를 남깁니다. `plan_course`도 최초 유효 AI 제안을 저장하며, 이후 제안은 승인 전까지 미리보기로 보관합니다. `check_live_conditions`는 관측 갱신 이벤트를 기록할 수 있습니다.
 
 일정·완주 후 정보는 대화로 채웁니다([설계](docs/agent-ux.md#10-대화로-정보-받기)). 질문 순서·문구·답 버튼은 설정의 `conversation`(jsonb)에 있고, 다음 질문은 모델이 아니라 앱이 붙입니다. 답 버튼을 누르면 값이 함께 가서 모델 없이 저장되고, 자유롭게 쓴 문장은 모델이 `update_trip_details`로 읽어 저장합니다.
 
@@ -114,7 +114,7 @@ OpenAI가 연결되면 `plan_course`는 직접 작성한 proposal과 최신 cont
 
 **규칙 기반 시연의 구룡포 우선.** 코스가 `auto`(추천)이면 `policy.featuredCourse`(구룡포)를 먼저 계산해 가능하면 고르고, 불가능할 때만 다른 코스 중 최선을 고르며 이유를 남깁니다. 같은 조건으로 갈 수 있는 다른 코스는 `itinerary.alternatives`로 내려가 관광 탭의 "다른 코스도 있어요" 칩이 됩니다.
 
-**디지털 트윈 실측을 판단에.** 관측값마다 출처(`observations.sources`: LIVE · DEMO · SIMULATED, 소스·관측·조회 시각)를 기록합니다. 판단 소스(`sources[].decision`, 현재 교통 혼잡 INT_S07_005 — 2시간 이내)만 LIVE·FRESH일 때 `observations.patched` 이벤트로 반영해 교통 여유가 바뀝니다. 실패·오래된 응답이면 시연값으로 되돌리고 "최신 관측 확인 불가"로 표시합니다. 대기(pm25)는 단위 확인 전이라 근거 패널에만 둡니다. 반영 시점은 계획·이동 단계 턴 시작(5분 간격), `check_live_conditions`, 관광 탭 진입(`GET /api/trips/:id?live=1`)입니다. 시연 시나리오 값은 DEMO로 표시되고 실측이 덮어쓰지 않습니다.
+**디지털 트윈 실측을 판단에.** 관측값마다 출처(`observations.sources`: LIVE · SNAPSHOT · DEMO · SIMULATED, 소스·관측·조회 시각)를 기록합니다. 판단 소스(`sources[].decision`: 교통 혼잡·자외선, 검증 설정을 켠 장비 8의 대기 시간 통계)는 LIVE·FRESH일 때 `observations.patched` 이벤트로 반영합니다. 저장된 AI 일정은 선택을 유지하고 근거가 바뀌면 재검토를 표시하며, 새 제안은 승인 후 적용합니다. 규칙 모델은 갱신된 관측으로 교통 여유와 야외 제한을 다시 계산합니다. 실패·오래된 응답이면 판단용 값을 비우고 확인 불가 사유와 기존 근거를 표시합니다. 단위 미검증 대기 실시간 값(INT_S01_004)은 근거 패널에만 둡니다. 반영 시점은 계획·이동 단계 턴 시작(5분 간격), `check_live_conditions`, 관광 탭 진입(`GET /api/trips/:id?live=1`)입니다. 시연 시나리오 값은 DEMO로 표시되고 실측이 덮어쓰지 않습니다.
 
 공공데이터 도구는 `DATA_GO_KR_SERVICE_KEY`가 없거나 호출이 실패하면 `NOT_CONFIGURED`/`ERROR`를 돌려주고, 모델은 안내 자료와 길찾기 링크로 대신 답합니다.
 
@@ -127,7 +127,8 @@ OpenAI가 연결되면 `plan_course`는 직접 작성한 proposal과 최신 cont
 | `OPENAI_API_KEY`         | 없으면 같은 하네스가 규칙 기반 모델로 동작                                                                                                        |
 | `OPENAI_MODEL`           | 기본은 설정의 `agent.model`(gpt-6-luna)                                                                                                           |
 | `EUM_SERVICE_KEY`        | pohang-eum.kr → 마이페이지 → 나의 API의 인증키                                                                                                    |
-| `EUM_AIR_DEVICE_ID`      | INT_S01_004 대기 장비 id                                                                                                                          |
+| `EUM_AIR_DEVICE_ID`      | INT_S01_004·INT_S01_012 대기 장비 id. 검증된 구룡포 수협 위판장 인근 장비는 `8` |
+| `EUM_AIR_VERIFIED`       | `true`이고 장비 id가 `8`일 때만 검증된 대기 시간 통계를 판단에 반영 |
 | `DATA_GO_KR_SERVICE_KEY` | 공공데이터포털 인증키(디코딩/인코딩 모두 가능). 관광공사 국문 관광정보, TAGO 버스정류소·버스도착·버스노선·열차정보, 기상청 단기예보 활용신청 필요 |
 | `DATABASE_URL`           | 있으면 PostgreSQL, 없으면 PGlite                                                                                                                  |
 | `PGLITE_DIR`             | 프로덕션에서 PGlite를 디스크에 보존(GCP: `/data/pglite`)                                                                                          |
@@ -143,10 +144,10 @@ OpenAI가 연결되면 `plan_course`는 직접 작성한 proposal과 최신 cont
 
 - 활용신청 완료(8종, 2026-10-07): **INT_S07_005 교통 혼잡율**, **INT_S01_004 대기 실시간(단일)**, INT_S01_012 대기 시간별 통계, INT_S07_001 교통감시 장비 목록, INT_S07_004 교통량 통계, INT_S06_005 자외선 실시간, INT_S05_006 수위 실시간, INT_S03_019 주요 기상 과거.
 - 응답 시각 형식은 자료실 샘플 기준 `2026-07-07 17:00:00.0`(시간대 없음) → 소스 설정의 `timezone: Asia/Seoul`로만 해석합니다. 시간대가 설정되지 않은 소스의 이런 값은 버립니다.
-- 자료실은 pm25 단위를 PPM으로 표기합니다. μg/m³인지 확인 전까지 결정에는 시연 관측만 쓰고 실응답은 근거 패널에 따로 표시합니다.
+- 대기 실시간(INT_S01_004)은 자료실의 PPM 표기가 불명확해 표시만 합니다. 시간 통계(INT_S01_012)는 μg/m³ 단위·관측 시각을 검증하며, 장비 8과 `EUM_AIR_VERIFIED=true` 설정일 때 판단에 반영합니다.
 - **실호출 확인(2026-10-08)**: INT_S07_005 교통 혼잡율과 INT_S01_004 대기 실시간 모두 `LIVE`로 응답합니다. 실패하면 마지막 성공 스냅샷을 `SNAPSHOT`으로 명시해 보여줍니다.
 - 인증키는 포털에 보이는 인코딩된 형태(`…%2B…%3D`)와 디코딩된 형태를 모두 받습니다.
-- 대기 장비 id는 1–24번이 응답하지만(일부는 오래된 값) 응답에 위치가 없습니다. 구룡포에서 가까운 장비는 대기 장비 목록 API(미신청)나 운영 측에 확인해야 하며, 그 전까지는 `EUM_AIR_DEVICE_ID=1`로 둡니다.
+- 장비 목록(INT_S01_001)과 대기 응답을 대조해 수협 위판장 인근 장비 8의 위치를 확인했습니다(2026-10-11). 시장·가옥거리 주변 참고 관측이며 지역 전체를 대표하지 않습니다. 실응답 계약과 적용 범위는 [발표 문서](PRESENTATION.md#실제-응답을-통해-확인한-계약)를 참고하세요.
 - `npm run dev`와 `npm start` 모두 `web/.env`를 읽습니다(git에는 올라가지 않음).
 
 ## 썸네일
@@ -157,7 +158,7 @@ OpenAI가 연결되면 `plan_course`는 직접 작성한 proposal과 최신 cont
 npm run seed:images   # web/.env의 DATA_GO_KR_SERVICE_KEY 사용 → src/core/seed/images.ts 생성
 ```
 
-사진이 없는 장소는 아이콘으로 표시됩니다.
+관광 썸네일은 사진이 없거나 로딩에 실패하면 로컬 시연 사진으로 대체합니다. [관광 사진 공유](docs/tour-photo-chat.md)와 [QA 반영 기록](docs/qa-demo-update.md)에 AI 소개글·장소 후보·화면 설정 동작을 정리했습니다.
 
 ## 배포
 
