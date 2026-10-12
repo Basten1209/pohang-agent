@@ -19,7 +19,7 @@ const dateLabel = new Intl.DateTimeFormat('ko-KR', {
 
 export const event: RaceEvent = {
   name: '2026 포항 영일만 해변런',
-  image: '/images/yeongildae-pier.jpg',
+  image: '/images/yeongildae-pier-wide.jpg',
   category: '10km · 5km',
   date: raceDate,
   dateLabel,

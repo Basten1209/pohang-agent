@@ -10,7 +10,17 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { FieldDescription, FieldLegend, FieldSet } from '@/components/ui/field'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { RadioGroup } from '@/components/ui/radio-group'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { isLocale, localeNames, locales } from '#/i18n'
 import { useI18n } from '#/i18n/react'
 import { Choice } from './bits'
@@ -44,6 +54,7 @@ export const fontSizeBootstrap = `try{var s=localStorage.getItem('${FONT_SIZE_KE
 
 export function DisplaySettings() {
   const { t, locale, setLocale } = useI18n()
+  const mobile = useIsMobile()
   const [size, setSize] = useState<FontSize>('normal')
   useEffect(() => {
     setSize(readFontSize())
@@ -57,19 +68,57 @@ export function DisplaySettings() {
     window.addEventListener('storage', sync)
     return () => window.removeEventListener('storage', sync)
   }, [])
+  const choose = (v: string) => {
+    const next = validFontSize(v)
+    setSize(next)
+    applyFontSize(next)
+  }
+  const trigger = (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="shrink-0"
+      aria-label={t('display.button')}
+      title={t('display.button')}
+    >
+      <Settings2 aria-hidden />
+    </Button>
+  )
+  // Wide screens: a plain dropdown is enough; phones get the roomy dialog.
+  if (!mobile)
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuLabel>{t('display.language')}</DropdownMenuLabel>
+          <DropdownMenuRadioGroup
+            value={locale}
+            onValueChange={(v) => isLocale(v) && setLocale(v)}
+          >
+            {locales.map((l) => (
+              <DropdownMenuRadioItem key={l} value={l}>
+                {localeNames[l]}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>{t('display.fontSize')}</DropdownMenuLabel>
+          <DropdownMenuRadioGroup value={size} onValueChange={choose}>
+            {fontSizes.map((option) => (
+              <DropdownMenuRadioItem key={option.value} value={option.value}>
+                {t(`display.${option.value}`)}
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {option.percent}
+                </span>
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="shrink-0"
-          aria-label={t('display.button')}
-          title={t('display.button')}
-        >
-          <Settings2 aria-hidden />
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t('display.title')}</DialogTitle>
@@ -97,11 +146,7 @@ export function DisplaySettings() {
           <FieldLegend variant="label">{t('display.fontSize')}</FieldLegend>
           <RadioGroup
             value={size}
-            onValueChange={(v) => {
-              const next = validFontSize(v)
-              setSize(next)
-              applyFontSize(next)
-            }}
+            onValueChange={choose}
             className="grid grid-cols-3"
           >
             {fontSizes.map((option) => (

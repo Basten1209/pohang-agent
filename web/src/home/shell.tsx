@@ -1,21 +1,15 @@
-import { Link, useNavigate, useSearch } from '@tanstack/react-router'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { Ellipsis } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { localizeDeep } from '#/i18n/phrases'
 import { useI18n } from '#/i18n/react'
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -74,24 +68,6 @@ const tabChips = (
             : 'chips.tourBefore'
           : 'chips.community'
   return t(key).split('|')
-}
-
-const TOOLS_KEY = 'run2-show-tools'
-/** Voice mode stays opt-in until Korean speech quality is checked. */
-const VOICE_KEY = 'run2-voice-beta'
-const readFlag = (key: string) => {
-  try {
-    return localStorage.getItem(key) === '1'
-  } catch {
-    return false
-  }
-}
-const writeFlag = (key: string, on: boolean) => {
-  try {
-    localStorage.setItem(key, on ? '1' : '0')
-  } catch {
-    // Private mode: the toggle still works for this visit.
-  }
 }
 
 export const Shell = ({
@@ -220,9 +196,6 @@ export const Shell = ({
     }
   }
 
-  const [showTools, setShowTools] = useState(() => readFlag(TOOLS_KEY))
-  const [voiceBeta, setVoiceBeta] = useState(() => readFlag(VOICE_KEY))
-
   /** Open the agent, optionally saying something right away. */
   const ask = (text?: string) => {
     setChatOpen(true)
@@ -264,7 +237,7 @@ export const Shell = ({
   return (
     <AgentProvider
       agent={agent}
-      showTools={showTools}
+      showTools={false}
       photoShared={() => setCommunityRevision((v) => v + 1)}
       showCommunity={() => {
         setChatOpen(false)
@@ -298,15 +271,13 @@ export const Shell = ({
               className={`pointer-events-none absolute -inset-x-8 -top-8 bottom-0 -z-10 backdrop-blur-xl ${overHero ? '' : 'bg-background/40'}`}
             />
           )}
-          <div className="mx-auto flex min-h-14 max-w-5xl items-center gap-1 px-3 py-1 sm:gap-2 sm:px-4">
+          <div className="relative mx-auto flex min-h-14 max-w-5xl items-center gap-1 px-3 py-1 sm:gap-2 sm:px-4">
             <Gull className="size-8" />
-            <span className="whitespace-nowrap font-bold tracking-tight text-foreground">
+            <span className="whitespace-nowrap font-medium tracking-tight text-foreground">
               RUN2구룡포
             </span>
-            {showTools && agent.mode && (
-              <Badge variant="outline">{t(`mode.${agent.mode}`)}</Badge>
-            )}
-            <div className="ml-4 hidden md:block">
+            {/* Centred in the row, clear of the logo and the controls. */}
+            <div className="absolute left-1/2 hidden -translate-x-1/2 md:block">
               <NavTabs tab={tab} onTab={setTab} />
             </div>
             <div className="ml-auto flex shrink-0 items-center gap-1">
@@ -315,7 +286,6 @@ export const Shell = ({
                 <MobileMenu
                   tab={tab}
                   onTab={setTab}
-                  busy={agent.busy}
                   actions={[
                     {
                       label: t('menu.editPlan'),
@@ -324,26 +294,6 @@ export const Shell = ({
                     {
                       label: t('install.button'),
                       onSelect: () => setInstallOpen(true),
-                    },
-                  ]}
-                  scenarios={config.scenarios}
-                  onScenario={(title) => ask(`/시연 ${title}`)}
-                  toggles={[
-                    {
-                      label: t('menu.presentation'),
-                      checked: showTools,
-                      onChange: (on) => {
-                        setShowTools(on)
-                        writeFlag(TOOLS_KEY, on)
-                      },
-                    },
-                    {
-                      label: t('menu.voice'),
-                      checked: voiceBeta,
-                      onChange: (on) => {
-                        setVoiceBeta(on)
-                        writeFlag(VOICE_KEY, on)
-                      },
                     },
                   ]}
                   onNewTrip={() => {
@@ -371,45 +321,6 @@ export const Shell = ({
                       </DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => setInstallOpen(true)}>
                         {t('install.button')}
-                      </DropdownMenuItem>
-                      <DropdownMenuSub>
-                        <DropdownMenuSubTrigger disabled={agent.busy}>
-                          {t('menu.demo')}
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent>
-                          <DropdownMenuLabel>
-                            {t('menu.demoHint')}
-                          </DropdownMenuLabel>
-                          {config.scenarios.map((s) => (
-                            <DropdownMenuItem
-                              key={s.id}
-                              onSelect={() => ask(`/시연 ${s.title}`)}
-                            >
-                              {s.title}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuSubContent>
-                      </DropdownMenuSub>
-                      <DropdownMenuCheckboxItem
-                        checked={showTools}
-                        onCheckedChange={(on) => {
-                          setShowTools(on)
-                          writeFlag(TOOLS_KEY, on)
-                        }}
-                      >
-                        {t('menu.presentation')}
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem
-                        checked={voiceBeta}
-                        onCheckedChange={(on) => {
-                          setVoiceBeta(on)
-                          writeFlag(VOICE_KEY, on)
-                        }}
-                      >
-                        {t('menu.voice')}
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuItem asChild>
-                        <Link to="/classic">{t('menu.classic')}</Link>
                       </DropdownMenuItem>
                     </DropdownMenuGroup>
                     <DropdownMenuSeparator />
@@ -537,7 +448,7 @@ export const Shell = ({
             agent={agent}
             suggestions={tabChips(tab, view, t)}
             photoPrompt={photoPrompt}
-            voice={voiceBeta}
+            voice
           />
         </DrawerContent>
       </Drawer>
