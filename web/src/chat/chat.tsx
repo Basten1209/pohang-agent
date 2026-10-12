@@ -285,7 +285,11 @@ export const ChatPanel = ({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <Conversation className="min-h-0 flex-1">
-        <ConversationContent className="mx-auto w-full max-w-2xl">
+        {/* Older messages fade at the edges of the scroll, hinting there is more. */}
+        <ConversationContent
+          className="mx-auto w-full max-w-2xl"
+          scrollClassName="scroll-fade"
+        >
           {messages.length === 0 && !agent.busy && (
             <div className="mascot-panel mascot-message gap-3 rounded-2xl p-4">
               <GullPose pose="wave" className="w-full" decorative />
