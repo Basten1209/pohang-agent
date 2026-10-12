@@ -1,5 +1,6 @@
 import { AssetCredits, PhotoHero } from '#/brand/brand'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import {
   Carousel,
   CarouselContent,
@@ -173,9 +174,13 @@ export const HomeTab = ({
         }
       />
       <RaceHeadline event={config.event} finished={view.state.phase >= 3} />
-      <MyPlan config={config} view={view} />
-      <AfterRace config={config} view={view} />
-      <RaceDetails event={config.event} />
+      {/* One card holds the plan and the race guide; the first section
+          needs no rule above it. */}
+      <Card className="gap-0 px-5 py-5 [&>section:first-of-type]:pt-0 [&>section:first-of-type>[data-slot=separator]]:hidden">
+        <MyPlan config={config} view={view} />
+        <AfterRace config={config} view={view} />
+        <RaceDetails event={config.event} />
+      </Card>
       <AssetCredits />
     </div>
   )
