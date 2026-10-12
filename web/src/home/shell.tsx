@@ -42,6 +42,7 @@ import { InstallApp } from './install'
 import { isRacing } from '#/race/use-race'
 import { MobileMenu, NavTabs, type Tab } from './nav'
 import { TourTab } from './tour-tab'
+import { useKeyboardSheet } from '#/app/keyboard-sheet'
 
 /**
  * The app: a profile once, then 홈 · 레이스 · 관광 · 커뮤니티, with the
@@ -113,7 +114,9 @@ export const Shell = ({
     window.scrollTo({ top: 0 })
   }
   const [chatOpen, setChatOpen] = useState(false)
+  const chatSheet = useKeyboardSheet(chatOpen)
   const [profileOpen, setProfileOpen] = useState(false)
+  const profileSheet = useKeyboardSheet(profileOpen)
   const [installOpen, setInstallOpen] = useState(false)
   const [finishOpen, setFinishOpen] = useState(false)
   const [communityRevision, setCommunityRevision] = useState(0)
@@ -454,9 +457,15 @@ export const Shell = ({
         }}
       />
 
-      <Drawer open={chatOpen} onOpenChange={setChatOpen}>
-        <DrawerContent className="h-[88dvh] data-[vaul-drawer-direction=bottom]:max-h-[88dvh]">
-          <DrawerHeader className="border-b">
+      <Drawer open={chatOpen} onOpenChange={setChatOpen} {...chatSheet.drawer}>
+        <DrawerContent
+          className="h-[88dvh] data-[vaul-drawer-direction=bottom]:max-h-[88dvh]"
+          style={chatSheet.style}
+        >
+          {/* While typing, the conversation gets the room; the title stays for screen readers. */}
+          <DrawerHeader
+            className={chatSheet.keyboardOpen ? 'sr-only' : 'border-b'}
+          >
             <DrawerTitle className="flex items-center justify-center gap-2 md:justify-start">
               <GullPose className="w-12" decorative />
               {tx(agentName)}
@@ -468,14 +477,22 @@ export const Shell = ({
             suggestions={tabChips(tab, view, t)}
             photoPrompt={photoPrompt}
             voice
+            keyboardOpen={chatSheet.keyboardOpen}
           />
         </DrawerContent>
       </Drawer>
 
       <InstallApp open={installOpen} onOpenChange={setInstallOpen} />
 
-      <Drawer open={profileOpen} onOpenChange={setProfileOpen}>
-        <DrawerContent className="h-[88dvh] data-[vaul-drawer-direction=bottom]:max-h-[88dvh]">
+      <Drawer
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+        {...profileSheet.drawer}
+      >
+        <DrawerContent
+          className="h-[88dvh] data-[vaul-drawer-direction=bottom]:max-h-[88dvh]"
+          style={profileSheet.style}
+        >
           <DrawerHeader className="border-b">
             <DrawerTitle>{t('edit.title')}</DrawerTitle>
             <DrawerDescription>{t('edit.description')}</DrawerDescription>
