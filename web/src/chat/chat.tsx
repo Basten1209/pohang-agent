@@ -30,6 +30,7 @@ import {
 } from '@/components/ai-elements/prompt-input'
 import { progressLabels } from '#/core/agent-progress'
 import { approvalAnsweredBy } from './approval-intent'
+import { outgoing } from './outgoing'
 import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion'
 import { Gull, GullPose } from '#/brand/brand'
 import type { PlanProgress } from '#/server/agent/harness'
@@ -111,7 +112,7 @@ export const useAgent = ({
           return {
             body: {
               tripId: id,
-              message: messages.at(-1),
+              message: outgoing(messages.at(-1)!),
               locale: readLocale(),
             },
           }
