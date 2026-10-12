@@ -103,7 +103,7 @@ export const PhotoHero = ({
         width="1200"
         height="728"
         fetchPriority="high"
-        className="h-full w-full object-cover"
+        className="h-full w-full object-cover sm:object-[50%_20%]"
       />
     </picture>
     <div className="absolute inset-0 -z-10 bg-linear-to-b from-black/45 via-black/25 to-black/55" />
