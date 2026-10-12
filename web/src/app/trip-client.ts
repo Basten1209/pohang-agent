@@ -18,18 +18,32 @@ const safe = <T>(fn: () => T, fallback: T): T => {
   }
 }
 
+/**
+ * A v4 UUID. `crypto.randomUUID` exists only on secure origins (HTTPS or
+ * localhost); on a phone opening the dev server by LAN address it is
+ * missing, while `getRandomValues` is always there.
+ */
+export const uuid = (): string => {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  const b = crypto.getRandomValues(new Uint8Array(16))
+  b[6] = (b[6]! & 0x0f) | 0x40
+  b[8] = (b[8]! & 0x3f) | 0x80
+  const h = [...b].map((x) => x.toString(16).padStart(2, '0')).join('')
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
+}
+
 export const currentTripId = (): string =>
   safe(() => {
     const existing = localStorage.getItem(TRIP_KEY)
     if (existing) return existing
-    const id = crypto.randomUUID()
+    const id = uuid()
     localStorage.setItem(TRIP_KEY, id)
     return id
-  }, crypto.randomUUID())
+  }, uuid())
 
 /** Start over: forget this device's trip. The old one stays on the server. */
 export const newTripId = (): string => {
-  const id = crypto.randomUUID()
+  const id = uuid()
   safe(() => {
     localStorage.setItem(TRIP_KEY, id)
     localStorage.removeItem(VIEW_KEY)
