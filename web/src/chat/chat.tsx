@@ -7,6 +7,7 @@ import {
 } from 'ai'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Camera } from 'lucide-react'
+import { isTouchKeyboard, newlineOnTouch, useAutosize } from './composer'
 import { Button } from '@/components/ui/button'
 import { photoEligiblePlaces } from '#/core/community'
 import { agentName } from '#/core/identity'
@@ -271,6 +272,9 @@ export const ChatPanel = ({
   const { status, stop, error } = agent.chat
   const messages = useShownMessages(agent.chat.messages)
   const [input, setInput] = useState('')
+  const composer = useRef<HTMLTextAreaElement>(null)
+  useAutosize(composer, input)
+  const touch = useMemo(isTouchKeyboard, [])
   const last = messages.at(-1)
   // The open question of the latest message, if the app asked one.
   const open =
@@ -417,8 +421,16 @@ export const ChatPanel = ({
           <PromptInput onSubmit={({ text }) => send(text)}>
             <PromptInputBody>
               <PromptInputTextarea
+                ref={composer}
+                // One line to start; grows a line at a time (see composer.ts).
+                rows={1}
+                className="min-h-0"
                 value={input}
                 onChange={(e) => setInput(e.currentTarget.value)}
+                onKeyDown={newlineOnTouch(setInput)}
+                enterKeyHint={touch ? 'enter' : 'send'}
+                // Not a field iOS should offer passwords, cards or addresses for.
+                autoComplete="off"
                 placeholder={open?.hint ?? t('chat.placeholder')}
                 maxLength={1000}
               />
