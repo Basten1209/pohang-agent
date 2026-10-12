@@ -112,6 +112,15 @@ export const Shell = ({
     [agent.view, locale],
   )
   const { tab } = useSearch({ from: '/' })
+  // On home the header floats over the hero photo until the photo scrolls away.
+  const [overHero, setOverHero] = useState(true)
+  useEffect(() => {
+    if (tab !== 'home') return
+    const sync = () => setOverHero(window.scrollY < window.innerHeight * 0.55)
+    sync()
+    window.addEventListener('scroll', sync, { passive: true })
+    return () => window.removeEventListener('scroll', sync)
+  }, [tab])
   const navigate = useNavigate({ from: '/' })
   const setTab = (next: Tab) => {
     void navigate({ search: { tab: next } })
@@ -254,7 +263,22 @@ export const Shell = ({
       }}
     >
       <div className="min-h-dvh">
-        <header className="sticky top-0 z-30 border-b bg-background pt-safe">
+        <header
+          className={
+            tab === 'home'
+              ? `fixed inset-x-0 top-0 z-30 pt-safe text-foreground transition-colors ${overHero ? 'border-b border-transparent bg-transparent' : 'border-b bg-background'}`
+              : 'sticky top-0 z-30 border-b bg-background pt-safe text-foreground'
+          }
+          // Over the photo the header reads in white: swap the theme's ink.
+          style={
+            tab === 'home' && overHero
+              ? ({
+                  '--foreground': '#ffffff',
+                  '--muted-foreground': 'rgb(255 255 255 / 0.75)',
+                } as React.CSSProperties)
+              : undefined
+          }
+        >
           <div className="mx-auto flex min-h-14 max-w-2xl items-center gap-1 px-3 py-1 sm:gap-2 sm:px-4">
             <Gull className="size-8" />
             <span className="whitespace-nowrap font-bold tracking-tight text-foreground">
