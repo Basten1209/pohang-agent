@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import type { CSSProperties } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { CSSProperties, PointerEvent } from 'react'
 
 /**
  * Bottom sheets and the on-screen keyboard.
@@ -52,21 +52,52 @@ export const sheetFrame = (v: Viewport): CSSProperties | null => {
   }
 }
 
-/** Props for `<Drawer>`, plus the style and keyboard state for `<DrawerContent>`. */
+/** Full screen without a keyboard: the whole dynamic viewport. */
+const FULL_SCREEN: CSSProperties = {
+  bottom: 0,
+  height: '100dvh',
+  maxHeight: '100dvh',
+}
+
+/** How far the handle or header must be pulled up to go full screen. */
+export const PULL_TO_EXPAND = 40
+
+/** Pure: a drag from `startY` to `y` (px, down is positive) asks for full screen. */
+export const pulledUp = (startY: number, y: number) =>
+  startY - y >= PULL_TO_EXPAND
+
+/** Square corners, no top border, no drag handle; clear of the status bar. */
+const FULL_SCREEN_CLASS =
+  'pt-safe data-[vaul-drawer-direction=bottom]:rounded-none data-[vaul-drawer-direction=bottom]:border-t-0 [&>div:first-child]:hidden'
+
+/**
+ * A bottom sheet that becomes a full-screen page — when the keyboard opens,
+ * or when its handle or header is pulled up — and stays full screen (also
+ * after the keyboard closes) until the sheet is closed.
+ *
+ * Returns props for `<Drawer>` and `<DrawerContent>`.
+ */
 export const useKeyboardSheet = (open: boolean) => {
   const [frame, setFrame] = useState<CSSProperties | null>(null)
+  const [pinned, setPinned] = useState(false)
+  const pull = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (!open) setPinned(false)
+  }, [open])
 
   useEffect(() => {
     const vv = typeof window === 'undefined' ? null : window.visualViewport
     if (!open || !vv) return
-    const update = () =>
-      setFrame(
-        sheetFrame({
-          layoutHeight: document.documentElement.clientHeight,
-          height: vv.height,
-          offsetTop: vv.offsetTop,
-        }),
-      )
+    const update = () => {
+      const next = sheetFrame({
+        layoutHeight: document.documentElement.clientHeight,
+        height: vv.height,
+        offsetTop: vv.offsetTop,
+      })
+      setFrame(next)
+      if (next) setPinned(true)
+    }
     update()
     vv.addEventListener('resize', update)
     vv.addEventListener('scroll', update)
@@ -77,14 +108,38 @@ export const useKeyboardSheet = (open: boolean) => {
     }
   }, [open])
 
+  const fullScreen = pinned || frame !== null
+
+  /** Only the top strip and header pull the sheet up; the conversation scrolls. */
+  const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    const target = e.target as Element
+    // The strip above the header (the sheet itself or its handle bar) and the header.
+    const grip =
+      target === e.currentTarget ||
+      target === e.currentTarget.firstElementChild ||
+      target.closest('[data-slot="drawer-header"]') !== null
+    pull.current = !fullScreen && grip ? e.clientY : null
+  }
+  const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    if (pull.current !== null && pulledUp(pull.current, e.clientY)) {
+      pull.current = null
+      setPinned(true)
+    }
+  }
+  const onPointerUp = () => {
+    pull.current = null
+  }
+
   return {
     drawer: { repositionInputs: false } as const,
-    style: frame ?? undefined,
+    content: {
+      style: frame ?? (fullScreen ? FULL_SCREEN : undefined),
+      className: fullScreen ? FULL_SCREEN_CLASS : '',
+      onPointerDown,
+      onPointerMove,
+      onPointerUp,
+    },
     keyboardOpen: frame !== null,
-    /** Full screen while typing: square corners, no top border, no drag handle. */
-    className:
-      frame === null
-        ? ''
-        : 'data-[vaul-drawer-direction=bottom]:rounded-none data-[vaul-drawer-direction=bottom]:border-t-0 [&>div:first-child]:hidden',
+    fullScreen,
   }
 }

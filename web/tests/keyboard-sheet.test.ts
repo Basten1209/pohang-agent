@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sheetFrame } from '#/app/keyboard-sheet'
+import { pulledUp, sheetFrame } from '#/app/keyboard-sheet'
 
 describe('키보드가 열렸을 때 바텀시트 위치', () => {
   it('키보드가 없으면 원래 크기(88dvh) 그대로', () => {
@@ -35,5 +35,14 @@ describe('키보드가 열렸을 때 바텀시트 위치', () => {
       maxHeight: 508,
       paddingBottom: 0,
     })
+  })
+})
+
+describe('위로 끌어 올려 전체 화면', () => {
+  it('손잡이·머리말을 40px 이상 올리면 전체 화면', () => {
+    expect(pulledUp(500, 470)).toBe(false)
+    expect(pulledUp(500, 460)).toBe(true)
+    // Pulling down never expands.
+    expect(pulledUp(500, 600)).toBe(false)
   })
 })
