@@ -1,11 +1,4 @@
-import {
-  ArrowUpRight,
-  BusFront,
-  ChevronRight,
-  Coffee,
-  Footprints,
-  TrainFront,
-} from 'lucide-react'
+import { ArrowUpRight, Coffee, Footprints, TrainFront } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,15 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemMedia,
-  ItemTitle,
-} from '@/components/ui/item'
+import { ItineraryTimeline } from '#/home/timeline'
 import { usableReading } from '#/core/signals'
 import { courseById, hubOf, modeOf } from '#/core/route'
 import { clock, duration } from '#/core/time'
@@ -146,68 +131,7 @@ export const ItineraryCard = () => {
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <ItemGroup>
-          {it.outbound > 0 && (
-            <Item size="sm">
-              <ItemMedia variant="icon">
-                <BusFront />
-              </ItemMedia>
-              <ItemContent>
-                <ItemTitle>{clock(it.start)} 영일대 출발</ItemTitle>
-                <ItemDescription>
-                  {courseById(config, it.course)?.outbound.via ?? '대중교통'} ·{' '}
-                  {courseById(config, it.course)?.area}까지 {it.outbound}분
-                  (시연)
-                </ItemDescription>
-              </ItemContent>
-            </Item>
-          )}
-          {it.stops.map((stop) => {
-            const p = place(stop.id)
-            if (!p) return null
-            return (
-              <Item key={stop.id} variant="outline" size="sm" asChild>
-                <button
-                  type="button"
-                  onClick={() => open({ place: stop.id })}
-                  className="text-left"
-                >
-                  <ItemMedia variant="image">
-                    <img src={p.attrs.image} alt="" />
-                  </ItemMedia>
-                  <ItemContent>
-                    <ItemTitle>{p.attrs.short}</ItemTitle>
-                    <ItemDescription>
-                      {clock(stop.start)}–{clock(stop.end)} · {stop.dwell}분
-                    </ItemDescription>
-                  </ItemContent>
-                  <ItemActions>
-                    <ChevronRight />
-                  </ItemActions>
-                </button>
-              </Item>
-            )
-          })}
-          {it.returnDeparture !== null && (
-            <Item size="sm">
-              <ItemMedia variant="icon">
-                <TrainFront />
-              </ItemMedia>
-              <ItemContent>
-                <ItemTitle>
-                  {clock(it.returnDeparture)} {hubOf(config, state.plan).name}
-                  (으)로 복귀
-                </ItemTitle>
-                <ItemDescription>
-                  버스 {it.returnMin}분 · 요금 확인 필요
-                  {it.trafficReserve
-                    ? ` · 교통 여유 +${it.trafficReserve}분`
-                    : ''}
-                </ItemDescription>
-              </ItemContent>
-            </Item>
-          )}
-        </ItemGroup>
+        <ItineraryTimeline config={config} itinerary={it} />
         {it.excluded.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {it.excluded.map((x) => (

@@ -1,14 +1,18 @@
 import type { LanguageModelV4 } from '@ai-sdk/provider'
 import type { UIMessage } from 'ai'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { listCommunity, shareVisit, visitForTrip } from '#/server/community'
 import { seedConfig } from '#/core/defaults'
 import { planner } from '#/core/planner'
+import { observationsKey, preferencesKey } from '#/core/agent-plan'
+import { nextActionLine } from '#/server/agent/prompts'
 import { progressOptions, stageOf } from '#/core/stage'
 import type { Db } from '#/server/db/client'
 import { memoryDb } from '#/server/db/client'
 import { seed } from '#/server/db/repo'
 import type { AgentUIMessage, HarnessDeps } from '#/server/agent/harness'
 import { openingFor, runTurn } from '#/server/agent/harness'
+import { interpret } from '#/core/intents'
 import { scriptedModel } from '#/server/agent/scripted-model'
 import { commit, openTrip } from '#/server/trips'
 import { fillSlots, pendingSlot } from '#/core/slots'
@@ -31,6 +35,37 @@ type Part = {
 let db: Db
 let deps: HarnessDeps
 const tripId = '00000000-0000-4000-8000-000000000001'
+
+// A provider test double must submit a selection just like the production model.
+const selectionFor = (options: Parameters<LanguageModelV4['doStream']>[0]) => {
+  const contexts = options.prompt.flatMap((m) =>
+    m.role === 'tool'
+      ? m.content.flatMap((c) =>
+          c.type === 'tool-result' &&
+          c.toolName === 'get_planning_context' &&
+          c.output.type === 'json'
+            ? [c.output.value as { revision: number }]
+            : [],
+        )
+      : [],
+  )
+  return {
+    contextRevision: contexts.at(-1)?.revision ?? 0,
+    course: 'guryongpo',
+    stops: [
+      {
+        place: 'food',
+        dwell: 80,
+        travelMode: 'WALK',
+        reason: '식사 후 귀가 여유를 남겨요.',
+      },
+    ],
+    outboundMode: 'TAXI',
+    returnMode: 'TAXI',
+    trafficBufferMin: 5,
+    reasons: ['짧은 식사 일정과 택시를 선택했어요.'],
+  }
+}
 
 beforeEach(async () => {
   db = await memoryDb()
@@ -140,6 +175,73 @@ const checkIn = async () => {
 }
 
 describe('대화로 여정 만들기', () => {
+  it('1시간 뒤 출발·조금 지침·18:30 열차: AI가 이전 휴식을 재요청해도 최초 코스에는 한 번만 반영', async () => {
+    await finishRace()
+    await choose('readyTime', '11:40', '1시간 쉬고 출발할게요')
+    const base = scriptedModel()
+    deps = {
+      ...deps,
+      model: {
+        ...base,
+        doStream: async (options) => {
+          const result = await base.doStream(options)
+          return {
+            ...result,
+            stream: result.stream.pipeThrough(
+              new TransformStream({
+                transform(part, controller) {
+                  if (
+                    part.type === 'tool-call' &&
+                    part.toolName === 'plan_course'
+                  ) {
+                    part = {
+                      ...part,
+                      input: JSON.stringify({
+                        proposal: selectionFor(options),
+                        changes: {
+                          departTime: null,
+                          course: null,
+                          walkingLimit: null,
+                          extraRestMin: 60,
+                          excludePlaces: null,
+                          dropInterests: null,
+                        },
+                      }),
+                    }
+                  }
+                  controller.enqueue(part)
+                },
+              }),
+            ),
+          }
+        },
+      },
+    }
+    await choose('condition', 'TIRED', '조금 지쳤어요')
+    const record = await load()
+    expect(record.state.plan).toMatchObject({
+      readyTime: '11:40',
+      currentTime: '11:40',
+      restMin: 0,
+      departTime: '18:30',
+    })
+    const parts = record.messages.flatMap(
+      (m) => (m as UIMessage).parts,
+    ) as Part[]
+    const output = parts
+      .slice()
+      .reverse()
+      .find((p) => p.type === 'tool-plan_course')?.output as {
+      isChange: boolean
+      itinerary: { start: number; decision: string; stationEta: number }
+    }
+    expect(record.state.plan.agentPlan).toBeDefined()
+    expect(output.isChange).toBe(false)
+    expect(output.itinerary.start).toBe(11 * 60 + 40)
+    expect(['GO', 'SHORTEN', 'INDOOR']).toContain(output.itinerary.decision)
+    expect(output.itinerary.stationEta).toBeLessThanOrEqual(18 * 60)
+  })
+
   it('새 여정은 인사로 시작하고 질문은 프로필 폼이 받음', async () => {
     const { messages, state } = await load()
     expect(stageOf(state)).toBe('ONBOARDING')
@@ -515,6 +617,11 @@ describe('채팅 하네스 (규칙 모델 + PGlite)', () => {
     expect(proposed.some((c) => c.type === 'tool-approval-request')).toBe(true)
     expect((await load()).state.plan.departTime).toBe('18:30')
     expect((await load()).state.plan.revision).toBe(revision)
+    expect(
+      toolParts(await lastAssistant()).find(
+        (p) => p.type === 'tool-plan_course',
+      )?.output,
+    ).toMatchObject({ depart: '16:00 열차' })
 
     await approve(true)
     expect((await load()).state.plan.departTime).toBe('16:00')
@@ -538,9 +645,10 @@ describe('채팅 하네스 (규칙 모델 + PGlite)', () => {
       visited.push(event)
       await answer('await_progress', { event })
     }
-    // With the 16:00 train only one stop fits.
+    // With modal estimates, two stops fit the approved shortened itinerary.
     expect(visited).toEqual([
       'ARRIVED',
+      'STOP_DONE',
       'STOP_DONE',
       'START_RETURN',
       'AT_STATION',
@@ -607,6 +715,43 @@ describe('채팅 하네스 (규칙 모델 + PGlite)', () => {
 })
 
 describe('하네스가 모델을 통제하는 방식', () => {
+  it('토큰 한도로 끊긴 답변을 정상 완료로 표시하지 않는다', async () => {
+    await toPlanning()
+    const inner = scriptedModel()
+    deps.model = {
+      ...inner,
+      doStream: async (options) => {
+        const result = await inner.doStream(options)
+        return {
+          ...result,
+          stream: result.stream.pipeThrough(
+            new TransformStream({
+              transform(chunk, controller) {
+                controller.enqueue(
+                  chunk.type === 'finish'
+                    ? {
+                        ...chunk,
+                        finishReason: { unified: 'length', raw: 'length' },
+                      }
+                    : chunk,
+                )
+              },
+            }),
+          ),
+        }
+      },
+    }
+    const chunks = await say('왜 이 코스야?')
+    expect(
+      chunks.some(
+        (c) => c.type === 'error' && String(c.errorText).includes('길이 제한'),
+      ),
+    ).toBe(true)
+    expect(chunks.find((c) => c.type === 'finish')).toMatchObject({
+      finishReason: 'length',
+    })
+  })
+
   type Call = { tools: string[]; toolChoice: unknown }
 
   /** Wraps the rule model, records each call, and can misbehave on purpose. */
@@ -661,7 +806,40 @@ describe('하네스가 모델을 통제하는 방식', () => {
               },
             }),
           }
-        return inner.doStream(options)
+        const result = await inner.doStream(options)
+        return {
+          ...result,
+          stream: result.stream.pipeThrough(
+            new TransformStream({
+              transform(part, controller) {
+                if (
+                  part.type === 'tool-call' &&
+                  part.toolName === 'plan_course'
+                ) {
+                  const text =
+                    options.prompt
+                      .flatMap((m) =>
+                        m.role === 'user'
+                          ? m.content.flatMap((c) =>
+                              c.type === 'text' ? [c.text] : [],
+                            )
+                          : [],
+                      )
+                      .at(-1) ?? ''
+                  const intent = interpret(text)
+                  part = {
+                    ...part,
+                    input: JSON.stringify({
+                      changes: intent.kind === 'CHANGE' ? intent.changes : null,
+                      proposal: selectionFor(options),
+                    }),
+                  }
+                }
+                controller.enqueue(part)
+              },
+            }),
+          ),
+        }
       },
     }
     return { model, calls }
@@ -698,6 +876,33 @@ describe('하네스가 모델을 통제하는 방식', () => {
     expect((await load()).state.plan.departTime).toBe('18:30')
   })
 
+  it.each([true, false])(
+    '승인 응답(%s)은 제안된 변경만 처리하고 새 도구를 열지 않음',
+    async (approved) => {
+      await toPlanning()
+      await say('카페는 빼 줘')
+      await approve(false)
+      await say('16시 기차로 바뀌었어요')
+      const { model, calls } = recorder(false)
+      deps = { ...deps, model }
+      const chunks = await approve(approved)
+      expect((await load()).state.plan.departTime).toBe(
+        approved ? '16:00' : '18:30',
+      )
+      expect(calls.length).toBeGreaterThan(0)
+      expect(
+        calls.every(
+          (call) =>
+            call.tools.length === 0 &&
+            (call.toolChoice as { type: string }).type === 'none',
+        ),
+      ).toBe(true)
+      expect(
+        chunks.some((chunk) => chunk.type === 'tool-approval-request'),
+      ).toBe(false)
+    },
+  )
+
   it('모델 호출이 실패하면 같은 하네스에서 규칙 모델로 대체', async () => {
     await toPlanning()
     const broken: LanguageModelV4 = {
@@ -713,5 +918,327 @@ describe('하네스가 모델을 통제하는 방식', () => {
       messageMetadata: { mode: 'FALLBACK' },
     })
     expect(chunks.some((c) => c.type === 'tool-approval-request')).toBe(true)
+  })
+})
+
+describe('채팅 안에서 관광 사진 공유', () => {
+  const visited = async () => {
+    await finishRace()
+    await checkIn()
+    await say('이 코스로 갈게요')
+    await answer('await_progress', { event: 'ARRIVED' })
+    await answer('await_progress', { event: 'STOP_DONE' })
+  }
+  const photo = async () =>
+    toolParts(await lastAssistant()).find(
+      (p) => p.type === 'tool-prepare_visit_photo',
+    )
+
+  it('방문 후 자연어 요청은 모델 없이 공유 카드를 저장하며 명시적 POST만 게시한다', async () => {
+    await visited()
+    const before = (await load()).state
+    const model = scriptedModel()
+    deps.model = {
+      ...model,
+      doStream: async () => {
+        throw new Error('사진 요청에서 모델을 호출하면 안 됨')
+      },
+    }
+    await say('여기서 찍은 사진을 커뮤니티에 올릴래')
+    expect((await photo())?.output).toMatchObject({
+      placeIds: ['food', 'cafe'],
+      selectedId: 'cafe',
+    })
+    expect((await load()).state).toEqual(before)
+    expect(await listCommunity(db)).toEqual([])
+    const post = await shareVisit(db, seedConfig, {
+      tripId,
+      course: 'guryongpo',
+      placeId: 'food',
+      caption: '구룡포에서 먹은 점심',
+      photo: { kind: 'UPLOAD', data: 'data:image/jpeg;base64,/9j/2Q==' },
+    })
+    expect(post).toMatchObject({ kind: 'VISIT', placeId: 'food' })
+    expect(await visitForTrip(db, tripId, 'food')).toEqual(post)
+    await say('항구 앞 점심 사진 공유할래')
+    expect((await photo())?.output).toMatchObject({ selectedId: 'food' })
+    expect(await listCommunity(db)).toHaveLength(1)
+    deps.model = null
+    await say('다음 일정 알려줘')
+    expect(toolParts(await lastAssistant()).at(-1)?.type).toBe(
+      'tool-await_progress',
+    )
+    expect((await load()).state.plan.completed).toEqual(['food'])
+  })
+
+  it('방문 전 요청에는 진행 버튼을 남기고 방문 기록을 자동으로 만들지 않는다', async () => {
+    await finishRace()
+    await checkIn()
+    await say('이 코스로 갈게요')
+    await answer('await_progress', { event: 'ARRIVED' })
+    await say('일본인 가옥거리에서 찍은 사진 공유할래')
+    expect((await photo())?.output).toMatchObject({
+      placeIds: [],
+      selectedId: null,
+    })
+    expect((await load()).state.plan.completed).toEqual([])
+    expect(toolParts(await lastAssistant()).at(-1)?.type).toBe(
+      'tool-await_progress',
+    )
+    expect(await listCommunity(db)).toEqual([])
+  })
+
+  it('안전 안내가 사진 요청보다 우선이고 귀가 후 명시적 공유도 가능하다', async () => {
+    await visited()
+    const record = await load()
+    await commit(
+      db,
+      record,
+      [{ type: 'plan.patched', patch: { stage: 'DONE' } }],
+      { source: 'test' },
+    )
+    await say('여행 사진 올릴래')
+    expect((await photo())?.output).toMatchObject({ placeIds: ['food'] })
+    await say('어지러워요. 여기 사진 올릴래')
+    expect(await stage()).toBe('SAFETY')
+    expect(await photo()).toBeUndefined()
+    expect(
+      toolParts(await lastAssistant()).some(
+        (p) => p.type === 'tool-show_safety_help',
+      ),
+    ).toBe(true)
+    expect(await listCommunity(db)).toEqual([])
+  })
+})
+
+describe('진행 안내와 현재 일정의 일치', () => {
+  it('건너뛴 뒤 이동수단이 불가능해지면 남은 방문을 위한 AI 수정안을 승인받는다', async () => {
+    await finishRace()
+    await checkIn()
+    await say('이 코스로 갈게요')
+    await answer('await_progress', { event: 'ARRIVED' })
+    const record = await load()
+    const plan = {
+      ...record.state.plan,
+      currentTime: '13:00',
+      walkingLimit: 120,
+    }
+    const proposal = {
+      contextRevision: plan.revision,
+      course: 'guryongpo',
+      stops: [
+        {
+          place: 'street',
+          dwell: 5,
+          travelMode: 'TAXI',
+          reason: '산책을 먼저 해요.',
+        },
+        {
+          place: 'food',
+          dwell: 30,
+          travelMode: 'TAXI',
+          reason: '식사하러 이동해요.',
+        },
+      ],
+      outboundMode: 'TAXI',
+      returnMode: 'TAXI',
+      trafficBufferMin: 0,
+      reasons: ['산책 후 식사해요.'],
+    } as const
+    await commit(
+      db,
+      record,
+      [
+        {
+          type: 'plan.patched',
+          patch: {
+            currentTime: plan.currentTime,
+            walkingLimit: plan.walkingLimit,
+            agentPlan: {
+              proposal: {
+                ...proposal,
+                stops: [...proposal.stops],
+                reasons: [...proposal.reasons],
+              },
+              observationsKey: observationsKey(record.state.observations),
+              preferencesKey: preferencesKey(plan),
+              model: 'test',
+              createdAt: new Date().toISOString(),
+            },
+          },
+        },
+      ],
+      { source: 'test' },
+    )
+    const before = (await load()).state
+    expect(planner(seedConfig)(before.plan, before.observations).decision).toBe(
+      'GO',
+    )
+    const inner = scriptedModel()
+    deps.model = {
+      ...inner,
+      doStream: async (options) => {
+        const result = await inner.doStream(options)
+        return {
+          ...result,
+          stream: result.stream.pipeThrough(
+            new TransformStream({
+              transform(part, controller) {
+                if (
+                  part.type === 'tool-call' &&
+                  part.toolName === 'plan_course'
+                )
+                  part = {
+                    ...part,
+                    input: JSON.stringify({
+                      changes: null,
+                      proposal: selectionFor(options),
+                    }),
+                  }
+                controller.enqueue(part)
+              },
+            }),
+          ),
+        }
+      },
+    }
+    const chunks = await answer('await_progress', { event: 'SKIP' })
+    const calls = chunks
+      .filter((c) => c.type === 'tool-input-available')
+      .map((c) => c.toolName)
+    expect(calls).toContain('get_planning_context')
+    expect(calls).toContain('plan_course')
+    const after = (await load()).state
+    expect(after.plan.excluded).toEqual(['street'])
+    expect(after.plan.completed).toEqual([])
+    expect(nextActionLine(seedConfig, after)).toContain('일정을 다시 검토')
+    expect(
+      toolParts(await lastAssistant()).some(
+        (p) => p.state === 'approval-requested',
+      ),
+    ).toBe(true)
+    await approve(true)
+    const repaired = (await load()).state
+    expect(
+      planner(seedConfig)(repaired.plan, repaired.observations).stops.map(
+        (s) => s.id,
+      ),
+    ).toEqual(['food'])
+  })
+
+  it('앞 장소를 건너뛰어도 다음 카페를 건너뛰었다고 해석하지 않는다', async () => {
+    await finishRace()
+    await checkIn()
+    await say('이 코스로 갈게요')
+    await answer('await_progress', { event: 'ARRIVED' })
+    const before = (await load()).state
+    const oldStop = planner(seedConfig)(before.plan, before.observations)
+      .stops[0]
+    expect(oldStop.id).toBe('food')
+    let calls = 0
+    const base = scriptedModel()
+    deps.model = {
+      ...base,
+      doStream: async (options) => {
+        calls++
+        return base.doStream(options)
+      },
+    }
+    const chunks = await answer('await_progress', { event: 'SKIP' })
+    const state = (await load()).state
+    expect(
+      planner(seedConfig)(state.plan, state.observations).stops[0].id,
+    ).toBe('cafe')
+    const text = chunks
+      .filter((c) => c.type === 'text-delta')
+      .map((c) => c.delta)
+      .join('')
+    expect(text).toContain('항구 앞 점심')
+    expect(text).toContain('골목 카페에서 휴식')
+    expect(calls).toBe(0)
+  })
+
+  it('카드 대신 질문하면 모델에게 장소 건너뛰기처럼 전달하지 않는다', async () => {
+    await finishRace()
+    await checkIn()
+    await say('이 코스로 갈게요')
+    await answer('await_progress', { event: 'ARRIVED' })
+    await answer('await_progress', { event: 'STOP_DONE' })
+    const before = (await load()).state.plan
+    const prompts: string[] = []
+    const base = scriptedModel()
+    deps.model = {
+      ...base,
+      doStream: async (options) => {
+        prompts.push(JSON.stringify(options.prompt))
+        return base.doStream(options)
+      },
+    }
+    await say('지금도 시간 괜찮아?')
+    expect((await load()).state.plan.excluded).toEqual(before.excluded)
+    expect((await load()).state.plan.completed).toEqual(before.completed)
+    expect(prompts.length).toBeGreaterThan(0)
+    expect(prompts.join()).not.toContain('"skipped":true')
+    expect(prompts.join()).toContain('tripChanged')
+    expect(prompts.join()).toContain('지금 할 일: 골목 카페에서 휴식')
+  })
+})
+
+describe('실제 장소 후보를 읽는 에이전트', () => {
+  it('코스 생성 결과에 공식 출처와 실제 식당명을 제공한다', async () => {
+    await finishRace()
+    const prompts: string[] = []
+    const base = scriptedModel()
+    deps.model = {
+      ...base,
+      doStream: async (options) => {
+        prompts.push(JSON.stringify(options.prompt))
+        const result = await base.doStream(options)
+        return {
+          ...result,
+          stream: result.stream.pipeThrough(
+            new TransformStream({
+              transform(part, controller) {
+                if (
+                  part.type === 'tool-call' &&
+                  part.toolName === 'plan_course'
+                ) {
+                  part = {
+                    ...part,
+                    input: JSON.stringify({
+                      ...JSON.parse(part.input),
+                      proposal: selectionFor(options),
+                    }),
+                  }
+                }
+                controller.enqueue(part)
+              },
+            }),
+          ),
+        }
+      },
+    }
+    await checkIn()
+    expect(prompts.join()).toContain('officialCandidates')
+    expect(prompts.join()).toContain('까꾸네 모리국수')
+    expect(prompts.join()).toContain('tour_info_idx=1046')
+  })
+  it('근처 맛집은 현지 권역의 실제 후보를 제공하며 일정을 바꾸지 않는다', async () => {
+    await finishRace()
+    await checkIn()
+    await say('이 코스로 갈게요')
+    await answer('await_progress', { event: 'ARRIVED' })
+    const before = (await load()).state.plan
+    await say('근처 맛집 알려줘')
+    const output = toolParts(await lastAssistant()).find(
+      (p) => p.type === 'tool-find_nearby',
+    )?.output as { officialCandidates: { name: string }[] }
+    expect(
+      output.officialCandidates.some((v) => v.name === '까꾸네 모리국수'),
+    ).toBe(true)
+    expect(output.officialCandidates.some((v) => v.name === '진수백반')).toBe(
+      false,
+    )
+    expect((await load()).state.plan).toEqual(before)
   })
 })

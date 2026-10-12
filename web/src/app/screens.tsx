@@ -376,7 +376,9 @@ export const DayScreen = () => {
             <Card>
               <CardHeader>
                 <CardTitle>일정</CardTitle>
-                <CardDescription>대중교통 기준으로 계산해요.</CardDescription>
+                <CardDescription>
+                  이동수단별 시연 추정으로 계산해요.
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <ItemGroup>

@@ -366,6 +366,17 @@ const decideFromResult = (
   const v = r.value ?? {}
   if (r.denied) return { text: '기존 계획을 그대로 둘게요.' }
   switch (r.toolName) {
+    case 'get_planning_context': {
+      const intent = interpret(lastUserText(prompt))
+      return {
+        call: {
+          name: 'plan_course',
+          input: { changes: intent.kind === 'CHANGE' ? intent.changes : null },
+        },
+      }
+    }
+    case 'prepare_visit_photo':
+      return { text: '사진 카드에서 장소와 공개 내용을 확인해 주세요.' }
     case 'plan_course':
       if (typeof v.noEffect === 'string') return { text: v.noEffect }
       return v.isChange && has('apply_plan_change')
@@ -397,7 +408,7 @@ const decideFromResult = (
       }
     case 'compare_transport':
       return {
-        text: `${v.from ?? '코스'}에서 ${v.to}까지 대중교통은 시연 기준 ${(v.transit as Json)?.minutes ?? '—'}분이에요. 택시 시간·요금은 아직 연결된 데이터가 없어 카카오T 앱에서 확인해 주세요.`,
+        text: `${(v.recommendation as Json)?.title ?? '이동수단을 확인해요'}. ${((v.recommendation as Json)?.reasons as string[] | undefined)?.join(' ') ?? ''} ${v.from ?? '코스'}에서 ${v.to}까지 대중교통은 시연 기준 ${(v.transit as Json)?.minutes ?? '—'}분이에요. 택시는 시연 추정 ${(v.taxi as Json)?.minutes ?? '확인 필요'}분이며 실제 시간·요금·배차는 지도·카카오T에서 확인해 주세요.`,
       }
     case 'check_live_conditions': {
       const verdict = (v.verdict ?? {}) as Json
@@ -469,7 +480,9 @@ const decideFromResult = (
         text:
           {
             ARRIVED: '도착했어요. 첫 장소로 가요.',
-            STOP_DONE: '좋아요, 다음으로 가요.',
+            STOP_DONE: /사진 제안: (?!지금은)[^\n]+/.test(systemText(prompt))
+              ? '이곳의 순간을 사진으로 남길 수 있어요. 공유 여부는 사진 카드에서 선택해 주세요.'
+              : '방문을 기록했어요. 다음 일정을 확인해요.',
             SKIP: '건너뛰고 남은 일정을 다시 계산했어요.',
             REST: '조금 더 쉬도록 다시 계산했어요.',
             START_RETURN: '돌아가는 길이에요. 시간 넉넉히 움직여요.',
@@ -537,6 +550,11 @@ const decideFromResult = (
       }
     }
     case 'find_nearby': {
+      const candidates = (v.officialCandidates as Json[] | undefined) ?? []
+      if (candidates.length)
+        return {
+          text: `관광 안내·지도 매장 정보에서 찾은 실제 방문 후보예요. 영업 여부는 방문 전에 확인해 주세요.\n${listed(candidates, (r) => `**${r.name}** · ${r.highlight}${r.detour ? ' · 별도 이동' : ''} [장소 정보](${(r.source as Json).url})`, 3)}`,
+        }
       if (v.status !== 'LIVE') {
         const fb = (v.fallback as Json[] | undefined) ?? []
         return {
@@ -576,7 +594,7 @@ const decideFromResult = (
       const arr = ((first?.arrivals as Json[]) ?? []).slice(0, 3)
       return {
         text: [
-          `${v.from} → ${v.to} (직선 ${v.straightKm}km)${est?.minutes ? `, 앱 기준 ${est.via} 약 ${est.minutes}분` : ''}.`,
+          `${v.from} → ${v.to} (직선 ${v.straightKm}km)${est?.minutes ? `, 시연 추정 ${est.via} 약 ${est.minutes}분` : ''}.`,
           first
             ? `가까운 정류장 ${first.stop}(${first.distanceM}m)${arr.length ? `: ${arr.map((a) => `${a.route}번 ${a.inMin}분 후`).join(', ')}` : ''}`
             : '',
@@ -619,13 +637,12 @@ const decideFromResult = (
       }
     }
     case 'get_weather': {
-      if (typeof v.note === 'string') return { text: v.note }
-      if (v.status !== 'LIVE')
+      if (v.status !== 'LIVE' && v.status !== 'SNAPSHOT')
         return { text: String(v.message ?? '날씨를 불러오지 못했어요.') }
       const hours = (v.hours as Json[] | undefined) ?? []
       return {
         text: hours.length
-          ? `${v.near} ${v.date} 예보(기상청):\n${listed(hours, (h) => `${h.time} ${h.tempC}°C ${h.precip || h.sky} 강수 ${h.popPct}% 바람 ${h.windMs}m/s`, 5)}`
+          ? `${v.near} ${v.date} 예보(기상청):\n${listed(hours, (h) => `${h.time} ${h.tempC}°C ${h.precip || h.sky} 강수 ${h.popPct}% 바람 ${h.windMs}m/s${h.provenance === 'SNAPSHOT' ? ` (저장 예보 · ${h.issuedAt} 발표)` : ''}`, 5)}${v.note ? `\n${v.note}` : ''}`
           : `${v.date} 예보는 아직 없어요(예보는 ${v.lastForecastDate}까지).`,
       }
     }

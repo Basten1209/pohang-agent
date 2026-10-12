@@ -1,6 +1,7 @@
 {
-  "name": "RUN2포항 · 완주 다음의 여행",
-  "short_name": "RUN2포항",
+  "id": "/",
+  "name": "RUN2구룡포",
+  "short_name": "RUN2구룡포",
   "description": "기차 시간과 내 컨디션에 맞춰 만드는 완주 후 구룡포 여행",
   "lang": "ko",
   "start_url": "/?source=pwa",
@@ -8,11 +9,20 @@
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "theme_color": "#102A43",
   "categories": ["travel", "sports"],
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
   ]
 }

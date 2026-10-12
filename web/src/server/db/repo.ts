@@ -86,6 +86,7 @@ export const patchConfig = (
     .set({
       value: sql`${appConfig.value} || ${JSON.stringify(patch)}::jsonb`,
       version: sql`${appConfig.version} + 1`,
+      meta: sql`${appConfig.meta} || '{"source":"operator"}'::jsonb`,
       updatedAt: new Date(),
     })
     .where(eq(appConfig.key, key))

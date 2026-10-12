@@ -51,6 +51,11 @@ export const explainPlan = (
   obs?: Parameters<typeof readingLine>[0],
 ): string => {
   if (!canTravel(it)) return it.reasons.join(' ')
+  if (plan.agentPlan)
+    return [
+      ...it.reasons,
+      `계산한 총 보행은 ${it.walking}분, 도착 목표 대비 여유는 ${it.slack}분이에요.`,
+    ].join(' ')
   const course = courseById(config, it.course)
   const name = (id: string) =>
     config.places.find((p) => p.id === id)?.attrs.short ?? id
@@ -66,7 +71,7 @@ export const explainPlan = (
       ),
     ...(it.trafficReserve > 0 && obs
       ? [
-          `${readingLine(obs, 'congestion', '교통 혼잡', '%')} 때문에 귀가 여유를 ${it.trafficReserve}분 더 잡았어요.`,
+          `${readingLine(obs, 'congestion', '교통 혼잡', '%')} 기준으로 도로 구간의 여유 합계 ${it.trafficReserve}분을 시간표에 반영했어요.`,
         ]
       : []),
   ]

@@ -49,8 +49,47 @@ export const anchorIdSchema = z.enum([
 ])
 export type AnchorId = z.infer<typeof anchorIdSchema>
 
+/** Choices made by the model. Route durations and arrival arithmetic are never model inputs. */
+export const itineraryProposalSchema = z
+  .object({
+    contextRevision: z.number().int().nonnegative(),
+    course: courseIdSchema,
+    stops: z
+      .array(
+        z
+          .object({
+            place: placeIdSchema,
+            dwell: z.number().int().min(5).max(180),
+            travelMode: z.enum(['WALK', 'TAXI']),
+            reason: z.string().trim().min(1).max(500),
+          })
+          .strict(),
+      )
+      .max(12),
+    outboundMode: z.enum(['TRANSIT', 'TAXI']),
+    returnMode: z.enum(['TRANSIT', 'TAXI']),
+    trafficBufferMin: z.number().int().min(0).max(60),
+    reasons: z.array(z.string().trim().min(1).max(600)).min(1).max(6),
+  })
+  .strict()
+export type ItineraryProposal = z.infer<typeof itineraryProposalSchema>
+
+export const agentPlanSchema = z.object({
+  proposal: itineraryProposalSchema,
+  observationsKey: z.string(),
+  preferencesKey: z.string().optional(),
+  model: z.string(),
+  createdAt: z.string(),
+})
+
 export const planSchema = z.object({
+  agentPlan: agentPlanSchema.nullable().optional(),
   revision: z.number().int().nonnegative(),
+  nickname: z.string().trim().max(20).optional(),
+  localTransport: z.enum(['AUTO', 'TRANSIT', 'TAXI']).optional(),
+  transportOverrides: z
+    .record(z.string().max(120), z.enum(['TRANSIT', 'TAXI', 'WALK']))
+    .optional(),
   arrivalAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/),
   departMode: departModeSchema,
   /** Departure (train, bus, flight) or the time to be back (car, local). */
@@ -80,6 +119,11 @@ export const freshnessSchema = z.enum(['FRESH', 'STALE', 'UNKNOWN'])
  */
 export const readingSourceSchema = z.object({
   provenance: z.enum(['LIVE', 'SNAPSHOT', 'SIMULATED', 'DEMO']),
+  freshness: freshnessSchema.optional(),
+  unit: z.string().optional(),
+  value: z.number().nullable().optional(),
+  eligible: z.boolean().optional(),
+  scope: z.string().optional(),
   sourceId: z.string().nullable().default(null),
   observedAt: z.string().nullable().default(null),
   fetchedAt: z.string().nullable().default(null),
@@ -101,6 +145,30 @@ export type Observations = z.infer<typeof observationsSchema>
 
 // ── Config: places ──────────────────────────────────────────────────────
 export const geoSchema = z.object({ lat: z.number(), lng: z.number() })
+/** A sourced visit candidate, not an automatically scheduled stop. */
+export const venueSchema = z.object({
+  id: placeIdSchema,
+  name: z.string(),
+  kind: z.enum(['food', 'cafe', 'sight']),
+  address: z.string(),
+  highlight: z.string(),
+  description: z.string(),
+  tenTaste: z.string().optional(),
+  detour: z.boolean().default(false),
+  note: z.string().optional(),
+  map: z
+    .discriminatedUnion('kind', [
+      z.object({ kind: z.literal('place'), id: z.string().regex(/^\d+$/) }),
+      z.object({
+        kind: z.literal('coordinate'),
+        lat: z.number().min(-90).max(90),
+        lng: z.number().min(-180).max(180),
+      }),
+    ])
+    .optional(),
+  source: z.object({ title: z.string(), url: z.url(), checkedAt: z.string() }),
+})
+export type Venue = z.infer<typeof venueSchema>
 export const placeSchema = z.object({
   id: placeIdSchema,
   kind: z.string(),
@@ -124,6 +192,7 @@ export const placeSchema = z.object({
       outdoor: z.boolean(),
       defaultDwell: z.number().int().positive(),
       geo: geoSchema,
+      candidates: z.array(venueSchema).optional(),
     })
     .passthrough(),
   meta: z.record(z.string(), z.unknown()).default({}),
@@ -160,6 +229,7 @@ export const variantSchema = z.object({
       place: placeIdSchema,
       dwell: z.number().int().positive(),
       walk: z.number().int().min(0).default(0),
+      transferMin: z.number().int().min(0).optional(),
     }),
   ),
   reason: z.string().nullable(),
@@ -180,6 +250,20 @@ export const policySchema = z.object({
 export type Policy = z.infer<typeof policySchema>
 
 // ── Config: courses (one area each) and ways home ───────────────────────
+/** App estimates, never provider ETAs. Access walk is included exactly once. */
+export const transportEstimateSchema = z.object({
+  rideMin: z.number().int().positive(),
+  waitMin: z.number().int().nonnegative(),
+  walkMin: z.number().int().nonnegative(),
+  via: z.string(),
+  trafficScope: z.boolean(),
+})
+export type TransportEstimate = z.infer<typeof transportEstimateSchema>
+const roadOptionsSchema = z.object({
+  TRANSIT: transportEstimateSchema,
+  TAXI: transportEstimateSchema.optional(),
+})
+
 export const courseSchema = z.object({
   id: courseIdSchema,
   sort: z.number().int().default(0),
@@ -205,6 +289,12 @@ export const courseSchema = z.object({
     window: windowSchema,
     via: z.string(),
   }),
+  transport: z
+    .object({
+      outbound: roadOptionsSchema,
+      return: z.partialRecord(hubIdSchema, roadOptionsSchema),
+    })
+    .optional(),
   /** Tried in order; the first that fits is the plan, later ones are shorter. */
   variants: z.array(variantSchema).min(1),
   meta: z.record(z.string(), z.unknown()).default({}),
@@ -280,6 +370,7 @@ export type Anchor = z.infer<typeof anchorSchema>
 const paramValueSchema = z.union([
   z.object({ env: z.string() }),
   z.object({ value: z.string() }),
+  z.object({ clock: z.literal('today-kst') }),
 ])
 export const sourceSchema = z.object({
   id: z.string(),

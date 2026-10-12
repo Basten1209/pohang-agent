@@ -582,6 +582,7 @@ const precip: Record<string, string> = {
 }
 
 export type ForecastHour = {
+  issuedAt?: string
   date: string
   time: string
   tempC: number | null
@@ -620,6 +621,7 @@ export const forecast = (q: { lat: number; lng: number }, now = new Date()) => {
           return [...byHour.entries()]
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([k, v]) => ({
+              issuedAt: `${base.date.slice(0, 4)}-${base.date.slice(4, 6)}-${base.date.slice(6, 8)}T${base.time.slice(0, 2)}:${base.time.slice(2, 4)}:00+09:00`,
               date: `${k.slice(0, 4)}-${k.slice(4, 6)}-${k.slice(6, 8)}`,
               time: `${k.slice(8, 10)}:${k.slice(10, 12)}`,
               tempC: num(v.TMP),

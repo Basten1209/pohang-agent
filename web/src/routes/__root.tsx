@@ -1,5 +1,6 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
+import { fontSizeBootstrap } from '#/app/display-settings'
 import appCss from '../styles.css?url'
 
 export const Route = createRootRoute({
@@ -10,22 +11,32 @@ export const Route = createRootRoute({
         name: 'viewport',
         content: 'width=device-width, initial-scale=1, viewport-fit=cover',
       },
-      { title: 'RUN2포항 · 완주 다음의 여행' },
+      { title: 'RUN2구룡포 · 완주 다음의 여행' },
       {
         name: 'description',
         content:
-          '완주 다음의 여행, RUN2포항. 돌아가는 시간과 내 컨디션에 맞춰 만드는 포항의 하루.',
+          '완주 다음의 여행, RUN2구룡포. 돌아가는 시간과 내 컨디션에 맞춰 만드는 포항의 하루.',
       },
-      { name: 'theme-color', content: '#ffffff' },
+      { name: 'theme-color', content: '#102a43' },
       { name: 'apple-mobile-web-app-capable', content: 'yes' },
       { name: 'mobile-web-app-capable', content: 'yes' },
       { name: 'apple-mobile-web-app-status-bar-style', content: 'default' },
-      { name: 'apple-mobile-web-app-title', content: 'RUN2포항' },
+      { name: 'apple-mobile-web-app-title', content: 'RUN2구룡포' },
     ],
     links: [
       { rel: 'stylesheet', href: appCss },
       { rel: 'manifest', href: '/manifest.webmanifest' },
-      { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+      {
+        rel: 'icon',
+        href: '/icons/icon-192.png',
+        type: 'image/png',
+        sizes: '192x192',
+      },
+      {
+        rel: 'preload',
+        href: '/images/brand/gull-wave-transparent.png',
+        as: 'image',
+      },
       { rel: 'apple-touch-icon', href: '/icons/apple-touch-icon.png' },
     ],
   }),
@@ -34,9 +45,10 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: ReactNode }) {
   return (
-    <html lang="ko">
+    <html lang="ko" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: fontSizeBootstrap }} />
       </head>
       <body>
         {children}

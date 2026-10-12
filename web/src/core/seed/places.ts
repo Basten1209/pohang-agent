@@ -1,5 +1,7 @@
 import type { Interest, Place } from '../schema'
 import { images } from './images'
+import { venueCandidates } from './venues'
+import { visitDemoImages } from '../demo-images'
 
 /**
  * Place catalogue. Descriptions are written for the demo; hours, prices and
@@ -42,7 +44,12 @@ const at =
       kind: attrs.interest.toUpperCase(),
       sort: sortBase + i * 10,
       active: true,
-      attrs: { ...attrs, course, ...(photo && { image: photo.url }) },
+      attrs: {
+        ...attrs,
+        course,
+        candidates: venueCandidates[id] ?? [],
+        image: attrs.image || photo?.url || visitDemoImages[id] || '',
+      },
       meta: {
         provenance: 'PLACEHOLDER',
         verified: false,
@@ -75,7 +82,7 @@ export const places: Place[] = [
     detail:
       '겨울엔 과메기, 사계절 대게·물회·모리국수가 유명해요. 1인 식사 가능 여부와 메뉴·가격·영업시간은 가게마다 달라요.',
     icon: 'utensils',
-    image: '/images/guryongpo-harbor.jpg',
+    image: '',
     actionLabel: '식사',
     interest: 'food',
     outdoor: false,
@@ -96,7 +103,7 @@ export const places: Place[] = [
       detail:
         '근대 시기 가옥이 이어진 약 450m 거리의 짧은 구간을 둘러봐요. 구룡포공원으로 오르는 돌계단은 코스에서 뺐어요.',
       icon: 'footprints',
-      image: '/images/guryongpo-street.jpg',
+      image: '/images/guryongpo-street-2024.jpg',
       actionLabel: '구경',
       interest: 'walk',
       outdoor: true,
@@ -138,7 +145,7 @@ export const places: Place[] = [
     detail:
       '가옥거리 주변에 작은 카페가 여럿 있어요. 영업시간과 좌석은 가게마다 달라요.',
     icon: 'coffee',
-    image: '/images/guryongpo-street.jpg',
+    image: '',
     actionLabel: '휴식',
     interest: 'cafe',
     outdoor: false,

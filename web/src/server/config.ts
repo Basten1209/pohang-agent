@@ -3,6 +3,9 @@ import type { TripConfig } from '#/core/schema'
 import type { ConfigIssue } from '#/core/config'
 import { getDb } from './db/client'
 import { readConfig, seed } from './db/repo'
+import { applyDemoQaData } from './db/demo-qa'
+import { refreshVenueCatalog } from './db/refresh-venues'
+import { applyVenueCatalog } from './db/venue-catalog'
 
 /**
  * Runtime configuration = seed ⊕ database documents ⊕ environment.
@@ -17,11 +20,33 @@ export type LoadedConfig = {
   storage: 'postgres' | 'pglite' | 'seed-only'
 }
 
-const withEnv = (config: TripConfig): TripConfig => ({
+/** The verified device is a local proxy, not a city-wide air-quality guarantee. */
+export const withEnv = (
+  config: TripConfig,
+  env: Record<string, string | undefined> = process.env,
+): TripConfig => ({
   ...config,
+  sources: config.sources.map((s) =>
+    s.id === 'INT_S01_012' || s.id === 'INT_S01_004'
+      ? {
+          ...s,
+          decision:
+            s.id === 'INT_S01_012' &&
+            env.EUM_AIR_VERIFIED === 'true' &&
+            env.EUM_AIR_DEVICE_ID === '8',
+          meta: {
+            ...s.meta,
+            scope:
+              env.EUM_AIR_DEVICE_ID === '8'
+                ? '구룡포 시장·가옥거리 인근 · 수협 위판장 장비 8'
+                : `구룡포 대기 장비 ${env.EUM_AIR_DEVICE_ID || '미지정'} · 적용 범위 미확인`,
+          },
+        }
+      : s,
+  ),
   agent: {
     ...config.agent,
-    model: process.env.OPENAI_MODEL || config.agent.model,
+    model: env.OPENAI_MODEL || config.agent.model,
   },
 })
 
@@ -30,6 +55,9 @@ const load = async (): Promise<LoadedConfig> => {
   try {
     const db = await getDb()
     await seed(db, seedConfig)
+    await applyDemoQaData(db)
+    await applyVenueCatalog(db)
+    await refreshVenueCatalog(db)
     const { config, issues } = await readConfig(db, seedConfig)
     return { config: withEnv(config), issues, storage }
   } catch (error) {

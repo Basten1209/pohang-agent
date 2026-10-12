@@ -12,8 +12,11 @@ import { places } from './seed/places'
  */
 export const seedConfig: TripConfig = {
   // 2: courses, ways home, race event (see seed/). 3: featured course, live
-  // decision source, stairs, user-facing place text. Older seeded rows are replaced.
-  version: 3,
+  // decision source, stairs. 5: presentation date, four E-UM sources, scoped leg buffers.
+  // 6: Guryongpo/Homigot scope and precise demo-route diagnostics.
+  // Operator-edited documents are preserved.
+  // 7: distinct modal estimates; official route references do not supply these minutes.
+  version: 7,
   event,
   courses,
   modes,
@@ -27,19 +30,20 @@ export const seedConfig: TripConfig = {
       {
         kind: 'reserve-by-band',
         reading: 'congestion',
-        label: '포항 통합 교통 혼잡',
+        label: '구룡포 교통 혼잡',
         bands: [
-          { gte: 75, reserveMin: 20 },
-          { gte: 50, reserveMin: 10 },
+          { gte: 75, reserveMin: 10 },
+          { gte: 50, reserveMin: 5 },
         ],
-        unknownReserveMin: 20,
+        unknownReserveMin: 10,
       },
       {
         kind: 'outdoor-limit',
         reading: 'pm25',
         label: '초미세먼지',
-        limit: 50,
+        limit: 36,
       },
+      { kind: 'outdoor-limit', reading: 'uvIndex', label: '자외선', limit: 8 },
     ],
     copy: {
       medical:
@@ -47,18 +51,21 @@ export const seedConfig: TripConfig = {
       incomplete: '컨디션과 짐 회수 여부를 먼저 확인해 주세요.',
       atStation: '{hub} 도착을 직접 확인했어요.',
       routeMissing:
-        '이 출발 시각에 맞는 왕복 경로가 없어요. 지도에서 경로를 확인해 주세요.',
+        '경로 확인이 필요한 시연 조건이 적용돼 있어 일정을 계산하지 않았어요. 시연 메뉴의 기본 코스로 복원하거나 지도에서 경로를 확인해 주세요.',
+      outboundWindowMissing:
+        '{start} 출발은 시연에 등록된 출발시간 {from}–{to} 밖이에요. 실제 버스가 없다는 뜻은 아니며, 지도에서 이동 경로를 확인해 주세요.',
       returnRouteMissing:
         '현재 시각에 맞는 복귀 경로가 없어요. 외부 지도에서 확인해 주세요.',
       returnLeg:
-        '정류장 접근 {stopAccess}분과 시연 이동 {returnMin}분을 반영해 {hub}(으)로 가요.',
+        '도보·대기를 포함한 시연 이동 {returnMin}분으로 {hub}(으)로 가요.',
       reserveUnknown:
-        '최신 관측을 확인할 수 없어 시연 정책의 교통 여유 {reserve}분을 반영했어요.',
+        '최신 관측을 확인할 수 없어 보수적으로 구룡포를 지나는 도로 이동 구간마다 여유 {reserve}분을 반영했어요.',
       reserveBand:
-        '{label} 신호에 따라 교통 여유 {reserve}분을 한 번 더했어요.',
+        '{label} 신호에 따라 구룡포를 지나는 도로 이동 구간마다 여유 {reserve}분을 더했어요.',
       outdoorUnknown:
-        '대기 조건을 확인할 수 없어 선택적 야외 구경을 제외했어요.',
-      outdoorLimit: '시연 대기 정책에 따라 야외 구경을 제외했어요.',
+        '환경 관측을 확인할 수 없어요. 야외 체류 전 현장 상황을 확인해 주세요.',
+      outdoorLimit:
+        '{label} 관측과 앱의 보수적인 기준에 따라 실내 위주로 구성했어요.',
       fullCourse:
         '{area}에서 {count}곳을 둘러보고 {noun} {buffer}분 전에 {hub}에 도착하는 계획이에요.',
       fullCourseBack:
@@ -113,7 +120,7 @@ export const seedConfig: TripConfig = {
       valueField: 'cntPerc',
       timeField: 'hour',
       timezone: 'Asia/Seoul',
-      range: { min: 0, max: 100 },
+      range: { min: 0, max: 1000 },
       unit: '%',
       keepFields: ['cntPerc', 'hour'],
       timeoutMs: 3000,
@@ -122,7 +129,7 @@ export const seedConfig: TripConfig = {
       decision: true,
       meta: {
         docs: 'https://pohang-eum.kr/data/list/detail/INT_S07_005',
-        note: '전체 장비 통합 혼잡율(%). 1시간 단위 관측. 실응답이 2시간 이내면 코스 판단에 반영.',
+        note: '구룡포 설치 장비 통합 혼잡율(%), 100% 초과 실응답 가능. 1시간 단위 관측. 실응답이 2시간 이내면 코스 판단에 반영.',
       },
     },
     {
@@ -131,7 +138,7 @@ export const seedConfig: TripConfig = {
       url: 'https://genix.pohang-eum.kr/dpg/atmosphere/device/realtime',
       enabled: true,
       params: { id: { env: 'EUM_AIR_DEVICE_ID' } },
-      reading: 'pm25',
+      reading: 'pm25Realtime',
       valueField: 'pm25',
       timeField: 'logDateTime',
       timezone: 'Asia/Seoul',
@@ -147,6 +154,54 @@ export const seedConfig: TripConfig = {
         note: '제공처 문서는 pm25 단위를 PPM으로 표기. μg/m³ 여부 확인 전까지 결정에 사용하지 않음.',
       },
     },
+    {
+      id: 'INT_S01_012',
+      label: 'E-UM 구룡포 초미세먼지 시간 통계',
+      url: 'https://genix.pohang-eum.kr/dpg/atmosphere/sensor/stats/hour',
+      enabled: true,
+      params: { type: { value: 'pm25' }, date: { clock: 'today-kst' } },
+      reading: 'pm25',
+      valueField: 'value',
+      timeField: 'observationTime',
+      timezone: 'Asia/Seoul',
+      range: { min: 0, max: 1000 },
+      unit: 'μg/m³',
+      keepFields: ['devId', 'type', 'unit', 'level', 'hours'],
+      timeoutMs: 5000,
+      maxAgeSeconds: 7200,
+      decision: false,
+      meta: {
+        docs: 'https://pohang-eum.kr/data/list/detail/INT_S01_012',
+        expectedUnit: 'μg/m³',
+        note: '단위·관측 시각 검증. 구룡포 수협 위판장 인근 장비 8을 코스 주변 참고 관측으로 사용. 지역 전체를 보장하지 않음.',
+        deviceId: '8',
+        deviceLatitude: 35.990694,
+        deviceLongitude: 129.555917,
+        deviceDocs: 'https://pohang-eum.kr/data/list/detail/INT_S01_001',
+        verifiedAt: '2026-10-11',
+      },
+    },
+    {
+      id: 'INT_S06_005',
+      label: 'E-UM 구룡포 자외선',
+      url: 'https://genix.pohang-eum.kr/dpg/sensor/latest/uvIndex',
+      enabled: true,
+      params: {},
+      reading: 'uvIndex',
+      valueField: 'uvIndex',
+      timeField: 'dateTime',
+      timezone: 'Asia/Seoul',
+      range: { min: 0, max: 30 },
+      unit: '지수',
+      keepFields: ['uvIndex', 'dateTime'],
+      timeoutMs: 5000,
+      maxAgeSeconds: 7200,
+      decision: true,
+      meta: {
+        docs: 'https://pohang-eum.kr/data/list/detail/INT_S06_005',
+        note: '구룡포 관측 · 6 이상 햇빛 주의, 8 이상 실내 우선',
+      },
+    },
   ],
   agent: {
     model: 'gpt-6-luna',
@@ -154,7 +209,7 @@ export const seedConfig: TripConfig = {
     maxSteps: 5,
     maxToolCalls: 4,
     timeoutMs: 20000,
-    maxOutputTokens: 600,
+    maxOutputTokens: 1600,
     suggestions: ['16시로 바뀌었어', '왜 이 코스야?', '다른 코스는?'],
   },
   conversation: {
@@ -268,8 +323,8 @@ export const seedConfig: TripConfig = {
       desc: '18:30 열차 · 점심 + 골목 + 카페',
       base: 'reset',
       plan: { condition: 'TIRED', course: 'guryongpo' },
-      readings: {},
-      observations: {},
+      readings: { congestion: 42, pm25: 10, uvIndex: 2 },
+      observations: { freshness: 'FRESH' },
       screen: 'course',
     },
     {
@@ -278,14 +333,14 @@ export const seedConfig: TripConfig = {
       desc: '카페 제외 · 골목 구경 단축',
       base: 'reset',
       plan: { condition: 'TIRED', departTime: '16:00', course: 'guryongpo' },
-      readings: {},
-      observations: {},
+      readings: { congestion: 42, pm25: 10, uvIndex: 2 },
+      observations: { freshness: 'FRESH' },
       screen: 'course',
     },
     {
       id: 'traffic',
       title: '혼잡만 82%로',
-      desc: '현재 사용자 조건 유지 · 교통 여유 +20분',
+      desc: '현재 사용자 조건 유지 · 구룡포 도로 구간마다 여유 추가',
       base: 'keep',
       plan: {},
       readings: { congestion: 82 },
@@ -338,7 +393,7 @@ export const seedConfig: TripConfig = {
   defaults: {
     plan: {
       revision: 0,
-      arrivalAt: '2026-10-24T17:00',
+      arrivalAt: `${new Date(Date.parse(`${event.date}T00:00:00Z`) - 86400000).toISOString().slice(0, 10)}T17:00`,
       departMode: 'TRAIN',
       departTime: '18:30',
       course: 'auto',
@@ -356,7 +411,7 @@ export const seedConfig: TripConfig = {
       currentPlace: 'RACE',
     },
     observations: {
-      readings: { congestion: 42, pm25: 10 },
+      readings: { congestion: null, pm25: null, uvIndex: null },
       sources: {},
       freshness: 'FRESH',
       routeAvailable: true,

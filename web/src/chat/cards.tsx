@@ -1,14 +1,14 @@
-import { Check, CircleSlash, HeartPulse, Navigation, Phone } from 'lucide-react'
+import {
+  Check,
+  CircleSlash,
+  HeartPulse,
+  Camera,
+  Navigation,
+  Phone,
+} from 'lucide-react'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Shimmer } from '@/components/ai-elements/shimmer'
-import {
-  Tool,
-  ToolContent,
-  ToolHeader,
-  ToolInput,
-  ToolOutput,
-} from '@/components/ai-elements/tool'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,17 +20,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemMedia,
-  ItemTitle,
-} from '@/components/ui/item'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { PlaceIcon } from '#/app/bits'
-import { mapUrl } from '#/core/links'
+import { photoEligiblePlaces } from '#/core/community'
+import { ItineraryTimeline } from '#/home/timeline'
+import { CourseCandidates } from '#/home/candidates'
+import { transportLabel } from '#/core/mobility'
+import { mapUrl, pointOf, directionsUrl } from '#/core/links'
 import type { Decision, Itinerary } from '#/core/planner'
 import type { ChoicePrompt } from '#/core/slots'
 import type { Progress } from '#/core/stage'
@@ -39,6 +35,7 @@ import { courseById, departLabel, hubOf } from '#/core/route'
 import { clock } from '#/core/time'
 import type { PartOf, ToolPart } from './context'
 import { useChatContext } from './context'
+import { VisitPhotoCard } from './visit-photo-card'
 
 /**
  * One component per agent tool. A card is interactive only while it is the
@@ -189,7 +186,7 @@ const ProgressCard = ({
   part,
   interactive,
 }: CardProps<PartOf<'await_progress'>>) => {
-  const { config, view, answer } = useChatContext()
+  const { config, view, answer, send } = useChatContext()
   const { state, itinerary: it } = view
   const course = courseById(config, it.course)
   const hub = hubOf(config, state.plan)
@@ -204,19 +201,35 @@ const ProgressCard = ({
   if (!options.length) return null
   const map = mapUrl(config, it.course)
   const [stop] = it.stops
+  const leg = it.legs[0]
+  const points = pointOf(config, it.course)
+  const a = leg && points(leg.from),
+    b = leg && points(leg.to)
+  const legUrl =
+    a && b
+      ? directionsUrl(
+          a,
+          b,
+          leg.mode === 'TAXI'
+            ? 'car'
+            : leg.mode === 'WALK'
+              ? 'walk'
+              : 'traffic',
+        )
+      : null
   const place = stop && config.places.find((p) => p.id === stop.id)
   const target =
     state.plan.stage === 'OUTBOUND'
       ? {
           title: `${course?.area ?? '코스'}로 이동`,
-          desc: `${course?.outbound.via ?? '대중교통'} · 약 ${it.outbound}분`,
-          url: map('COURSE'),
+          desc: `${it.legs.find((l) => l.kind === 'OUTBOUND')?.mode ? transportLabel[it.legs.find((l) => l.kind === 'OUTBOUND')!.mode] : '이동'} · 시연 추정 약 ${it.outbound}분`,
+          url: legUrl ?? map('COURSE'),
         }
       : state.plan.stage === 'LOCAL' && place
         ? {
             title: place.attrs.title,
-            desc: `${clock(stop.start)}–${clock(stop.end)} · 다음 행동`,
-            url: map(place.id, 'walk'),
+            desc: `${place.attrs.short} · ${place.attrs.subtitle} · ${clock(stop.start)}–${clock(stop.end)}`,
+            url: legUrl ?? map(place.id, 'walk'),
           }
         : {
             title: `${hub.name}(으)로`,
@@ -224,7 +237,7 @@ const ProgressCard = ({
               it.planningArrival === null
                 ? `${hub.name}(으)로 이동해요`
                 : `계획상 ${clock(it.planningArrival)} 도착 · ${departLabel(config, state.plan)}`,
-            url: map(hub.id),
+            url: legUrl ?? map(hub.id),
           }
 
   return (
@@ -235,6 +248,19 @@ const ProgressCard = ({
         <CardDescription>{target.desc}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-wrap gap-2">
+        {place &&
+          state.plan.stage === 'LOCAL' &&
+          photoEligiblePlaces(config, state).some((p) => p.id === place.id) && (
+            <Button
+              className="h-11 w-full"
+              onClick={() =>
+                send(`${place.attrs.short}에서 찍은 사진을 커뮤니티에 올릴래요`)
+              }
+            >
+              <Camera />
+              이곳에서 찍은 사진 올리기
+            </Button>
+          )}
         {options.map((o, i) => (
           <Button
             key={o}
@@ -274,13 +300,17 @@ const decisionLabel: Record<Decision, string> = {
 export const CourseSummary = ({
   it,
   title,
+  depart,
 }: {
   it: Itinerary
   title: string
+  depart?: string
 }) => {
   const { config, view } = useChatContext()
   const course = courseById(config, it.course)
-  const hub = hubOf(config, view.state.plan)
+  const hub =
+    config.anchors.find((anchor) => anchor.id === it.hub) ??
+    hubOf(config, view.state.plan)
   return (
     <Card size="sm">
       <CardHeader>
@@ -296,30 +326,20 @@ export const CourseSummary = ({
         <div className="flex flex-wrap gap-1">
           <Badge variant="secondary">{decisionLabel[it.decision]}</Badge>
           <Badge variant="outline">
-            {departLabel(config, view.state.plan)}
+            {depart ?? `귀가 거점 도착 목표 ${clock(it.stationTarget)}`}
           </Badge>
         </div>
       </CardHeader>
       {it.stops.length > 0 && (
         <CardContent>
-          <ItemGroup>
-            {it.stops.map((s) => {
-              const place = config.places.find((p) => p.id === s.id)
-              return (
-                <Item key={s.id} size="sm" className="px-0">
-                  <ItemMedia variant="icon">
-                    <PlaceIcon name={place?.attrs.icon ?? ''} />
-                  </ItemMedia>
-                  <ItemContent>
-                    <ItemTitle>{place?.attrs.title ?? s.id}</ItemTitle>
-                    <ItemDescription>
-                      {clock(s.start)}–{clock(s.end)}
-                    </ItemDescription>
-                  </ItemContent>
-                </Item>
-              )
-            })}
-          </ItemGroup>
+          <ItineraryTimeline config={config} itinerary={it} />
+          <div className="mt-5 border-t pt-4">
+            <CourseCandidates
+              key={it.course}
+              config={config}
+              course={it.course}
+            />
+          </div>
         </CardContent>
       )}
     </Card>
@@ -328,11 +348,14 @@ export const CourseSummary = ({
 
 const PlanCourseCard = ({ part }: CardProps<PartOf<'plan_course'>>) => {
   if (part.state === 'input-streaming' || part.state === 'input-available')
-    return <Shimmer>코스를 계산하고 있어요…</Shimmer>
+    return null
   if (part.state !== 'output-available') return null
+  if ('validationErrors' in part.output && part.output.validationErrors?.length)
+    return null
   return (
     <CourseSummary
       it={part.output.itinerary}
+      depart={part.output.depart}
       title={part.output.isChange ? '바꾸면 이렇게 돼요' : '지금 조건의 코스'}
     />
   )
@@ -451,48 +474,20 @@ const SummaryCard = ({ part }: CardProps<PartOf<'summarize_trip'>>) =>
 
 // ── Everything else: the stock AI Elements tool view ───────────────────
 
-const toolTitle: Record<string, string> = {
-  explain_plan: '코스 근거 확인',
-  check_live_conditions: '디지털 트윈 확인',
-  compare_transport: '이동수단 비교',
-  set_demo_observation: '시연 조건 적용',
-  get_race_info: '대회 정보 조회',
-  search_guide: '안내 자료 검색',
-  compare_courses: '코스 비교',
-  find_nearby: '주변 관광정보 (한국관광공사)',
-  get_place_detail: '장소 상세 (한국관광공사)',
-  get_directions: '길찾기·버스',
-  get_bus_arrivals: '버스 도착정보 (TAGO)',
-  get_train_times: '열차 시간표 (TAGO)',
-  get_weather: '날씨 예보 (기상청)',
-}
-
-/** Lookups show only in presentation mode; the answer text says what they found. */
+/** Read-tool telemetry is transient; completed results live in the answer. */
 const GenericTool = ({ part }: CardProps<ToolPart>) =>
-  useChatContext().showTools ? <ToolDetails part={part} /> : null
-
-const ToolDetails = ({ part }: { part: ToolPart }) => (
-  <Tool>
-    <ToolHeader
-      type={part.type}
-      state={part.state}
-      title={toolTitle[part.type.slice(5)] ?? part.type.slice(5)}
-    />
-    <ToolContent>
-      <ToolInput input={part.input} />
-      <ToolOutput
-        output={'output' in part ? part.output : undefined}
-        errorText={'errorText' in part ? part.errorText : undefined}
-      />
-    </ToolContent>
-  </Tool>
-)
+  part.state === 'output-error' ? (
+    <p role="status" className="text-xs text-muted-foreground">
+      정보를 확인하지 못했어요. 답변에서 대체 안내를 확인해 주세요.
+    </p>
+  ) : null
 
 /** Bookkeeping the conversation already shows in words. */
 const Hidden = () => null
 
 /** Data-directed dispatch: tool name → card. */
 const cards: Record<string, (props: CardProps<never>) => ReactNode> = {
+  prepare_visit_photo: VisitPhotoCard,
   update_trip_details: Hidden,
   record_race_progress: Hidden,
   ask_quick_reply: QuickReplyCard,

@@ -87,7 +87,7 @@ describe('E-UM 응답 해석 (문서 샘플 형식)', () => {
     expect(
       interpretBody(
         traffic,
-        { data: { cntPerc: 140, hour: '2026-10-13 10:00:00' } },
+        { data: { cntPerc: 1001, hour: '2026-10-13 10:00:00' } },
         at,
         now,
       ).status,
@@ -96,6 +96,33 @@ describe('E-UM 응답 해석 (문서 샘플 형식)', () => {
 })
 
 describe('E-UM 호출', () => {
+  it('시간 통계는 실제 계약의 KST YYYY-MM-DD 날짜와 장비를 사용하며 집계 중인 시간의 0을 제외한다', async () => {
+    const source = seedConfig.sources.find((s) => s.id === 'INT_S01_012')!
+    const now = Date.parse('2026-10-11T09:30:00Z')
+    const request = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          status: 'success',
+          data: [
+            { hours: 17, devId: 1, type: 'PM25', unit: '㎍/㎥', value: 7.2 },
+            { hours: 18, devId: 1, type: 'PM25', unit: '㎍/㎥', value: 0 },
+            { hours: 23, devId: 1, type: 'PM25', unit: '㎍/㎥', value: 0 },
+          ],
+        }),
+      ),
+    )
+    const evidence = await fetchSource(
+      source,
+      { EUM_SERVICE_KEY: 'test%2Bkey%3D', EUM_AIR_DEVICE_ID: '1' },
+      () => now,
+    )
+    const url = new URL(String(request.mock.calls[0][0]))
+    expect(url.searchParams.get('date')).toBe('2026-10-11')
+    expect(url.searchParams.get('serviceKey')).toBe('test+key=')
+    expect(evidence.value).toBe(7.2)
+    expect(evidence.freshness).toBe('FRESH')
+  })
+
   it('서비스 키가 없으면 호출하지 않고 미설정으로 보고', async () => {
     const spy = vi.spyOn(globalThis, 'fetch')
     const e = await fetchSource(traffic, {})

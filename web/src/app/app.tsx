@@ -48,10 +48,10 @@ const Header = () => {
   return (
     <header className="sticky top-0 z-30 border-b bg-background pt-safe">
       <div className="mx-auto flex h-14 max-w-5xl items-center gap-2 px-4">
-        <span className="font-semibold">RUN2포항</span>
+        <span className="font-semibold">RUN2구룡포</span>
         <div className="ml-auto flex gap-1">
           <Button asChild size="sm" variant="ghost">
-            <Link to="/">
+            <Link to="/" search={{ tab: 'home' }}>
               <MessageCircle /> 채팅
             </Link>
           </Button>

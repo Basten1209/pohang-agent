@@ -8,6 +8,7 @@ import {
   planSchema,
   screenSchema,
   slotIdSchema,
+  placeIdSchema,
 } from './schema'
 import { clock, minutes } from './time'
 
@@ -18,6 +19,14 @@ import { clock, minutes } from './time'
  * trip can be replayed, audited, or analysed. Commands below are pure
  * functions `state → events`; the UI only dispatches what they return.
  */
+
+export const visitRecordSchema = z.object({
+  placeId: placeIdSchema,
+  course: z.string(),
+  start: z.number().int().nonnegative(),
+  end: z.number().int().nonnegative(),
+})
+export type VisitRecord = z.infer<typeof visitRecordSchema>
 
 export const tripStateSchema = z.object({
   // 3: way home, course and interest kinds in the plan. Older trips restart.
@@ -32,6 +41,7 @@ export const tripStateSchema = z.object({
   created: z.boolean(),
   /** Questions the user has answered in the chat (see slots.ts). */
   answered: z.array(slotIdSchema).default([]),
+  visits: z.array(visitRecordSchema).default([]),
 })
 export type TripState = z.infer<typeof tripStateSchema>
 
@@ -45,10 +55,12 @@ export const initialTrip = (config: TripConfig): TripState => ({
   checks: [false, false, false],
   created: false,
   answered: [],
+  visits: [],
 })
 
 /** Events are validated at the server boundary, so they have a schema, not just a type. */
 export const tripEventSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('visit.completed'), visit: visitRecordSchema }),
   z.object({ type: z.literal('plan.patched'), patch: planSchema.partial() }),
   z.object({
     type: z.literal('observations.patched'),
@@ -104,6 +116,17 @@ const demoSources = (readings: Record<string, unknown>) =>
   )
 
 const handlers: Handlers = {
+  'visit.completed': (s, e) =>
+    s.plan.completed.includes(e.visit.placeId)
+      ? s
+      : {
+          ...bump(s, {
+            completed: uniq([...s.plan.completed, e.visit.placeId]),
+            currentTime: clock(e.visit.end),
+            restMin: 0,
+          }),
+          visits: [...(s.visits ?? []), e.visit],
+        },
   'plan.patched': (s, e) => bump(s, e.patch),
   'observations.patched': (s, e) =>
     bump({ ...s, observations: { ...s.observations, ...e.patch } }),
@@ -137,6 +160,7 @@ const handlers: Handlers = {
     checks: [false, false, false],
     created: false,
     answered: [],
+    visits: [],
     observations: e.observations,
     plan: { ...e.plan, revision: s.plan.revision + 1 },
   }),
@@ -215,11 +239,15 @@ export const advance = (state: TripState, it: Itinerary): Command => {
     const [stop] = it.stops
     return {
       events: [
-        patch({
-          completed: uniq([...plan.completed, stop.id]),
-          currentTime: clock(stop.end),
-          restMin: 0,
-        }),
+        {
+          type: 'visit.completed',
+          visit: {
+            placeId: stop.id,
+            course: it.course ?? plan.course,
+            start: stop.start,
+            end: stop.end,
+          },
+        },
       ],
     }
   }

@@ -1,4 +1,5 @@
-import { Pencil } from 'lucide-react'
+import { AssetCredits, MascotBanner } from '#/brand/brand'
+import { Pencil, ArrowRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -18,6 +19,7 @@ import { clock, duration } from '#/core/time'
 import type { TripView } from '#/core/view'
 import { RaceDetails, RaceHeadline } from '#/race/overview'
 import { PlaceThumb } from './thumb'
+import { InstallApp } from './install'
 
 const MyPlan = ({
   config,
@@ -93,7 +95,7 @@ const AfterRace = ({
             {places.slice(0, 3).map((p) => (
               <div key={p.id} className="flex flex-col gap-1">
                 <PlaceThumb place={p} />
-                <span className="truncate text-xs">{p.attrs.short}</span>
+                <span className="text-xs leading-relaxed">{p.attrs.short}</span>
               </div>
             ))}
           </div>
@@ -115,15 +117,37 @@ export const HomeTab = ({
   config,
   view,
   onEditProfile,
+  onRace,
 }: {
   config: TripConfig
   view: TripView
   onEditProfile: () => void
+  onRace: () => void
 }) => (
   <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4">
+    <MascotBanner
+      pose={view.state.phase >= 3 ? 'cheer' : 'map'}
+      eyebrow="RUN2 GURYONGPO"
+      title={
+        <>
+          달리고,
+          <br />
+          구룡포를 만나다
+        </>
+      }
+      description={`${view.state.plan.nickname || '러너'}님의 레이스부터 바다 여행까지.`}
+    />
+    <Button size="lg" className="min-h-12" onClick={onRace}>
+      {view.state.phase >= 3 ? '나의 완주 기록 보기' : '레이스 준비하기'}
+      <ArrowRight />
+    </Button>
+    <div className="flex justify-end">
+      <InstallApp compact />
+    </div>
     <RaceHeadline event={config.event} />
     <MyPlan config={config} view={view} onEdit={onEditProfile} />
     <AfterRace config={config} view={view} />
     <RaceDetails event={config.event} />
+    <AssetCredits />
   </div>
 )

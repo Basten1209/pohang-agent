@@ -1,0 +1,12 @@
+.context
+.gstack
+.git
+**/node_modules
+**/.env*
+**/.data
+**/.output
+**/.nitro
+**/.tanstack
+**/.vercel
+**/test-results
+**/playwright-report

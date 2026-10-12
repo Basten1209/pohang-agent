@@ -25,8 +25,10 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { transportLabel } from '#/core/mobility'
+import { KAKAO_T_URL } from '#/core/transport'
 import type { Evidence } from '#/core/evidence'
-import { courseById, departLabel, hubOf } from '#/core/route'
+import { departLabel, hubOf } from '#/core/route'
 import { clock } from '#/core/time'
 import { changeDepart, runScenario } from '#/core/trip'
 import { useApp } from './context'
@@ -288,28 +290,29 @@ const TaxiBody = () => {
   return (
     <>
       <ItemGroup>
-        <Item variant="outline" size="sm">
-          <ItemContent>
-            <ItemTitle>
-              버스 <Badge>선택됨</Badge>
-            </ItemTitle>
-            <ItemDescription>
-              {courseById(config, it.course)?.return.minutes[
-                hubOf(config, state.plan).id
-              ] ?? '—'}
-              분 · 도보·대기 포함 (시연) · 요금 확인 필요
-            </ItemDescription>
-          </ItemContent>
-        </Item>
-        <Item variant="outline" size="sm">
-          <ItemContent>
-            <ItemTitle>택시</ItemTitle>
-            <ItemDescription>
-              시간·요금 확인 필요 · 경로 API 미연결
-            </ItemDescription>
-          </ItemContent>
-        </Item>
+        {it.legs
+          .find((l) => l.kind === 'RETURN')
+          ?.options.map((option) => (
+            <Item key={option.mode} variant="outline" size="sm">
+              <ItemContent>
+                <ItemTitle>
+                  {transportLabel[option.mode]}{' '}
+                  {it.legs.find((l) => l.kind === 'RETURN')?.mode ===
+                    option.mode && <Badge>현재 일정</Badge>}
+                </ItemTitle>
+                <ItemDescription>
+                  약 {option.totalMin}분 · 승차·대기·도보·여유 포함 시연 추정.
+                  실제 시간·요금은 확인이 필요해요.
+                </ItemDescription>
+              </ItemContent>
+            </Item>
+          ))}
       </ItemGroup>
+      <Button asChild variant="outline">
+        <a href={KAKAO_T_URL} target="_blank" rel="noreferrer">
+          카카오T에서 배차·요금 확인
+        </a>
+      </Button>
       <Button asChild>
         <a
           href={map(hubOf(config, state.plan).id)}

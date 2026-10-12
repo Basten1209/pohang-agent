@@ -14,48 +14,52 @@ const plan: Plan = {
   condition: 'TIRED',
   course: 'guryongpo',
 }
-const obs = seedConfig.defaults.observations
+// The D scenarios explicitly simulate readings; production defaults are unknown.
+const obs = {
+  ...seedConfig.defaults.observations,
+  readings: { congestion: 42, pm25: 10, uvIndex: 2 },
+}
 const withReadings = (readings: Observations['readings']): Observations => ({
   ...obs,
   readings: { ...obs.readings, ...readings },
 })
 
 describe('명세 D01–D08', () => {
-  it('D01: 18:30 열차, 16:20 도착, 100분 여유', () => {
+  it('D01: 피로를 반영한 택시 조합, 14:36 도착, 목표 대비 204분 여유', () => {
     const r = calculate(plan, obs)
     expect(r.decision).toBe('GO')
-    expect(clock(r.stationEta!)).toBe('16:20')
-    expect(r.slack).toBe(100)
-    expect(r.localMin).toBe(130)
+    expect(clock(r.stationEta!)).toBe('14:36')
+    expect(r.slack).toBe(204)
+    expect(r.localMin).toBe(137)
     expect(r.stops).toHaveLength(3)
   })
-  it('D02: 16시 열차이면 카페 제외, 구경 5분, 역 15:15', () => {
-    const r = calculate({ ...plan, departTime: '16:00' }, obs)
+  it('D02: 14:10 열차이면 카페 제외, 구경 5분, 13:28 도착', () => {
+    const r = calculate({ ...plan, departTime: '14:10' }, obs)
     expect(r.decision).toBe('SHORTEN')
-    expect(clock(r.stationEta!)).toBe('15:15')
+    expect(clock(r.stationEta!)).toBe('13:28')
     expect(r.stops.map((x) => x.id)).toEqual(['food', 'street'])
-    expect(r.slack).toBe(15)
-    expect(r.walking).toBe(25)
+    expect(r.slack).toBe(12)
+    expect(r.walking).toBe(14)
   })
-  it('D03: 혼잡만 82로 올리면 식사만 남고 교통 여유를 한 번 반영', () => {
+  it('D03: 혼잡만 82로 올리면 식사만 남고 각 도로 구간에 혼잡 여유를 반영', () => {
     const r = calculate(
-      { ...plan, departTime: '16:00' },
+      { ...plan, departTime: '14:10' },
       withReadings({ congestion: 82 }),
     )
     expect(r.stops.map((x) => x.id)).toEqual(['food'])
-    expect(clock(r.stationEta!)).toBe('15:10')
-    expect(clock(r.planningArrival!)).toBe('15:30')
-    expect(r.slack).toBe(0)
+    expect(clock(r.stationEta!)).toBe('13:32')
+    expect(clock(r.planningArrival!)).toBe('13:32')
+    expect(r.slack).toBe(8)
   })
-  it('D04: pm25 60이면 야외 20분 제외, 16:00 역 도착', () => {
+  it('D04: pm25 60이면 야외 20분 제외, 14:13 역 도착', () => {
     const r = calculate(plan, withReadings({ pm25: 60 }))
     expect(r.decision).toBe('INDOOR')
-    expect(clock(r.stationEta!)).toBe('16:00')
-    expect(r.localMin).toBe(110)
+    expect(clock(r.stationEta!)).toBe('14:13')
+    expect(r.localMin).toBe(114)
   })
   it('D05: 준비 완료가 10분 늦어지면 최소 코스도 불가', () => {
     const r = calculate(
-      { ...plan, departTime: '16:00', readyTime: '10:50' },
+      { ...plan, departTime: '14:10', readyTime: '10:50' },
       withReadings({ congestion: 82 }),
     )
     expect(r.decision).toBe('CANCEL')
@@ -79,7 +83,7 @@ describe('명세 D01–D08', () => {
 describe('예외와 상태 변화', () => {
   it('대기 제한보다 귀가 불가능이 우선', () =>
     expect(
-      calculate({ ...plan, departTime: '14:00' }, withReadings({ pm25: 60 }))
+      calculate({ ...plan, departTime: '13:00' }, withReadings({ pm25: 60 }))
         .decision,
     ).toBe('CANCEL'))
   it('STALE과 null을 정상 관측으로 취급하지 않음', () => {
@@ -90,14 +94,16 @@ describe('예외와 상태 변화', () => {
     ]) {
       const r = calculate(plan, o)
       expect(r.calculationStatus).toBe('PARTIAL')
-      expect(r.stops.some((x) => x.id === 'street')).toBe(false)
+      expect(r.stops.some((x) => x.id === 'street')).toBe(true) // 판단 보류, 양호로 단정하지 않음
       expect(r.trafficReserve).toBe(20)
     }
   })
-  it('걷기 상한에 정류장 도보가 포함됨', () =>
-    expect(calculate({ ...plan, walkingLimit: 15 }, obs).decision).toBe(
-      'CANCEL',
-    ))
+  it('걷기 상한에 승하차 도보를 포함하고 택시여도 상한을 넘기지 않음', () => {
+    expect(calculate({ ...plan, walkingLimit: 5 }, obs).decision).toBe('CANCEL')
+    const limited = calculate({ ...plan, walkingLimit: 15 }, obs)
+    expect(limited.walking).toBeLessThanOrEqual(15)
+    expect(limited.legs.some((l) => l.mode === 'TAXI')).toBe(true)
+  })
   it('완료한 식사와 이미 지난 시간을 다시 더하지 않음', () => {
     const r = calculate(
       {
@@ -111,7 +117,7 @@ describe('예외와 상태 변화', () => {
     )
     expect(r.outbound).toBe(0)
     expect(r.stops.some((x) => x.id === 'food')).toBe(false)
-    expect(r.stationEta).toBeLessThanOrEqual(980)
+    expect(r.stationEta).toBeLessThanOrEqual(990)
   })
   it('더 쉬면 남은 코스와 역 도착이 재계산됨', () => {
     const normal = calculate(plan, obs)
@@ -130,8 +136,9 @@ describe('예외와 상태 변화', () => {
       },
       withReadings({ congestion: 82 }),
     )
-    expect(clock(r.stationEta!)).toBe('15:10')
-    expect(clock(r.planningArrival!)).toBe('15:30')
+    expect(clock(r.stationEta!)).toBe('14:07')
+    expect(clock(r.planningArrival!)).toBe('14:07')
+    expect(r.trafficReserve).toBe(10)
   })
   it('입력 시각과 휴식 범위를 검증', () => {
     expect(planSchema.safeParse({ ...plan, departTime: '26:00' }).success).toBe(
@@ -157,8 +164,9 @@ describe('설정이 곧 정책 (jsonb 확장)', () => {
     }
     const r = planner(relaxed)({ ...plan, departTime: '16:00' }, obs)
     expect(r.stationTarget).toBe(950)
-    expect(r.decision).toBe('SHORTEN')
-    expect(r.slack).toBe(35)
+    const normal = calculate({ ...plan, departTime: '16:00' }, obs)
+    expect(r.planningArrival).toBe(normal.planningArrival)
+    expect(r.slack! - normal.slack!).toBe(20)
   })
   it('새 관측 신호(자외선)를 설정에 추가하면 야외 장소가 빠짐', () => {
     const withUv: TripConfig = {
@@ -230,7 +238,7 @@ describe('코스 다변화와 귀가 방식', () => {
   const auto: Plan = { ...plan, course: 'auto' }
 
   it('추천(auto)이고 구룡포가 가능하면 구룡포를 고름 (단축이어도)', () => {
-    const r = calculate({ ...auto, departTime: '16:00' }, obs)
+    const r = calculate({ ...auto, departTime: '14:10' }, obs)
     expect(r.course).toBe('guryongpo')
     expect(r.decision).toBe('SHORTEN')
     // Other feasible courses are offered, never the chosen one.
@@ -238,11 +246,11 @@ describe('코스 다변화와 귀가 방식', () => {
     expect(r.alternatives).not.toContain('guryongpo')
     expect(r.alternatives.length).toBeLessThanOrEqual(3)
   })
-  it('추천(auto)인데 구룡포가 귀가 시각 때문에 불가능하면 다른 코스와 이유', () => {
-    const r = calculate({ ...auto, departTime: '14:00' }, obs)
-    expect(r.course).not.toBe('guryongpo')
-    expect(['GO', 'SHORTEN', 'INDOOR']).toContain(r.decision)
-    expect(r.reasons[0]).toContain('구룡포는 지금 조건으로 다녀오기 어려워')
+  it('이른 귀가로 두 코스 모두 불가능하면 권역 밖 관광을 추천하지 않음', () => {
+    const r = calculate({ ...auto, departTime: '13:00' }, obs)
+    expect(r.decision).toBe('CANCEL')
+    expect(r.stops).toEqual([])
+    expect(r.alternatives).toEqual([])
   })
   it('코스를 직접 고르면 그 코스, 다른 가능한 코스는 대안으로', () => {
     const r = calculate(
@@ -254,12 +262,7 @@ describe('코스 다변화와 귀가 방식', () => {
   })
   it('모든 활성 코스를 한 번에 비교', () => {
     const all = planEveryCourse(seedConfig, auto, obs)
-    expect(all.map((i) => i.course)).toEqual([
-      'guryongpo',
-      'homigot',
-      'yeongildae',
-      'jukdo',
-    ])
+    expect(all.map((i) => i.course)).toEqual(['guryongpo', 'homigot'])
   })
   it('하고 싶은 일이 고른 장소를 정함', () => {
     const r = calculate(
@@ -308,12 +311,12 @@ describe('코스 다변화와 귀가 방식', () => {
   })
   it('관심 활동이 하나도 없는 코스는 이유를 말함', () => {
     const r = calculate(
-      { ...plan, interests: ['indoor'], course: 'jukdo' },
+      { ...plan, interests: ['indoor'], course: 'homigot' },
       {
         ...obs,
       },
     )
-    expect(r.stops.map((s) => s.id)).toEqual(['jd-canalhall'])
+    expect(r.stops.map((s) => s.id)).toEqual(['hm-museum'])
     const none = calculate(
       {
         ...plan,
@@ -324,5 +327,26 @@ describe('코스 다변화와 귀가 방식', () => {
     )
     expect(none.decision).toBe('CANCEL')
     expect(none.reasons.at(-1)).toContain('고른 활동에 맞는 장소가 없어요')
+  })
+})
+
+describe('출발 시각과 경로 누락 구분', () => {
+  it('1시간 뒤 출발은 가능하고 이중 휴식으로 범위를 넘으면 실제 시각과 시연 범위를 안내', () => {
+    const ready = {
+      ...plan,
+      readyTime: '11:40',
+      currentTime: '11:40',
+      restMin: 0,
+      departTime: '18:30',
+    }
+    expect(calculate(ready, obs).decision).toBe('GO')
+    const duplicate = calculate({ ...ready, restMin: 60 }, obs)
+    expect(duplicate.decision).toBe('NEEDS_DATA')
+    expect(duplicate.reasons.join(' ')).toContain('12:40')
+    expect(duplicate.reasons.join(' ')).toContain('10:00–12:00')
+    expect(duplicate.reasons.join(' ')).not.toContain('왕복 경로')
+    expect(
+      calculate(ready, { ...obs, routeAvailable: false }).reasons.join(' '),
+    ).toContain('시연 조건')
   })
 })

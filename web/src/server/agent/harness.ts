@@ -10,8 +10,11 @@ import {
   wrapLanguageModel,
 } from 'ai'
 import { createHash } from 'node:crypto'
+import { progressForTool, type ProgressPhase } from '#/core/agent-progress'
+import { planner } from '#/core/planner'
 import type { Evidence } from '#/core/evidence'
 import { asksInfo, isReadOnly, mentionsSymptom } from '#/core/intents'
+import { requestsVisitPhoto, visitPhotoOffer } from '#/core/visit-photo'
 import type { SlotId, TripConfig } from '#/core/schema'
 import type { ChoicePrompt } from '#/core/slots'
 import { choiceValue, fillSlots, pendingSlot, promptFor } from '#/core/slots'
@@ -33,13 +36,14 @@ import {
   baseInstructions,
   commitTools,
   entryLine,
+  nextActionLine,
   snapshot,
   stageInstructions,
   stageTools,
 } from './prompts'
 import { scriptedModel, withFallback } from './scripted-model'
 import type { AgentTools, AskTool, ToolName, TurnContext } from './tools'
-import { askTools, makeTools } from './tools'
+import { askTools, makeTools, progressAnswerSchema } from './tools'
 
 /**
  * One conversational turn, end to end:
@@ -71,7 +75,16 @@ export type AgentMetadata = {
   revision?: number
   choice?: ChipAnswer
 }
-export type AgentData = { trip: TripView; choices: ChoicePrompt }
+export type PlanProgress = {
+  phase: ProgressPhase
+  nickname: string
+  checks?: { label: string; ok: boolean }[]
+}
+export type AgentData = {
+  trip: TripView
+  choices: ChoicePrompt
+  progress: PlanProgress
+}
 export type AgentUIMessage = UIMessage<
   AgentMetadata,
   AgentData,
@@ -218,6 +231,15 @@ export const runTurn = async (
   ) as AgentUIMessage[]
   const stageAtStart = stageOf(record.state)
   const pending = pendingAnswers(messages, record.meta.ingested)
+  // Approval resumes the already-proposed tool, then only explains its result.
+  // It is not a fresh request to reinterpret older user messages.
+  const approvalResponse =
+    input.message.role === 'assistant' &&
+    messages
+      .at(-1)
+      ?.parts.some(
+        (part) => 'state' in part && part.state === 'approval-responded',
+      ) === true
 
   // An assistant message that answers nothing new needs no model call.
   if (
@@ -236,18 +258,31 @@ export const runTurn = async (
       },
     })
 
+  // Bind each accepted report to the place BEFORE advancing. Otherwise a
+  // model seeing SKIP + the updated itinerary can skip the next place in prose.
+  let progressReply: string | undefined
   // Card answers are applied deterministically, before any model call.
   for (const answer of pending) {
-    record = await commit(
-      db,
-      record,
-      answerToEvents(config, record.state, answer),
-      {
-        source: 'card',
-        tool: answer.tool,
-        toolCallId: answer.toolCallId,
-      },
-    )
+    const events = answerToEvents(config, record.state, answer)
+    const parsed = progressAnswerSchema.safeParse(answer.output)
+    if (answer.tool === 'await_progress' && parsed.success && events.length) {
+      const it = planner(config)(record.state.plan, record.state.observations)
+      const place = config.places.find((p) => p.id === it.stops[0]?.id)
+      const name = place?.attrs.short ?? '이 장소'
+      progressReply = {
+        ARRIVED: '관광지에 도착했어요.',
+        STOP_DONE: `${name} 방문을 기록했어요.`,
+        SKIP: `${name} 일정을 건너뛰었어요.`,
+        REST: '30분 더 쉬는 시간을 반영했어요.',
+        START_RETURN: '돌아가는 길을 안내할게요.',
+        AT_STATION: '귀가 거점에 도착했어요.',
+      }[parsed.data.event]
+    }
+    record = await commit(db, record, events, {
+      source: 'card',
+      tool: answer.tool,
+      toolCallId: answer.toolCallId,
+    })
     record = {
       ...record,
       meta: {
@@ -292,10 +327,104 @@ export const runTurn = async (
     )
 
   const stageNow = stageOf(record.state)
-  // Before a course is (re)computed, let fresh live observations into the plan.
-  if (stageNow === 'PLANNING' || stageNow === 'JOURNEY') {
-    record = (await syncLive(db, config, record, deps.observe)).record
-    await saveConversation(db, { id: record.id, messages, meta: record.meta })
+  let progressRepair: string[] = []
+  if (progressReply && stageNow === 'JOURNEY') {
+    const synced = await syncLive(db, config, record, deps.observe)
+    record = synced.record
+    progressRepair =
+      planner(config)(record.state.plan, record.state.observations)
+        .validationErrors ?? []
+  }
+  // Progress buttons need no interpretation. The acknowledgement and card
+  // use the same final state. Invalid saved routes require a model repair.
+  if (
+    progressReply &&
+    stageNow === 'JOURNEY' &&
+    (!progressRepair.length || !deps.model)
+  ) {
+    const done = record
+    return createUIMessageStream<AgentUIMessage>({
+      originalMessages: messages,
+      execute: ({ writer }) => {
+        const meta = {
+          stage: stageOf(done.state),
+          revision: done.state.plan.revision,
+        }
+        writer.write({ type: 'start', messageMetadata: meta })
+        say(
+          writer,
+          `${progressReply}\n\n지금 할 일: ${nextActionLine(config, done.state)}`,
+        )
+        writer.write({
+          type: 'tool-input-available',
+          toolCallId: `h_${crypto.randomUUID()}`,
+          toolName: 'await_progress',
+          input: {},
+        })
+        writer.write({
+          type: 'data-trip',
+          data: tripView(config, done.state),
+          transient: true,
+        })
+        writer.write({ type: 'finish', messageMetadata: meta })
+      },
+      onEnd: async ({ messages: final }) => {
+        await saveConversation(db, {
+          id: done.id,
+          messages: final,
+          meta: done.meta,
+        })
+      },
+    })
+  }
+  // Explicit photo requests are UI work, independent of model availability.
+  // Run AFTER the safety gate, only for a new user turn (not a card answer).
+  if (
+    input.message.role === 'user' &&
+    stageNow !== 'SAFETY' &&
+    requestsVisitPhoto(text)
+  ) {
+    const done = record
+    const offer = visitPhotoOffer(config, done.state, text)
+    return createUIMessageStream<AgentUIMessage>({
+      originalMessages: messages,
+      execute: ({ writer }) => {
+        const meta = { stage: stageNow, revision: done.state.plan.revision }
+        const toolCallId = `photo_${crypto.randomUUID()}`
+        writer.write({ type: 'start', messageMetadata: meta })
+        writer.write({
+          type: 'tool-input-available',
+          toolName: 'prepare_visit_photo',
+          toolCallId,
+          input: { request: text },
+        })
+        writer.write({
+          type: 'tool-output-available',
+          toolCallId,
+          output: offer,
+        })
+        if (!offer.placeIds.length && stageNow === 'JOURNEY')
+          writer.write({
+            type: 'tool-input-available',
+            toolCallId: `h_${crypto.randomUUID()}`,
+            toolName: 'await_progress',
+            input: {},
+          })
+        writer.write({
+          type: 'data-trip',
+          data: tripView(config, done.state),
+          transient: true,
+        })
+        writer.write({ type: 'finish', messageMetadata: meta })
+      },
+      onEnd: async ({ messages: final }) => {
+        await saveConversation(db, {
+          id: done.id,
+          messages: final,
+          meta: done.meta,
+        })
+      },
+    })
   }
   if (chipApplied && answeredByApp.includes(stageNow)) {
     const done = record
@@ -329,8 +458,17 @@ export const runTurn = async (
   }
 
   let current = record
+  let progress: TurnContext['progress']
+  let checks: { label: string; ok: boolean }[] = []
   const ctx: TurnContext = {
     config,
+    isAI: () => mode === 'OPENAI',
+    canStoreInitialPlan:
+      !isReadOnly(text) &&
+      (!asksInfo(text) || /추천|짜\s*줘|만들어|제안해/.test(text)),
+    canProposeChanges:
+      stageAtStart === 'PLANNING' || stageAtStart === 'JOURNEY',
+    progress: (phase) => progress?.(phase),
     trip: () => current,
     commit: async (events, source) => {
       current = await commit(db, current, events, { source })
@@ -339,7 +477,16 @@ export const runTurn = async (
     remember: (preview) => {
       current = { ...current, meta: rememberPreview(current.meta, preview) }
     },
-    observe: deps.observe,
+    observe: async () => {
+      progress?.('OBSERVE')
+      const evidence = await deps.observe()
+      checks = evidence.map((e) => ({
+        label: e.label,
+        ok: e.status === 'LIVE' && e.freshness === 'FRESH',
+      }))
+      progress?.('EXPLAIN')
+      return evidence
+    },
     newId: () => `pv_${crypto.randomUUID().slice(0, 8)}`,
   }
   const tools = makeTools(ctx)
@@ -361,7 +508,7 @@ export const runTurn = async (
         )
   if (deps.model && stageAfterIngest === 'SAFETY') mode = 'DEMO'
 
-  const readOnly = isReadOnly(text)
+  const readOnly = !progressRepair.length && isReadOnly(text)
   const demoCommand = text.startsWith('/시연')
   const activeFor = (stage: Stage): ToolName[] => [
     ...stageTools[stage].filter((t) => !(readOnly && commitTools.includes(t))),
@@ -373,7 +520,10 @@ export const runTurn = async (
     tools,
     instructions: baseInstructions,
     stopWhen: isStepCount(config.agent.maxSteps + 2),
-    maxOutputTokens: config.agent.maxOutputTokens,
+    // Reasoning tokens share this budget with the structured itinerary output.
+    maxOutputTokens: deps.model
+      ? Math.max(config.agent.maxOutputTokens, 6000)
+      : config.agent.maxOutputTokens,
     temperature: config.agent.temperature ?? undefined,
     maxRetries: 0,
     experimental_toolApprovalSecret: approvalSecret(),
@@ -389,22 +539,92 @@ export const runTurn = async (
     providerOptions: { openai: { store: false, parallelToolCalls: false } },
     prepareStep: ({ stepNumber, steps }) => {
       const stage = stageOf(current.state)
-      const active = activeFor(stage)
-      const forced = forcedTool(
-        stage,
-        stage !== stageAtStart,
-        stepNumber,
-        steps,
-        active.includes('apply_plan_change'),
-        !chipApplied && text.length > 0 && !asksInfo(text),
-      )
+      const active = approvalResponse ? [] : activeFor(stage)
+      const failedProposals = steps
+        .flatMap((s) => s.toolResults)
+        .filter(
+          (r) =>
+            r.toolName === 'plan_course' &&
+            Boolean(
+              (r.output as { validationErrors?: string[] })?.validationErrors
+                ?.length,
+            ),
+        ).length
+      const exhausted = mode === 'OPENAI' && failedProposals >= 3
+      let forced = approvalResponse
+        ? null
+        : forcedTool(
+            stage,
+            stage !== stageAtStart,
+            stepNumber,
+            steps,
+            active.includes('apply_plan_change'),
+            !progressReply &&
+              !chipApplied &&
+              text.length > 0 &&
+              !asksInfo(text),
+          )
+      if (
+        !approvalResponse &&
+        mode === 'OPENAI' &&
+        active.includes('plan_course')
+      ) {
+        const needsInitial =
+          stage === 'PLANNING' &&
+          !current.state.plan.agentPlan &&
+          !readOnly &&
+          (stage !== stageAtStart ||
+            !asksInfo(text) ||
+            /추천|짜\s*줘|만들어/.test(text))
+        const lastPlan = steps
+          .at(-1)
+          ?.toolResults.find((r) => r.toolName === 'plan_course')?.output as
+          { validationErrors?: string[] } | undefined
+        const retry = Boolean(lastPlan?.validationErrors?.length)
+        if (
+          forced !== 'apply_plan_change' &&
+          (forced === 'plan_course' ||
+            (needsInitial && !calledInTurn(steps, 'plan_course')) ||
+            (progressRepair.length > 0 &&
+              !calledInTurn(steps, 'plan_course')) ||
+            retry)
+        ) {
+          const hasContext = calledInTurn(steps, 'get_planning_context')
+          forced =
+            !hasContext ||
+            (retry &&
+              lastPlan!.validationErrors!.some((e) => e.includes('다시 조회')))
+              ? 'get_planning_context'
+              : 'plan_course'
+        }
+      }
       return {
         activeTools: active,
-        toolChoice: forced ? { type: 'tool', toolName: forced } : 'auto',
+        toolChoice:
+          approvalResponse || exhausted
+            ? 'none'
+            : forced
+              ? { type: 'tool', toolName: forced }
+              : 'auto',
         instructions: [
           baseInstructions,
           stageInstructions[stage],
           snapshot(config, current.state, stage),
+          ...(progressRepair.length
+            ? [
+                `진행 버튼은 이미 반영했다: ${progressReply} 이전 사용자 문장을 다시 실행하지 않는다. 남은 장소가 완료된 것이 아니라 기존 이동 선택이 검증에 실패했다: ${progressRepair.join(' ')} get_planning_context를 조회하고 남은 방문을 위한 새 proposal을 제출한다. 변경안은 승인을 받아 적용한다.`,
+              ]
+            : []),
+          ...(exhausted
+            ? [
+                '이번 턴의 제안 3회가 검증을 통과하지 못했다. 현재 일정은 새 제안으로 바뀌지 않았다. 마지막 validationErrors의 구체적인 제약을 짧게 설명하고 일정이 완성됐다고 말하지 않는다.',
+              ]
+            : []),
+          ...(approvalResponse
+            ? [
+                '이번 입력은 직전 변경안의 승인 또는 거절이다. 방금 실행된 도구의 결과나 거절 여부만 한 문장으로 확인한다. 이전 사용자 요청을 다시 처리하거나 새 변경안을 제안하지 않는다.',
+              ]
+            : []),
         ].join('\n\n'),
       }
     },
@@ -420,14 +640,51 @@ export const runTurn = async (
     originalMessages: messages,
     execute: async ({ writer }) => {
       writer.write({ type: 'start', messageMetadata: meta() })
+      progress = (phase) =>
+        writer.write({
+          type: 'data-progress',
+          transient: true,
+          data: {
+            phase,
+            nickname: current.state.plan.nickname || '러너',
+            checks,
+          },
+        })
+      if (stageNow === 'PLANNING' || stageNow === 'JOURNEY') {
+        progress('OBSERVE')
+        const synced = await syncLive(db, config, current, deps.observe)
+        current = synced.record
+        checks =
+          synced.evidence?.map((e) => ({
+            label: e.label,
+            ok: e.status === 'LIVE' && e.freshness === 'FRESH',
+          })) ??
+          Object.entries(current.state.observations.sources).map(
+            ([name, s]) => ({
+              label:
+                config.sources.find((source) => source.reading === name)
+                  ?.label ?? name,
+              ok: s.freshness === 'FRESH',
+            }),
+          )
+        await saveConversation(db, {
+          id: current.id,
+          messages,
+          meta: current.meta,
+        })
+        progress('EXPLAIN')
+      }
+
       const entry =
         stageAfterIngest !== stageAtStart
           ? entryLine[stageAfterIngest]
           : undefined
       if (entry) say(writer, entry)
+      if (progressReply && progressRepair.length) say(writer, progressReply)
 
       const asked = new Set<string>()
       let awaitingApproval = false
+      let streamFailed = false
       const result = await agent.stream({
         messages: await convertToModelMessages(
           withKnownTools(messages, tools),
@@ -444,17 +701,36 @@ export const runTurn = async (
         onError: () => '응답 중 문제가 생겼어요. 다시 말씀해 주세요.',
       }) as ReadableStream<UIMessageChunk>
       for await (const chunk of ui) {
+        if (chunk.type === 'error') streamFailed = true
+        if (chunk.type === 'tool-input-start')
+          progress?.(progressForTool(chunk.toolName))
         if (chunk.type === 'tool-input-available') asked.add(chunk.toolName)
+        if (chunk.type === 'text-start') progress?.('EXPLAIN')
         if (chunk.type === 'tool-approval-request' && !chunk.isAutomatic)
           awaitingApproval = true
         writer.write(chunk as never)
       }
 
+      const finishReason = streamFailed ? 'error' : await result.finishReason
+      if (finishReason === 'length')
+        writer.write({
+          type: 'error',
+          errorText: '답변이 길이 제한으로 중단됐어요. 다시 요청해 주세요.',
+        })
+      else if (!streamFailed && !['stop', 'tool-calls'].includes(finishReason))
+        writer.write({
+          type: 'error',
+          errorText: '답변이 끝나기 전에 중단됐어요. 다시 요청해 주세요.',
+        })
+
       // Ask the next question, or keep the card the stage needs open —
       // unless the agent already asked something or awaits an approval.
       const stage = stageOf(current.state)
       const card = standingCard[stage]
-      const free = !askTools.some((t) => asked.has(t)) && !awaitingApproval
+      const free =
+        ['stop', 'tool-calls'].includes(finishReason) &&
+        !askTools.some((t) => asked.has(t)) &&
+        !awaitingApproval
       if (free) writeQuestion(writer, promptFor(config, current.state))
       if (card && free)
         writer.write({
@@ -469,7 +745,7 @@ export const runTurn = async (
         data: tripView(config, current.state),
         transient: true,
       })
-      writer.write({ type: 'finish', messageMetadata: meta() })
+      writer.write({ type: 'finish', finishReason, messageMetadata: meta() })
     },
     onEnd: async ({ messages: final }) => {
       await saveConversation(db, {

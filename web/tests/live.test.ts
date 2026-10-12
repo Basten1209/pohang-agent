@@ -48,7 +48,7 @@ describe('E-UM 실측을 판단에 연결', () => {
       observedAt: '2026-10-25T05:00:00.000Z',
     })
     const after = planner(config)(plan, s.observations)
-    expect(before.trafficReserve).toBe(0)
+    expect(before.trafficReserve).toBe(20) // unknown traffic gets a conservative per-leg buffer
     expect(after.trafficReserve).toBe(20)
     expect(readingLine(s.observations, 'congestion', '교통 혼잡', '%')).toBe(
       '교통 혼잡 82% (14:00 관측 · LIVE)',
@@ -62,15 +62,13 @@ describe('E-UM 실측을 판단에 연결', () => {
       congestion({ status: 'ERROR', value: null }),
       congestion({ status: 'SNAPSHOT' }),
     ])
-      expect(
-        liveObservationEvents(config, config.defaults.observations, [e]),
-      ).toEqual([])
+      expect(fold([e]).observations.readings.congestion).toBeNull()
   })
 
-  it('반영했던 실측을 다시 확인하지 못하면 시연값으로 돌리고 그렇게 표시', () => {
+  it('반영했던 실측을 다시 확인하지 못하면 관측 없음으로 바꾸고 그렇게 표시', () => {
     const live = fold([congestion()])
     const lost = fold([congestion({ status: 'ERROR', value: null })], live)
-    expect(lost.observations.readings.congestion).toBe(42)
+    expect(lost.observations.readings.congestion).toBeNull()
     expect(lost.observations.sources.congestion).toMatchObject({
       provenance: 'SIMULATED',
       note: '최신 관측 확인 불가',
@@ -82,8 +80,8 @@ describe('E-UM 실측을 판단에 연결', () => {
 
   it('대기(pm25)는 단위 확인 전이라 판단에 반영하지 않음', () => {
     const s = fold([pm25(90)])
-    expect(s.observations.readings.pm25).toBe(10)
-    expect(s.observations.sources.pm25).toBeUndefined()
+    expect(s.observations.readings.pm25).toBeNull()
+    expect(s.observations.sources.pm25?.eligible).toBe(false)
   })
 
   it('같은 관측을 다시 받으면 이벤트를 만들지 않음', () => {

@@ -1,4 +1,20 @@
-import type { Course, Mode } from '../schema'
+import type { Course, Mode, TransportEstimate } from '../schema'
+
+const estimate = (
+  rideMin: number,
+  waitMin: number,
+  walkMin: number,
+  via: string,
+  trafficScope = true,
+): TransportEstimate => ({ rideMin, waitMin, walkMin, via, trafficScope })
+const gpReturn = (busRide: number, taxiRide: number) => ({
+  TRANSIT: estimate(busRide, 20, 5, '버스 · 실제 노선·배차 확인'),
+  TAXI: estimate(taxiRide, 5, 2, '택시 · 실제 배차·요금 확인'),
+})
+const hmReturn = (busRide: number, taxiRide: number) => ({
+  TRANSIT: estimate(busRide, 20, 5, '버스 · 실제 노선·환승 확인', false),
+  TAXI: estimate(taxiRide, 5, 2, '택시 · 실제 배차·요금 확인', false),
+})
 
 /**
  * Courses: one area each, with its own legs and shortening steps. Travel
@@ -16,26 +32,38 @@ export const courses: Course[] = [
     tags: ['항구', '골목', '사진', '시장'],
     geo: { lat: 35.9868, lng: 129.5528 },
     outbound: {
-      minutes: 90,
-      accessWalk: 10,
+      minutes: 80,
+      accessWalk: 5,
       window: { from: '10:00', to: '12:00' },
-      via: '시내버스(환승 포함, 대기 포함)',
+      via: '900번 안내 경로 · 대기 포함, 실제 노선 확인',
     },
     return: {
-      minutes: { STATION: 120, TERMINAL: 110, AIRPORT: 90, PARKING: 110 },
-      accessWalk: 10,
+      minutes: { STATION: 95, TERMINAL: 75, AIRPORT: 50, PARKING: 80 },
+      accessWalk: 5,
       stopAccess: 5,
       window: { from: '12:00', to: '18:00' },
       via: '시내버스(대기 포함)',
+    },
+    transport: {
+      outbound: {
+        TRANSIT: estimate(65, 10, 5, '900번 안내 경로 · 실제 노선·배차 확인'),
+        TAXI: estimate(40, 5, 2, '택시 · 실제 배차·요금 확인'),
+      },
+      return: {
+        STATION: gpReturn(70, 45),
+        TERMINAL: gpReturn(50, 35),
+        AIRPORT: gpReturn(25, 20),
+        PARKING: gpReturn(55, 40),
+      },
     },
     variants: [
       {
         id: 'full',
         stops: [
           { place: 'food', dwell: 60, walk: 0 },
-          { place: 'street', dwell: 20, walk: 10 },
+          { place: 'street', dwell: 20, walk: 0, transferMin: 5 },
           { place: 'gp-museum', dwell: 30, walk: 5 },
-          { place: 'cafe', dwell: 40, walk: 0 },
+          { place: 'cafe', dwell: 40, walk: 0, transferMin: 5 },
         ],
         reason: null,
       },
@@ -53,7 +81,12 @@ export const courses: Course[] = [
         reason: '점심만 남겨 귀가 시간을 확보했어요.',
       },
     ],
-    meta: { provenance: 'DEMO_POLICY', verified: false },
+    meta: {
+      provenance: 'DEMO_POLICY',
+      verified: false,
+      trafficOutbound: true,
+      trafficReturn: true,
+    },
   },
   {
     id: 'homigot',
@@ -71,11 +104,23 @@ export const courses: Course[] = [
       via: '시내버스(구룡포 환승, 대기 포함)',
     },
     return: {
-      minutes: { STATION: 130, TERMINAL: 120, AIRPORT: 90, PARKING: 120 },
+      minutes: { STATION: 110, TERMINAL: 100, AIRPORT: 85, PARKING: 100 },
       accessWalk: 5,
       stopAccess: 5,
       window: { from: '12:00', to: '18:00' },
       via: '시내버스(대기 포함)',
+    },
+    transport: {
+      outbound: {
+        TRANSIT: estimate(75, 20, 5, '버스 · 구룡포 경유 시연'),
+        TAXI: estimate(55, 5, 2, '택시 · 실제 경로 확인', false),
+      },
+      return: {
+        STATION: hmReturn(85, 60),
+        TERMINAL: hmReturn(75, 50),
+        AIRPORT: hmReturn(60, 40),
+        PARKING: hmReturn(75, 55),
+      },
     },
     variants: [
       {
@@ -102,12 +147,12 @@ export const courses: Course[] = [
         reason: '상생의 손만 보고 바로 돌아오도록 줄였어요.',
       },
     ],
-    meta: { provenance: 'DEMO_POLICY', verified: false },
+    meta: { provenance: 'DEMO_POLICY', verified: false, trafficOutbound: true },
   },
   {
     id: 'yeongildae',
     sort: 30,
-    active: true,
+    active: false,
     title: '영일대·스페이스워크',
     area: '영일대',
     desc: '대회장 바로 옆이라 이동이 가장 짧은 코스. 물회로 점심을 먹고 해상누각과 스페이스워크를 걷고, 미술관이나 해변 카페에서 쉬어요.',
@@ -158,7 +203,7 @@ export const courses: Course[] = [
   {
     id: 'jukdo',
     sort: 40,
-    active: true,
+    active: false,
     title: '죽도시장·포항운하',
     area: '죽도시장',
     desc: '동해안 대표 전통시장에서 회와 물회를 먹고, 포항운하를 걷거나 크루즈를 타는 코스. 버스터미널과 가까워 버스로 돌아가는 사람에게 좋아요.',

@@ -33,7 +33,9 @@ export const RaceHeadline = ({ event }: { event: RaceEvent }) => {
         <img
           src={event.image}
           alt=""
-          className="aspect-video w-full object-cover"
+          width="960"
+          height="540"
+          className="aspect-[2/1] w-full object-cover"
         />
       )}
       <CardHeader>
@@ -42,7 +44,7 @@ export const RaceHeadline = ({ event }: { event: RaceEvent }) => {
           {event.category} · 배번 {bib}
         </CardDescription>
         <CardAction>
-          <Badge variant="outline">시연 데이터</Badge>
+          <Badge variant="outline">발표용 가상 대회</Badge>
         </CardAction>
       </CardHeader>
       <CardContent>

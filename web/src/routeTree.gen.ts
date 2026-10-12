@@ -12,10 +12,14 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ClassicRouteImport } from './routes/classic'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiCommunityRouteImport } from './routes/api/community'
 import { Route as ApiConfigRouteImport } from './routes/api/config'
 import { Route as ApiEvidenceRouteImport } from './routes/api/evidence'
+import { Route as ApiOnboardingRouteImport } from './routes/api/onboarding'
 import { Route as ApiStatusRouteImport } from './routes/api/status'
+import { Route as ApiCommunityCaptionRouteImport } from './routes/api/community.caption'
 import { Route as ApiTripsTripIdRouteImport } from './routes/api/trips.$tripId'
+import { Route as ApiCommunityPostIdImageRouteImport } from './routes/api/community.$postId.image'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -32,6 +36,11 @@ const ApiChatRoute = ApiChatRouteImport.update({
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCommunityRoute = ApiCommunityRouteImport.update({
+  id: '/api/community',
+  path: '/api/community',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiConfigRoute = ApiConfigRouteImport.update({
   id: '/api/config',
   path: '/api/config',
@@ -42,44 +51,71 @@ const ApiEvidenceRoute = ApiEvidenceRouteImport.update({
   path: '/api/evidence',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOnboardingRoute = ApiOnboardingRouteImport.update({
+  id: '/api/onboarding',
+  path: '/api/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStatusRoute = ApiStatusRouteImport.update({
   id: '/api/status',
   path: '/api/status',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCommunityCaptionRoute = ApiCommunityCaptionRouteImport.update({
+  id: '/caption',
+  path: '/caption',
+  getParentRoute: () => ApiCommunityRoute,
 } as any)
 const ApiTripsTripIdRoute = ApiTripsTripIdRouteImport.update({
   id: '/api/trips/$tripId',
   path: '/api/trips/$tripId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCommunityPostIdImageRoute = ApiCommunityPostIdImageRouteImport.update({
+  id: '/$postId/image',
+  path: '/$postId/image',
+  getParentRoute: () => ApiCommunityRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/classic': typeof ClassicRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/community': typeof ApiCommunityRouteWithChildren
   '/api/config': typeof ApiConfigRoute
   '/api/evidence': typeof ApiEvidenceRoute
+  '/api/onboarding': typeof ApiOnboardingRoute
   '/api/status': typeof ApiStatusRoute
+  '/api/community/caption': typeof ApiCommunityCaptionRoute
   '/api/trips/$tripId': typeof ApiTripsTripIdRoute
+  '/api/community/$postId/image': typeof ApiCommunityPostIdImageRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/classic': typeof ClassicRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/community': typeof ApiCommunityRouteWithChildren
   '/api/config': typeof ApiConfigRoute
   '/api/evidence': typeof ApiEvidenceRoute
+  '/api/onboarding': typeof ApiOnboardingRoute
   '/api/status': typeof ApiStatusRoute
+  '/api/community/caption': typeof ApiCommunityCaptionRoute
   '/api/trips/$tripId': typeof ApiTripsTripIdRoute
+  '/api/community/$postId/image': typeof ApiCommunityPostIdImageRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/classic': typeof ClassicRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/community': typeof ApiCommunityRouteWithChildren
   '/api/config': typeof ApiConfigRoute
   '/api/evidence': typeof ApiEvidenceRoute
+  '/api/onboarding': typeof ApiOnboardingRoute
   '/api/status': typeof ApiStatusRoute
+  '/api/community/caption': typeof ApiCommunityCaptionRoute
   '/api/trips/$tripId': typeof ApiTripsTripIdRoute
+  '/api/community/$postId/image': typeof ApiCommunityPostIdImageRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -87,36 +123,50 @@ export interface FileRouteTypes {
     | '/'
     | '/classic'
     | '/api/chat'
+    | '/api/community'
     | '/api/config'
     | '/api/evidence'
+    | '/api/onboarding'
     | '/api/status'
+    | '/api/community/caption'
     | '/api/trips/$tripId'
+    | '/api/community/$postId/image'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/classic'
     | '/api/chat'
+    | '/api/community'
     | '/api/config'
     | '/api/evidence'
+    | '/api/onboarding'
     | '/api/status'
+    | '/api/community/caption'
     | '/api/trips/$tripId'
+    | '/api/community/$postId/image'
   id:
     | '__root__'
     | '/'
     | '/classic'
     | '/api/chat'
+    | '/api/community'
     | '/api/config'
     | '/api/evidence'
+    | '/api/onboarding'
     | '/api/status'
+    | '/api/community/caption'
     | '/api/trips/$tripId'
+    | '/api/community/$postId/image'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ClassicRoute: typeof ClassicRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiCommunityRoute: typeof ApiCommunityRouteWithChildren
   ApiConfigRoute: typeof ApiConfigRoute
   ApiEvidenceRoute: typeof ApiEvidenceRoute
+  ApiOnboardingRoute: typeof ApiOnboardingRoute
   ApiStatusRoute: typeof ApiStatusRoute
   ApiTripsTripIdRoute: typeof ApiTripsTripIdRoute
 }
@@ -144,6 +194,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/community': {
+      id: '/api/community'
+      path: '/api/community'
+      fullPath: '/api/community'
+      preLoaderRoute: typeof ApiCommunityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/config': {
       id: '/api/config'
       path: '/api/config'
@@ -158,12 +215,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiEvidenceRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/onboarding': {
+      id: '/api/onboarding'
+      path: '/api/onboarding'
+      fullPath: '/api/onboarding'
+      preLoaderRoute: typeof ApiOnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/status': {
       id: '/api/status'
       path: '/api/status'
       fullPath: '/api/status'
       preLoaderRoute: typeof ApiStatusRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/community/caption': {
+      id: '/api/community/caption'
+      path: '/caption'
+      fullPath: '/api/community/caption'
+      preLoaderRoute: typeof ApiCommunityCaptionRouteImport
+      parentRoute: typeof ApiCommunityRoute
     }
     '/api/trips/$tripId': {
       id: '/api/trips/$tripId'
@@ -172,15 +243,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTripsTripIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/community/$postId/image': {
+      id: '/api/community/$postId/image'
+      path: '/$postId/image'
+      fullPath: '/api/community/$postId/image'
+      preLoaderRoute: typeof ApiCommunityPostIdImageRouteImport
+      parentRoute: typeof ApiCommunityRoute
+    }
   }
 }
+
+interface ApiCommunityRouteChildren {
+  ApiCommunityCaptionRoute: typeof ApiCommunityCaptionRoute
+  ApiCommunityPostIdImageRoute: typeof ApiCommunityPostIdImageRoute
+}
+
+const ApiCommunityRouteChildren: ApiCommunityRouteChildren = {
+  ApiCommunityCaptionRoute: ApiCommunityCaptionRoute,
+  ApiCommunityPostIdImageRoute: ApiCommunityPostIdImageRoute,
+}
+
+const ApiCommunityRouteWithChildren = ApiCommunityRoute._addFileChildren(
+  ApiCommunityRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ClassicRoute: ClassicRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiCommunityRoute: ApiCommunityRouteWithChildren,
   ApiConfigRoute: ApiConfigRoute,
   ApiEvidenceRoute: ApiEvidenceRoute,
+  ApiOnboardingRoute: ApiOnboardingRoute,
   ApiStatusRoute: ApiStatusRoute,
   ApiTripsTripIdRoute: ApiTripsTripIdRoute,
 }
