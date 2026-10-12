@@ -19,6 +19,7 @@ import { Route as ApiOnboardingRouteImport } from './routes/api/onboarding'
 import { Route as ApiStatusRouteImport } from './routes/api/status'
 import { Route as ApiCommunityCaptionRouteImport } from './routes/api/community.caption'
 import { Route as ApiTripsTripIdRouteImport } from './routes/api/trips.$tripId'
+import { Route as ApiVoiceSessionRouteImport } from './routes/api/voice.session'
 import { Route as ApiCommunityPostIdImageRouteImport } from './routes/api/community.$postId.image'
 
 const IndexRoute = IndexRouteImport.update({
@@ -71,6 +72,11 @@ const ApiTripsTripIdRoute = ApiTripsTripIdRouteImport.update({
   path: '/api/trips/$tripId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVoiceSessionRoute = ApiVoiceSessionRouteImport.update({
+  id: '/api/voice/session',
+  path: '/api/voice/session',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCommunityPostIdImageRoute = ApiCommunityPostIdImageRouteImport.update({
   id: '/$postId/image',
   path: '/$postId/image',
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/api/status': typeof ApiStatusRoute
   '/api/community/caption': typeof ApiCommunityCaptionRoute
   '/api/trips/$tripId': typeof ApiTripsTripIdRoute
+  '/api/voice/session': typeof ApiVoiceSessionRoute
   '/api/community/$postId/image': typeof ApiCommunityPostIdImageRoute
 }
 export interface FileRoutesByTo {
@@ -101,6 +108,7 @@ export interface FileRoutesByTo {
   '/api/status': typeof ApiStatusRoute
   '/api/community/caption': typeof ApiCommunityCaptionRoute
   '/api/trips/$tripId': typeof ApiTripsTripIdRoute
+  '/api/voice/session': typeof ApiVoiceSessionRoute
   '/api/community/$postId/image': typeof ApiCommunityPostIdImageRoute
 }
 export interface FileRoutesById {
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   '/api/status': typeof ApiStatusRoute
   '/api/community/caption': typeof ApiCommunityCaptionRoute
   '/api/trips/$tripId': typeof ApiTripsTripIdRoute
+  '/api/voice/session': typeof ApiVoiceSessionRoute
   '/api/community/$postId/image': typeof ApiCommunityPostIdImageRoute
 }
 export interface FileRouteTypes {
@@ -130,6 +139,7 @@ export interface FileRouteTypes {
     | '/api/status'
     | '/api/community/caption'
     | '/api/trips/$tripId'
+    | '/api/voice/session'
     | '/api/community/$postId/image'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -143,6 +153,7 @@ export interface FileRouteTypes {
     | '/api/status'
     | '/api/community/caption'
     | '/api/trips/$tripId'
+    | '/api/voice/session'
     | '/api/community/$postId/image'
   id:
     | '__root__'
@@ -156,6 +167,7 @@ export interface FileRouteTypes {
     | '/api/status'
     | '/api/community/caption'
     | '/api/trips/$tripId'
+    | '/api/voice/session'
     | '/api/community/$postId/image'
   fileRoutesById: FileRoutesById
 }
@@ -169,6 +181,7 @@ export interface RootRouteChildren {
   ApiOnboardingRoute: typeof ApiOnboardingRoute
   ApiStatusRoute: typeof ApiStatusRoute
   ApiTripsTripIdRoute: typeof ApiTripsTripIdRoute
+  ApiVoiceSessionRoute: typeof ApiVoiceSessionRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -243,6 +256,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTripsTripIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/voice/session': {
+      id: '/api/voice/session'
+      path: '/api/voice/session'
+      fullPath: '/api/voice/session'
+      preLoaderRoute: typeof ApiVoiceSessionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/community/$postId/image': {
       id: '/api/community/$postId/image'
       path: '/$postId/image'
@@ -277,6 +297,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOnboardingRoute: ApiOnboardingRoute,
   ApiStatusRoute: ApiStatusRoute,
   ApiTripsTripIdRoute: ApiTripsTripIdRoute,
+  ApiVoiceSessionRoute: ApiVoiceSessionRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

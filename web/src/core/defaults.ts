@@ -211,6 +211,20 @@ export const seedConfig: TripConfig = {
     timeoutMs: 20000,
     maxOutputTokens: 1600,
     suggestions: ['16시로 바뀌었어', '왜 이 코스야?', '다른 코스는?'],
+    voice: {
+      enabled: true,
+      model: 'gpt-live-1',
+      voice: 'marin',
+      instructions: [
+        '너는 RUN2구룡포의 여행 친구 끼룩이의 목소리다. 사용자는 방금 달리기를 마친 러너다.',
+        '한국어로 짧고 다정하게 말한다. 사용자가 영어로 말하면 영어로 답한다.',
+        '대회·코스·일정·교통·날씨·장소 질문이나 일정 변경 요청은 스스로 답하지 말고 항상 위임한다.',
+        '위임 결과를 받기 전에는 "확인해 볼게요"처럼 한마디만 한다.',
+        '위임 결과를 받으면 그 내용만 자연스럽게 말한다. 숫자·시간·버스 번호·요금을 지어내지 않는다.',
+        '어지럽거나 아프다는 말은 바로 위임한다. 진단하지 않는다.',
+      ].join('\n'),
+      maxReplyChars: 400,
+    },
   },
   conversation: {
     onboarding: ['departMode', 'departTime', 'course', 'interests', 'origin'],

@@ -405,6 +405,21 @@ export const agentConfigSchema = z.object({
   timeoutMs: z.number().int().positive(),
   maxOutputTokens: z.number().int().positive(),
   suggestions: z.array(z.string()),
+  /**
+   * Voice mode (OpenAI Live, speech-to-speech). Live only speaks and listens;
+   * every request is delegated to this same text agent, so decisions stay in
+   * the engine. Off unless enabled here and OPENAI_API_KEY is set.
+   */
+  voice: z
+    .object({
+      enabled: z.boolean(),
+      model: z.string(),
+      voice: z.string(),
+      instructions: z.string(),
+      /** Live accepts about 500 tokens per appended result. */
+      maxReplyChars: z.number().int().positive(),
+    })
+    .optional(),
 })
 export type AgentConfig = z.infer<typeof agentConfigSchema>
 
