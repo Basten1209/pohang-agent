@@ -17,6 +17,11 @@ import { KAKAO_T_URL } from '#/core/transport'
 import { transportLabel, type TravelMode } from '#/core/mobility'
 import { PlaceThumb } from './thumb'
 import { venueMapUrl } from '#/core/venues'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 
 export function ItineraryTimeline({
   config,
@@ -59,7 +64,7 @@ export function ItineraryTimeline({
     return (
       <li
         key={`stop-${id}`}
-        className={`rounded-xl border p-3 ${status === '완료' ? 'border-blue-100 bg-blue-50/50' : 'border-primary/25 bg-secondary/60'}`}
+        className={`rounded-xl border p-3 ${status === '완료' ? 'border-secondary bg-secondary/40' : 'border-primary/25 bg-secondary/60'}`}
       >
         <div className="flex gap-3">
           {p && <PlaceThumb place={p} className="size-16 shrink-0" />}
@@ -164,8 +169,8 @@ export function ItineraryTimeline({
             key={key}
             className="mx-2 rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground"
           >
-            <details className="group">
-              <summary className="flex cursor-pointer list-none items-center gap-2 py-1">
+            <Collapsible className="group">
+              <CollapsibleTrigger className="flex cursor-pointer items-center gap-2 py-1 w-full text-left">
                 <Icon className="size-3.5 shrink-0" />
                 <span className="min-w-0 flex-1 leading-relaxed">
                   {leg.label}
@@ -173,69 +178,71 @@ export function ItineraryTimeline({
                     · {transportLabel[leg.mode]} 약 {leg.totalMin}분
                   </span>
                 </span>
-                <ChevronDown className="size-3.5 shrink-0 transition-transform group-open:rotate-180" />
-              </summary>
-              <div className="mt-3 space-y-3 border-t pt-3 leading-relaxed">
-                <p>
-                  {clock(leg.start)}–{clock(leg.end)} · 시연 추정
-                </p>
-                <p>
-                  {leg.rideMin > 0 && `승차 ${leg.rideMin}분 · `}
-                  {leg.waitMin > 0 && `대기 ${leg.waitMin}분 · `}도보{' '}
-                  {leg.walkMin}분
-                  {leg.bufferMin > 0 && ` · 혼잡 여유 ${leg.bufferMin}분`}
-                </p>
-                <p>{leg.reason}</p>
-                <p>
-                  {leg.basis}. 실제 시간·운행·배차는 지도에서 확인해 주세요.
-                </p>
-                {select && leg.options.length > 1 && (
-                  <div className="flex flex-wrap gap-2">
-                    {leg.options.map((o) => (
+                <ChevronDown className="size-3.5 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="mt-3 space-y-3 border-t pt-3 leading-relaxed">
+                  <p>
+                    {clock(leg.start)}–{clock(leg.end)} · 시연 추정
+                  </p>
+                  <p>
+                    {leg.rideMin > 0 && `승차 ${leg.rideMin}분 · `}
+                    {leg.waitMin > 0 && `대기 ${leg.waitMin}분 · `}도보{' '}
+                    {leg.walkMin}분
+                    {leg.bufferMin > 0 && ` · 혼잡 여유 ${leg.bufferMin}분`}
+                  </p>
+                  <p>{leg.reason}</p>
+                  <p>
+                    {leg.basis}. 실제 시간·운행·배차는 지도에서 확인해 주세요.
+                  </p>
+                  {select && leg.options.length > 1 && (
+                    <div className="flex flex-wrap gap-2">
+                      {leg.options.map((o) => (
+                        <Button
+                          key={o.mode}
+                          size="sm"
+                          variant={o.mode === leg.mode ? 'default' : 'outline'}
+                          disabled={pending || disabled}
+                          onClick={() => void change(leg.id, o.mode)}
+                        >
+                          {transportLabel[o.mode]} 약 {o.totalMin}분
+                        </Button>
+                      ))}
                       <Button
-                        key={o.mode}
                         size="sm"
-                        variant={o.mode === leg.mode ? 'default' : 'outline'}
+                        variant="ghost"
                         disabled={pending || disabled}
-                        onClick={() => void change(leg.id, o.mode)}
+                        onClick={() => void change(leg.id, 'AUTO')}
                       >
-                        {transportLabel[o.mode]} 약 {o.totalMin}분
+                        자동 추천
                       </Button>
-                    ))}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={pending || disabled}
-                      onClick={() => void change(leg.id, 'AUTO')}
-                    >
-                      자동 추천
-                    </Button>
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-3">
+                    {url && (
+                      <a
+                        className="underline"
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        지도에서 이 구간 확인
+                      </a>
+                    )}
+                    {leg.mode === 'TAXI' && (
+                      <a
+                        className="underline"
+                        href={KAKAO_T_URL}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        카카오T 배차·요금 확인
+                      </a>
+                    )}
                   </div>
-                )}
-                <div className="flex flex-wrap gap-3">
-                  {url && (
-                    <a
-                      className="underline"
-                      href={url}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      지도에서 이 구간 확인
-                    </a>
-                  )}
-                  {leg.mode === 'TAXI' && (
-                    <a
-                      className="underline"
-                      href={KAKAO_T_URL}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      카카오T 배차·요금 확인
-                    </a>
-                  )}
                 </div>
-              </div>
-            </details>
+              </CollapsibleContent>
+            </Collapsible>
           </li>
         )
       })}

@@ -7,6 +7,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* App brand token beyond shadcn's set: the deep sea behind hero photos. */
+  --color-brand-deep: #073b50;
   --font-heading: var(--font-sans);
   --font-sans: 'Geist Variable', 'Noto Sans KR Variable', sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
@@ -84,39 +86,7 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
+/* Light-only: the brand palette above has no dark variant yet. */
 
 @layer base {
   * {
@@ -221,21 +191,7 @@
   }
 }
 
-/* App selection and conversation styles stay outside reusable primitives. */
-[data-slot='toggle-group-item'][data-state='on'] {
-  background: var(--primary);
-  color: white;
-  border-color: var(--primary);
-}
-[data-slot='toggle-group-item'][data-state='on']::before {
-  content: '✓';
-  font-size: 0.8em;
-}
-.choice-card:has([data-state='checked']) {
-  border-color: var(--primary);
-  background: var(--secondary);
-  box-shadow: inset 0 0 0 1px var(--primary);
-}
+/* Conversation text inside AI Elements messages. */
 .chat-prose {
   height: auto;
   line-height: 1.8;
@@ -264,11 +220,4 @@ html[data-font-size='large'] {
 }
 html[data-font-size='largest'] {
   font-size: 125%;
-}
-@media (max-width: 420px) {
-  html[data-font-size='largest'] [data-slot='navigation-menu'] a {
-    flex-direction: column;
-    white-space: normal;
-    text-align: center;
-  }
 }

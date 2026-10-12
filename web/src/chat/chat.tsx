@@ -221,7 +221,7 @@ export const ChatPanel = ({
             <div className="mascot-panel mascot-message gap-3 rounded-2xl p-4">
               <GullPose pose="wave" className="w-full" decorative />
               <div className="min-w-0">
-                <p className="font-semibold text-[#102a43]">
+                <p className="font-semibold text-foreground">
                   달리기부터 여행까지, 함께할게요
                 </p>
                 <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
@@ -307,12 +307,14 @@ export const ChatPanel = ({
               {error.message?.includes('길이 제한')
                 ? '답변이 길이 제한으로 중단됐어요.'
                 : '답변을 끝까지 받지 못했어요.'}{' '}
-              <button
-                className="underline"
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
                 onClick={() => agent.chat.regenerate()}
               >
                 다시 시도
-              </button>
+              </Button>
             </p>
           )}
         </ConversationContent>

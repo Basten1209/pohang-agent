@@ -14,6 +14,12 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { pace, raceClock, snapshot, timeAt } from '#/core/race'
 import { bib, category, race } from './mock'
 import { RaceRouteMap } from './route-map'
+import { chipOn } from '#/app/bits'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 
 const Stat = ({
   label,
@@ -27,7 +33,7 @@ const Stat = ({
   <div className="flex min-w-0 flex-col gap-1 rounded-xl bg-muted/50 p-3">
     <span className="text-xs text-muted-foreground">{label}</span>
     <span
-      className={`${prominent ? 'text-2xl sm:text-3xl' : 'text-lg'} font-bold tabular-nums text-[#102a43]`}
+      className={`${prominent ? 'text-2xl sm:text-3xl' : 'text-lg'} font-bold tabular-nums text-foreground`}
     >
       {value}
     </span>
@@ -152,39 +158,45 @@ export const RaceLive = ({
             </CardContent>
           </Card>
           {!s.finished && (
-            <details className="rounded-xl border bg-muted/30 px-4">
-              <summary className="cursor-pointer py-3 text-sm font-medium">
+            <Collapsible className="rounded-xl border bg-muted/30 px-4">
+              <CollapsibleTrigger className="cursor-pointer py-3 text-sm font-medium w-full text-left">
                 발표용 시연 조작
-              </summary>
-              <div className="flex flex-col gap-3 pb-4">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm text-muted-foreground">
-                    재생 속도
-                  </span>
-                  <ToggleGroup
-                    type="single"
-                    size="sm"
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="flex flex-col gap-3 pb-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      재생 속도
+                    </span>
+                    <ToggleGroup
+                      type="single"
+                      size="sm"
+                      variant="outline"
+                      value={String(session.speed)}
+                      onValueChange={(v) => {
+                        if (v) act(v === '60' ? 60 : 1)
+                      }}
+                      aria-label="시연 속도"
+                    >
+                      <ToggleGroupItem className={chipOn} value="1">
+                        1×
+                      </ToggleGroupItem>
+                      <ToggleGroupItem className={chipOn} value="60">
+                        60×
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
+                  <Button
                     variant="outline"
-                    value={String(session.speed)}
-                    onValueChange={(v) => {
-                      if (v) act(v === '60' ? 60 : 1)
-                    }}
-                    aria-label="시연 속도"
+                    onClick={() => act('FINAL_KM')}
+                    disabled={s.distance >= 9}
                   >
-                    <ToggleGroupItem value="1">1×</ToggleGroupItem>
-                    <ToggleGroupItem value="60">60×</ToggleGroupItem>
-                  </ToggleGroup>
+                    <SkipForward />
+                    마지막 1km로 이동 · 시연
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={() => act('FINAL_KM')}
-                  disabled={s.distance >= 9}
-                >
-                  <SkipForward />
-                  마지막 1km로 이동 · 시연
-                </Button>
-              </div>
-            </details>
+              </CollapsibleContent>
+            </Collapsible>
           )}
           {s.finished && (
             <div className="mascot-panel mascot-message gap-3 rounded-2xl border border-primary/10 px-4 py-3">

@@ -48,7 +48,7 @@ export const Loading = () => {
         className="flex max-w-xs flex-col items-center gap-4 text-center"
       >
         <h1 className="brand-heading text-4xl">RUN2구룡포</h1>
-        <p className="text-lg text-[#102a43]">달리고, 구룡포를 만나다</p>
+        <p className="text-lg text-foreground">달리고, 구룡포를 만나다</p>
         <GullPose className="brand-pulse w-56 sm:w-64" />
         <span className="text-xs font-semibold tracking-[.25em] text-primary">
           RUN2 GURYONGPO
