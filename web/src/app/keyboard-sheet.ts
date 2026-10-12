@@ -16,8 +16,14 @@ import type { CSSProperties } from 'react'
  * too small for a sheet with a rounded top and a drag handle.
  */
 
+/**
+ * `layoutHeight` is the layout viewport (`documentElement.clientHeight`),
+ * which a keyboard does not shrink. Not `window.innerHeight`: on WebKit
+ * (Safari and every iOS browser) that follows the visual viewport, so the
+ * keyboard would look like it is not there.
+ */
 export type Viewport = {
-  innerHeight: number
+  layoutHeight: number
   height: number
   offsetTop: number
 }
@@ -27,12 +33,12 @@ const KEYBOARD_MIN = 120
 
 /** Pure: where the sheet goes for a given viewport, or null when no keyboard is open. */
 export const sheetFrame = (v: Viewport): CSSProperties | null => {
-  const hidden = v.innerHeight - v.height
+  const hidden = v.layoutHeight - v.height
   if (hidden < KEYBOARD_MIN) return null
   const height = Math.max(0, v.height)
   return {
     // The layout viewport's bottom is under the keyboard; sit on top of it.
-    bottom: Math.max(0, v.innerHeight - v.offsetTop - v.height),
+    bottom: Math.max(0, v.layoutHeight - v.offsetTop - v.height),
     height,
     maxHeight: height,
   }
@@ -48,7 +54,7 @@ export const useKeyboardSheet = (open: boolean) => {
     const update = () =>
       setFrame(
         sheetFrame({
-          innerHeight: window.innerHeight,
+          layoutHeight: document.documentElement.clientHeight,
           height: vv.height,
           offsetTop: vv.offsetTop,
         }),
