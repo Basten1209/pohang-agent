@@ -12,11 +12,13 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { planner } from '#/core/planner'
-import { courseById, departLabel, hubOf } from '#/core/route'
+import { courseById, hubOf } from '#/core/route'
 import type { TripConfig } from '#/core/schema'
 import { AUTO_COURSE } from '#/core/schema'
-import { clock, duration } from '#/core/time'
+import { clock } from '#/core/time'
 import type { TripView } from '#/core/view'
+import { durationText } from '#/i18n'
+import { useI18n } from '#/i18n/react'
 import { RaceDetails, RaceHeadline } from '#/race/overview'
 import { PlaceThumb } from './thumb'
 import { InstallApp } from './install'
@@ -30,6 +32,7 @@ const MyPlan = ({
   view: TripView
   onEdit: () => void
 }) => {
+  const { t, d } = useI18n()
   const { plan } = view.state
   const hub = hubOf(config, plan)
   const course =
@@ -37,20 +40,27 @@ const MyPlan = ({
   return (
     <Card size="sm">
       <CardHeader>
-        <CardTitle>내 일정</CardTitle>
+        <CardTitle>{t('home.myPlan')}</CardTitle>
         <CardDescription className="tabular-nums">
-          {departLabel(config, plan)} · {hub.name} 도착 목표{' '}
-          {clock(view.itinerary.stationTarget)}
+          {plan.departTime} {d(`noun.${hub.mode.id}`, hub.mode.noun)} ·{' '}
+          {t('home.arrivalTarget', {
+            hub: d(`hub.${hub.id}`, hub.name),
+            time: clock(view.itinerary.stationTarget),
+          })}
         </CardDescription>
         <CardAction>
           <Button size="sm" variant="outline" onClick={onEdit}>
             <Pencil />
-            편집
+            {t('home.edit')}
           </Button>
         </CardAction>
       </CardHeader>
       <CardContent className="text-sm">
-        가고 싶은 곳: {course?.title ?? '추천'}
+        {t('home.wantToGo', {
+          course: course
+            ? d(`course.${course.id}`, course.title)
+            : t('home.recommend'),
+        })}
       </CardContent>
     </Card>
   )
@@ -67,6 +77,7 @@ const AfterRace = ({
   config: TripConfig
   view: TripView
 }) => {
+  const { t, d, locale } = useI18n()
   const { state } = view
   const it =
     view.itinerary.stops.length > 0
@@ -80,13 +91,14 @@ const AfterRace = ({
     (s) => config.places.find((p) => p.id === s.id) ?? [],
   )
   if (!course) return null
+  const hub = hubOf(config, state.plan)
   return (
     <Card size="sm">
       <CardHeader>
-        <CardDescription>완주 후</CardDescription>
-        <CardTitle>{course.title}</CardTitle>
+        <CardDescription>{t('home.afterRace')}</CardDescription>
+        <CardTitle>{d(`course.${course.id}`, course.title)}</CardTitle>
         <CardAction>
-          <Badge variant="outline">미리보기</Badge>
+          <Badge variant="outline">{t('home.preview')}</Badge>
         </CardAction>
       </CardHeader>
       {places.length > 0 && (
@@ -100,14 +112,22 @@ const AfterRace = ({
             ))}
           </div>
           <p className="text-sm text-muted-foreground tabular-nums">
-            이동 포함 약 {duration(it.outbound + it.localMin + it.returnMin)}
+            {t('home.total', {
+              duration: durationText(
+                locale,
+                it.outbound + it.localMin + it.returnMin,
+              ),
+            })}
             {it.planningArrival !== null &&
-              ` · ${hubOf(config, state.plan).name} ${clock(it.planningArrival)} 도착`}
+              ` · ${t('home.arrive', {
+                hub: d(`hub.${hub.id}`, hub.name),
+                time: clock(it.planningArrival),
+              })}`}
           </p>
         </CardContent>
       )}
       <CardFooter className="text-xs text-muted-foreground">
-        완주하면 그때 컨디션에 맞춰 다시 계산해 드려요.
+        {t('home.recalc')}
       </CardFooter>
     </Card>
   )
@@ -123,31 +143,36 @@ export const HomeTab = ({
   view: TripView
   onEditProfile: () => void
   onRace: () => void
-}) => (
-  <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4">
-    <MascotBanner
-      pose={view.state.phase >= 3 ? 'cheer' : 'map'}
-      eyebrow="RUN2 GURYONGPO"
-      title={
-        <>
-          달리고,
-          <br />
-          구룡포를 만나다
-        </>
-      }
-      description={`${view.state.plan.nickname || '러너'}님의 레이스부터 바다 여행까지.`}
-    />
-    <Button size="lg" className="min-h-12" onClick={onRace}>
-      {view.state.phase >= 3 ? '나의 완주 기록 보기' : '레이스 준비하기'}
-      <ArrowRight />
-    </Button>
-    <div className="flex justify-end">
-      <InstallApp compact />
+}) => {
+  const { t } = useI18n()
+  return (
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4">
+      <MascotBanner
+        pose={view.state.phase >= 3 ? 'cheer' : 'map'}
+        eyebrow="RUN2 GURYONGPO"
+        title={
+          <>
+            {t('home.heroTitle1')}
+            <br />
+            {t('home.heroTitle2')}
+          </>
+        }
+        description={t('home.heroBody', {
+          name: view.state.plan.nickname || t('common.runner'),
+        })}
+      />
+      <Button size="lg" className="min-h-12" onClick={onRace}>
+        {view.state.phase >= 3 ? t('home.viewRecord') : t('home.prepareRace')}
+        <ArrowRight />
+      </Button>
+      <div className="flex justify-end">
+        <InstallApp compact />
+      </div>
+      <RaceHeadline event={config.event} />
+      <MyPlan config={config} view={view} onEdit={onEditProfile} />
+      <AfterRace config={config} view={view} />
+      <RaceDetails event={config.event} />
+      <AssetCredits />
     </div>
-    <RaceHeadline event={config.event} />
-    <MyPlan config={config} view={view} onEdit={onEditProfile} />
-    <AfterRace config={config} view={view} />
-    <RaceDetails event={config.event} />
-    <AssetCredits />
-  </div>
-)
+  )
+}

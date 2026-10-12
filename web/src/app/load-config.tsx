@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { GullPose } from '#/brand/brand'
 import { seedConfig } from '#/core/defaults'
 import { configSchema } from '#/core/schema'
+import { useI18n } from '#/i18n/react'
 import { fetchConfig } from './config-fn'
 
 const CACHE_KEY = `run2-guryongpo-config-v${seedConfig.version}`
@@ -36,6 +37,7 @@ export const loadConfig = async () => {
 
 export const Loading = () => {
   const [slow, setSlow] = useState(false)
+  const { t } = useI18n()
   useEffect(() => {
     const id = setTimeout(() => setSlow(true), 8000)
     return () => clearTimeout(id)
@@ -48,23 +50,21 @@ export const Loading = () => {
         className="flex max-w-xs flex-col items-center gap-4 text-center"
       >
         <h1 className="brand-heading text-4xl">RUN2구룡포</h1>
-        <p className="text-lg text-foreground">달리고, 구룡포를 만나다</p>
+        <p className="text-lg text-foreground">{t('load.tagline')}</p>
         <GullPose className="brand-pulse w-56 sm:w-64" />
         <span className="text-xs font-semibold tracking-[.25em] text-primary">
           RUN2 GURYONGPO
         </span>
-        <span className="sr-only">앱을 불러오는 중</span>
+        <span className="sr-only">{t('load.status')}</span>
         <p className="text-sm text-muted-foreground">
-          {slow
-            ? '연결이 평소보다 오래 걸리고 있어요.'
-            : '여행 정보와 내 일정을 불러오고 있어요…'}
+          {slow ? t('load.slow') : t('load.wait')}
         </p>
         {slow && (
           <button
             className="rounded-md border px-4 py-2 text-sm"
             onClick={() => location.reload()}
           >
-            다시 시도
+            {t('common.retry')}
           </button>
         )}
       </div>

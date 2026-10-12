@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useI18n } from '#/i18n/react'
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -33,9 +34,8 @@ import { agentName } from '#/core/identity'
 import { VisitPhotoPrompt } from './visit-photos'
 import type { Place } from '#/core/schema'
 import type { TripConfig } from '#/core/schema'
-import type { Stage } from '#/core/stage'
 import type { TripView } from '#/core/view'
-import type { AgentMode, AgentUIMessage } from '#/server/agent/harness'
+import type { AgentUIMessage } from '#/server/agent/harness'
 import { AgentProvider, ChatPanel, useAgent } from '#/chat/chat'
 import { RaceLive } from '#/race/live'
 import { CommunityTab } from './community'
@@ -54,39 +54,26 @@ import { TourTab } from './tour-tab'
 
 type Tab = 'home' | 'race' | 'tour' | 'community'
 
-const stageLabel: Record<Stage, string> = {
-  ONBOARDING: '프로필',
-  PRE_RACE: '대회 전',
-  CHECK_IN: '완주 후',
-  PLANNING: '코스 고르기',
-  JOURNEY: '이동 중',
-  SAFETY: '안전 우선',
-  DONE: '도착',
-}
-
-const modeLabel: Record<AgentMode, string> = {
-  OPENAI: 'AI',
-  DEMO: '규칙 모델',
-  FALLBACK: '규칙 모델(대체)',
-}
-
 /** Questions worth asking from each screen, for where the trip is now. */
-const tabChips = (tab: Tab, view: TripView): string[] => {
+const tabChips = (
+  tab: Tab,
+  view: TripView,
+  t: ReturnType<typeof useI18n>['t'],
+): string[] => {
   const finished = view.state.phase >= 3
-  switch (tab) {
-    case 'home':
-      return ['대회 준비물 알려줘', '셔틀 있어?', '대회날 날씨 어때?']
-    case 'race':
-      return finished
-        ? ['지금도 시간 괜찮아?']
-        : ['완주했어요', '급수대 어디 있어?']
-    case 'tour':
-      return finished
-        ? ['16시 기차로 바꿨어', '왜 이 코스야?', '지금도 시간 괜찮아?']
-        : ['구룡포는 뭘로 유명해요?']
-    case 'community':
-      return ['구룡포는 뭘로 유명해요?']
-  }
+  const key =
+    tab === 'home'
+      ? 'chips.home'
+      : tab === 'race'
+        ? finished
+          ? 'chips.raceAfter'
+          : 'chips.raceBefore'
+        : tab === 'tour'
+          ? finished
+            ? 'chips.tourAfter'
+            : 'chips.tourBefore'
+          : 'chips.community'
+  return t(key).split('|')
 }
 
 const TOOLS_KEY = 'run2-show-tools'
@@ -116,6 +103,7 @@ export const Shell = ({
   tripId: string
   initial: { trip: TripView; messages: AgentUIMessage[] }
 }) => {
+  const { t } = useI18n()
   const agent = useAgent({ config, tripId, initial })
   const { view } = agent
   const { tab } = useSearch({ from: '/' })
@@ -177,7 +165,7 @@ export const Shell = ({
     if (agent.busy) return
     dismissPhoto(place.id)
     setChatOpen(true)
-    agent.send(`${place.attrs.short}에서 찍은 사진을 커뮤니티에 올릴래요`)
+    agent.send(t('say.sharePhotoAt', { place: place.attrs.short }))
   }
   const photoPrompt =
     opportunity &&
@@ -202,7 +190,7 @@ export const Shell = ({
       const { trip } = await postEvents(tripId, cmd.events)
       agent.setView(trip)
     } catch {
-      toast.error('진행을 저장하지 못했어요. 다시 눌러 주세요.')
+      toast.error(t('toast.saveFailed'))
     } finally {
       setUpdating(false)
     }
@@ -268,11 +256,11 @@ export const Shell = ({
             </span>
             <Badge variant="secondary">
               {view.state.plan.stage === 'LOCAL'
-                ? '관광 중'
-                : stageLabel[view.stage]}
+                ? t('stage.touring')
+                : t(`stage.${view.stage}`)}
             </Badge>
             {showTools && agent.mode && (
-              <Badge variant="outline">{modeLabel[agent.mode]}</Badge>
+              <Badge variant="outline">{t(`mode.${agent.mode}`)}</Badge>
             )}
             <div className="ml-auto hidden sm:block">
               <InstallApp compact />
@@ -285,7 +273,7 @@ export const Shell = ({
                     size="icon"
                     variant="ghost"
                     className="shrink-0"
-                    aria-label="메뉴"
+                    aria-label={t('menu.label')}
                   >
                     <Ellipsis />
                   </Button>
@@ -293,15 +281,15 @@ export const Shell = ({
                 <DropdownMenuContent align="end">
                   <DropdownMenuGroup>
                     <DropdownMenuItem onSelect={() => setProfileOpen(true)}>
-                      내 일정 수정
+                      {t('menu.editPlan')}
                     </DropdownMenuItem>
                     <DropdownMenuSub>
                       <DropdownMenuSubTrigger disabled={agent.busy}>
-                        시연 조건
+                        {t('menu.demo')}
                       </DropdownMenuSubTrigger>
                       <DropdownMenuSubContent>
                         <DropdownMenuLabel>
-                          에이전트에게 /시연 명령을 보내요
+                          {t('menu.demoHint')}
                         </DropdownMenuLabel>
                         {config.scenarios.map((s) => (
                           <DropdownMenuItem
@@ -320,7 +308,7 @@ export const Shell = ({
                         writeFlag(TOOLS_KEY, on)
                       }}
                     >
-                      발표 모드 (도구 호출 보기)
+                      {t('menu.presentation')}
                     </DropdownMenuCheckboxItem>
                     <DropdownMenuCheckboxItem
                       checked={voiceBeta}
@@ -329,10 +317,10 @@ export const Shell = ({
                         writeFlag(VOICE_KEY, on)
                       }}
                     >
-                      음성 모드 (베타)
+                      {t('menu.voice')}
                     </DropdownMenuCheckboxItem>
                     <DropdownMenuItem asChild>
-                      <Link to="/classic">화면으로 보기</Link>
+                      <Link to="/classic">{t('menu.classic')}</Link>
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
@@ -342,7 +330,7 @@ export const Shell = ({
                       window.location.reload()
                     }}
                   >
-                    새 여정 시작
+                    {t('menu.newTrip')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -350,22 +338,22 @@ export const Shell = ({
           </div>
           <div className="mx-auto max-w-2xl px-4 pb-2">
             <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
-              <TabsList aria-label="주 메뉴" className="w-full">
+              <TabsList aria-label={t('nav.label')} className="w-full">
                 {(
                   [
-                    { id: 'home', label: '홈', Icon: House },
-                    { id: 'race', label: '레이스', Icon: Flag },
-                    { id: 'tour', label: '관광', Icon: MapIcon },
-                    { id: 'community', label: '커뮤니티', Icon: Users },
+                    { id: 'home', Icon: House },
+                    { id: 'race', Icon: Flag },
+                    { id: 'tour', Icon: MapIcon },
+                    { id: 'community', Icon: Users },
                   ] as const
-                ).map(({ id, label, Icon }) => (
+                ).map(({ id, Icon }) => (
                   <TabsTrigger key={id} value={id}>
                     {/* At the largest text size the labels need the room. */}
                     <Icon
                       aria-hidden
                       className="max-[420px]:[html[data-font-size=largest]_&]:hidden"
                     />
-                    {label}
+                    {t(`nav.${id}`)}
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -387,7 +375,11 @@ export const Shell = ({
           </main>
         )}
         {/* Kept mounted so the race clock keeps running on other tabs. */}
-        <main hidden={tab !== 'race'} className="pb-24" aria-label="레이스">
+        <main
+          hidden={tab !== 'race'}
+          className="pb-24"
+          aria-label={t('nav.race')}
+        >
           <RaceLive
             tripId={tripId}
             finished={view.state.phase >= 3}
@@ -435,7 +427,7 @@ export const Shell = ({
               config={config}
               revision={communityRevision}
               onFinish={() => setFinishOpen(true)}
-              onPhoto={() => ask('여행 사진을 커뮤니티에 올릴래요')}
+              onPhoto={() => ask(t('say.sharePhoto'))}
             />
           </main>
         )}
@@ -444,7 +436,7 @@ export const Shell = ({
       <Button
         size="icon-lg"
         className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 size-16 rounded-full border border-primary/15 bg-card p-0 text-primary shadow-lg hover:bg-secondary"
-        aria-label="에이전트에게 묻기"
+        aria-label={t('agent.ask')}
         onClick={() => ask()}
       >
         <GullPose className="w-14" decorative />
@@ -460,7 +452,7 @@ export const Shell = ({
         onCommunity={() => setTab('community')}
         onContinue={() => {
           setTab('tour')
-          ask('완주 후 여행을 준비할게요.')
+          ask(t('say.prepareTrip'))
         }}
       />
 
@@ -474,13 +466,11 @@ export const Shell = ({
               <GullPose className="w-12" decorative />
               {agentName}
             </SheetTitle>
-            <SheetDescription>
-              대회·코스·맛집·버스, 무엇이든 물어보세요
-            </SheetDescription>
+            <SheetDescription>{t('agent.sheetDescription')}</SheetDescription>
           </SheetHeader>
           <ChatPanel
             agent={agent}
-            suggestions={tabChips(tab, view)}
+            suggestions={tabChips(tab, view, t)}
             photoPrompt={photoPrompt}
             voice={voiceBeta}
           />
@@ -493,17 +483,15 @@ export const Shell = ({
           className="gap-0 p-0 data-[side=bottom]:h-[88dvh]"
         >
           <SheetHeader className="border-b">
-            <SheetTitle>내 일정 수정</SheetTitle>
-            <SheetDescription>
-              바꾼 내용으로 코스를 다시 계산해요
-            </SheetDescription>
+            <SheetTitle>{t('edit.title')}</SheetTitle>
+            <SheetDescription>{t('edit.description')}</SheetDescription>
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-safe">
             <ProfileForm
               config={config}
               view={view}
               tripId={tripId}
-              submitLabel="저장"
+              submitLabel={t('common.save')}
               onSaved={(trip) => {
                 agent.setView(trip)
                 setProfileOpen(false)

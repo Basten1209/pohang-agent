@@ -2,6 +2,7 @@ import { openai } from '@ai-sdk/openai'
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
 import { liveSessionConfig } from '#/core/voice'
+import { isLocale } from '#/i18n'
 import { getConfig } from '#/server/config'
 import { json, parseBody } from '#/server/http'
 
@@ -20,7 +21,9 @@ export const Route = createFileRoute('/api/voice/session')({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const trip = new URL(request.url).searchParams.get('trip')
+        const params = new URL(request.url).searchParams
+        const trip = params.get('trip')
+        const locale = params.get('locale')
         if (!z.uuid().safeParse(trip).success)
           return json({ error: 'INVALID_TRIP' }, { status: 400 })
         const { config } = await getConfig()
@@ -36,7 +39,10 @@ export const Route = createFileRoute('/api/voice/session')({
         try {
           const answer = await model.doCreateWebRTCSession({
             sdp: body.data.sdp,
-            sessionConfig: liveSessionConfig(voice),
+            sessionConfig: liveSessionConfig(
+              voice,
+              isLocale(locale) ? locale : undefined,
+            ),
             abortSignal: AbortSignal.timeout(15_000),
           })
           return json(answer)

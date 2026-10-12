@@ -1,3 +1,5 @@
+import type { Locale } from '#/i18n'
+import { agentLanguage } from '#/i18n'
 import type { AgentConfig } from './schema'
 
 /**
@@ -26,8 +28,11 @@ export const liveServerEvents = [
 ].map((type) => ({ type }))
 
 /** The Live session the server creates; anything the browser sends is ignored. */
-export const liveSessionConfig = (voice: VoiceConfig) => ({
-  instructions: voice.instructions,
+export const liveSessionConfig = (voice: VoiceConfig, locale?: Locale) => ({
+  instructions:
+    locale && locale !== 'ko'
+      ? `${voice.instructions}\n사용자와는 ${agentLanguage[locale]}로 말한다. 위임 결과도 그 언어로 읽어 준다.`
+      : voice.instructions,
   providerOptions: {
     openai: {
       delegation: { type: 'client' as const },
@@ -59,9 +64,17 @@ const plain = (text: string) =>
  * What Live should say for one agent reply: its text, a pointer to any
  * approval waiting on screen, cut to Live's per-result budget.
  */
+const koreanNotes = {
+  approval:
+    '바뀐 일정을 화면에 띄웠어요. 적용하려면 화면에서 적용을 눌러 주세요.',
+  seeScreen: '확인했어요. 자세한 내용은 화면에서 볼 수 있어요.',
+  rest: '나머지는 화면에서 볼 수 있어요.',
+}
+
 export const spokenReply = (
   parts: ReadonlyArray<PartLike>,
   maxChars: number,
+  notes: typeof koreanNotes = koreanNotes,
 ): string => {
   const text = plain(
     parts
@@ -69,15 +82,15 @@ export const spokenReply = (
       .join(' '),
   )
   const approval = parts.some((p) => p.state === 'approval-requested')
-    ? '바뀐 일정을 화면에 띄웠어요. 적용하려면 화면에서 적용을 눌러 주세요.'
+    ? notes.approval
     : ''
   const said = [text, approval].filter(Boolean).join(' ')
-  if (!said) return '확인했어요. 자세한 내용은 화면에서 볼 수 있어요.'
+  if (!said) return notes.seeScreen
   if (said.length <= maxChars) return said
   // Cut at a sentence end inside the budget when there is one.
   const cut = said.slice(0, maxChars)
   const end = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('요 '))
-  return `${end > maxChars / 2 ? cut.slice(0, end + 1) : cut}… 나머지는 화면에서 볼 수 있어요.`
+  return `${end > maxChars / 2 ? cut.slice(0, end + 1) : cut}… ${notes.rest}`
 }
 
 /** The user's words since the last delegation, from Live's transcript fragments. */

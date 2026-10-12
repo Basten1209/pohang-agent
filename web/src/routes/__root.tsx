@@ -1,6 +1,7 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { fontSizeBootstrap } from '#/app/display-settings'
+import { LocaleProvider, localeBootstrap } from '#/i18n/react'
 import appCss from '../styles.css?url'
 
 export const Route = createRootRoute({
@@ -49,9 +50,10 @@ function RootDocument({ children }: { children: ReactNode }) {
       <head>
         <HeadContent />
         <script dangerouslySetInnerHTML={{ __html: fontSizeBootstrap }} />
+        <script dangerouslySetInnerHTML={{ __html: localeBootstrap }} />
       </head>
       <body>
-        {children}
+        <LocaleProvider>{children}</LocaleProvider>
         <Scripts />
       </body>
     </html>

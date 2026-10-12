@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { RadioGroup } from '@/components/ui/radio-group'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Choice } from '#/app/bits'
+import { useI18n } from '#/i18n/react'
 import { postEvents } from '#/app/trip-client'
 import { activeCourses, hubOf, modeOf } from '#/core/route'
 import type { Interest, Plan, SlotId, TripConfig } from '#/core/schema'
@@ -70,7 +71,7 @@ export const ProfileForm = ({
   view,
   tripId,
   onSaved,
-  submitLabel = '저장하고 시작하기',
+  submitLabel,
   onboarding = false,
 }: {
   config: TripConfig
@@ -80,6 +81,7 @@ export const ProfileForm = ({
   submitLabel?: string
   onboarding?: boolean
 }) => {
+  const { t, d } = useI18n()
   const [step, setStep] = useState(0)
   const [eventSelected, setEventSelected] = useState(false)
   const heading = useRef<HTMLHeadingElement>(null)
@@ -101,12 +103,17 @@ export const ProfileForm = ({
   const interests = config.conversation.slots.interests?.choices ?? []
   const journeyStarted = view.state.plan.stage !== 'BEFORE'
   const at = (n: number) => !onboarding || step === n
-  const steps = ['참가 대회', '이름 확인', '귀가 일정', '완주 후 여행']
+  const steps = [
+    t('profile.step1'),
+    t('profile.step2'),
+    t('profile.step3'),
+    t('profile.step4'),
+  ]
   const titles = [
-    '어떤 대회에 참가하나요?',
-    '어떻게 불러 드릴까요?',
-    '돌아갈 시간도 챙겨요',
-    '완주 다음은, 구룡포.',
+    t('profile.title1'),
+    t('profile.title2'),
+    t('profile.title3'),
+    t('profile.title4'),
   ]
   const next = () => setStep((s) => Math.min(s + 1, 3))
 
@@ -158,41 +165,42 @@ export const ProfileForm = ({
       >
         <GullPose pose="think" className="mx-auto w-40" decorative />
         <h1 id="preparing-title" className="brand-heading text-center text-2xl">
-          {nickname || '러너'}님의 하루를 준비해요
+          {t('profile.preparing', { name: nickname || t('common.runner') })}
         </h1>
         <ol className="space-y-3" aria-live="polite">
-          {[
-            'Agent에게 정보를 전달하고 있어요',
-            '참여하는 대회 정보를 정리하고 있어요',
-            '주변 여행 정보를 사전 탐색하고 있어요',
-          ].map((label, i) => (
-            <li
-              key={label}
-              className={`flex items-center gap-3 rounded-xl border p-4 text-sm ${i === preparing ? 'border-primary bg-secondary text-primary' : 'bg-card text-muted-foreground'}`}
-            >
-              {i < preparing ? (
-                <Check className="size-5 text-primary" aria-label="완료" />
-              ) : (
-                <span className="grid size-5 shrink-0 place-items-center rounded-full border text-xs">
-                  {i + 1}
-                </span>
-              )}
-              {label}
-            </li>
-          ))}
+          {[t('profile.prep1'), t('profile.prep2'), t('profile.prep3')].map(
+            (label, i) => (
+              <li
+                key={label}
+                className={`flex items-center gap-3 rounded-xl border p-4 text-sm ${i === preparing ? 'border-primary bg-secondary text-primary' : 'bg-card text-muted-foreground'}`}
+              >
+                {i < preparing ? (
+                  <Check
+                    className="size-5 text-primary"
+                    aria-label={t('profile.done')}
+                  />
+                ) : (
+                  <span className="grid size-5 shrink-0 place-items-center rounded-full border text-xs">
+                    {i + 1}
+                  </span>
+                )}
+                {label}
+              </li>
+            ),
+          )}
         </ol>
         {preparing === 3 && (
           <p role="status" className="text-center text-sm text-primary">
-            준비됐어요. 오늘의 여정을 시작해요!
+            {t('profile.ready')}
           </p>
         )}
         {failed && (
           <>
             <p role="alert" className="text-sm text-destructive">
-              준비를 마치지 못했어요. 저장한 정보는 그대로예요.
+              {t('profile.prepFailed')}
             </p>
             <Button className="h-12" onClick={() => void save()}>
-              다시 준비하기
+              {t('profile.prepRetry')}
             </Button>
           </>
         )}
@@ -224,7 +232,7 @@ export const ProfileForm = ({
             </div>
             <Progress
               value={((step + 1) / 4) * 100}
-              aria-label={`가입 준비 ${step + 1}단계`}
+              aria-label={t('profile.stepLabel', { n: step + 1 })}
             />
             <h1
               ref={heading}
@@ -236,10 +244,10 @@ export const ProfileForm = ({
             <p className="text-sm leading-relaxed text-muted-foreground">
               {
                 [
-                  '달리고, 구룡포를 만나다. 오늘의 출발을 함께해요.',
-                  '갈매기 여행 친구가 이 이름으로 불러 드려요.',
-                  '열차·버스 출발 전에 여유 있게 도착하도록 도와드려요.',
-                  '가고 싶은 곳을 알려주시면 완주 후 컨디션에 맞춰 조정해요.',
+                  t('profile.lead1'),
+                  t('profile.lead2'),
+                  t('profile.lead3'),
+                  t('profile.lead4'),
                 ][step]
               }
             </p>
@@ -266,7 +274,7 @@ export const ProfileForm = ({
               </ItemMedia>
               <ItemContent>
                 <ItemDescription className="font-semibold text-primary">
-                  발표용 가상 대회
+                  {t('profile.demoEvent')}
                 </ItemDescription>
                 <ItemTitle>{config.event.name}</ItemTitle>
                 <ItemDescription>
@@ -283,8 +291,7 @@ export const ProfileForm = ({
             </button>
           </Item>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            현재는 이 대회로 체험할 수 있어요. 완주 후 여행은 구룡포·호미곶을
-            중심으로 안내해요.
+            {t('profile.eventNote')}
           </p>
         </div>
       )}
@@ -294,15 +301,15 @@ export const ProfileForm = ({
             {onboarding && <GullPose pose="wave" className="mx-auto w-40" />}
             <Field>
               <FieldLabel htmlFor="nickname">
-                어떻게 불러 드릴까요?{' '}
+                {t('profile.nickname')}{' '}
                 <span className="font-normal text-muted-foreground">
-                  (선택)
+                  {t('profile.optional')}
                 </span>
               </FieldLabel>
               <Input
                 id="nickname"
                 className="h-12 bg-card"
-                placeholder="러너"
+                placeholder={t('common.runner')}
                 autoComplete="nickname"
                 maxLength={20}
                 value={nickname}
@@ -315,7 +322,7 @@ export const ProfileForm = ({
           <>
             <FieldSet>
               <FieldLegend variant="label">
-                대회 끝나고 어떻게 돌아가요?
+                {t('profile.modeLegend')}
               </FieldLegend>
               <ToggleGroup
                 type="single"
@@ -328,7 +335,7 @@ export const ProfileForm = ({
               >
                 {config.modes.map((m) => (
                   <ToggleGroupItem className={chipOn} key={m.id} value={m.id}>
-                    {m.label}
+                    {d(`mode.${m.id}`, m.label)}
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
@@ -337,8 +344,10 @@ export const ProfileForm = ({
             <Field>
               <FieldLabel htmlFor="depart-time">
                 {mode.noun === '귀가'
-                  ? '돌아올 시각'
-                  : `${mode.noun} 출발 시각`}
+                  ? t('profile.returnTime')
+                  : t('profile.departTime', {
+                      noun: d(`noun.${mode.id}`, mode.noun),
+                    })}
               </FieldLabel>
               <Input
                 id="depart-time"
@@ -352,8 +361,11 @@ export const ProfileForm = ({
               />
               <FieldDescription>
                 {mode.bufferMin
-                  ? `${hubOf(config, form).name}에 ${mode.bufferMin}분 전 도착을 목표로 계산해요.`
-                  : '이 시각까지 대회장 근처로 돌아오도록 계산해요.'}
+                  ? t('profile.arriveBy', {
+                      hub: d(`hub.${mode.hub}`, hubOf(config, form).name),
+                      min: mode.bufferMin,
+                    })
+                  : t('profile.backBy')}
               </FieldDescription>
             </Field>
           </>
@@ -363,12 +375,10 @@ export const ProfileForm = ({
           <>
             <FieldSet>
               <FieldLegend variant="label">
-                완주하고 가 보고 싶은 곳
+                {t('profile.courseLegend')}
               </FieldLegend>
               {journeyStarted && (
-                <FieldDescription>
-                  이미 출발해서 코스는 대화로만 바꿀 수 있어요.
-                </FieldDescription>
+                <FieldDescription>{t('profile.courseLocked')}</FieldDescription>
               )}
               <RadioGroup
                 value={form.course}
@@ -380,21 +390,26 @@ export const ProfileForm = ({
                     key={c.id}
                     id={`course-${c.id}`}
                     value={c.id}
-                    title={c.title}
-                    description={c.tags.slice(0, 3).join(' · ')}
+                    title={d(`course.${c.id}`, c.title)}
+                    description={d(
+                      `tags.${c.id}`,
+                      c.tags.slice(0, 3).join(' · '),
+                    )}
                   />
                 ))}
                 <Choice
                   id="course-auto"
                   value={AUTO_COURSE}
-                  title="추천해 주세요"
-                  description="시간과 컨디션에 맞춰 골라 드려요"
+                  title={t('profile.recommend')}
+                  description={t('profile.recommendDesc')}
                 />
               </RadioGroup>
             </FieldSet>
 
             <FieldSet>
-              <FieldLegend variant="label">하고 싶은 일 (여러 개)</FieldLegend>
+              <FieldLegend variant="label">
+                {t('profile.interests')}
+              </FieldLegend>
               <ToggleGroup
                 type="multiple"
                 variant="outline"
@@ -408,14 +423,14 @@ export const ProfileForm = ({
                     key={String(c.value)}
                     value={String(c.value)}
                   >
-                    {c.label}
+                    {d(`interest.${String(c.value)}`, c.label)}
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
             </FieldSet>
 
             <FieldSet>
-              <FieldLegend variant="label">완주 후 출발 장소</FieldLegend>
+              <FieldLegend variant="label">{t('profile.origin')}</FieldLegend>
               <RadioGroup
                 value={form.origin}
                 onValueChange={(v) => set('origin', v as Form['origin'])}
@@ -423,12 +438,12 @@ export const ProfileForm = ({
                 <Choice
                   id="origin-race"
                   value="RACE"
-                  title="대회장(영일대)에서 바로"
+                  title={t('profile.originRace')}
                 />
                 <Choice
                   id="origin-hotel"
                   value="HOTEL"
-                  title="숙소에 들렀다가"
+                  title={t('profile.originHotel')}
                 />
               </RadioGroup>
             </FieldSet>
@@ -438,7 +453,7 @@ export const ProfileForm = ({
 
       {failed && (
         <p role="alert" className="text-sm text-destructive">
-          저장하지 못했어요. 다시 눌러 주세요.
+          {t('profile.saveFailed')}
         </p>
       )}
       <div className="flex gap-2">
@@ -452,7 +467,7 @@ export const ProfileForm = ({
             onClick={() => setStep((s) => s - 1)}
           >
             <ArrowLeft />
-            이전
+            {t('profile.prev')}
           </Button>
         )}
         <Button
@@ -462,12 +477,12 @@ export const ProfileForm = ({
           disabled={saving || (onboarding && step === 0 && !eventSelected)}
         >
           {saving
-            ? '저장하고 있어요…'
+            ? t('profile.saving')
             : onboarding && step < 3
               ? step === 1
-                ? '이 이름으로 계속하기'
-                : '다음'
-              : submitLabel}
+                ? t('profile.useName')
+                : t('profile.next')
+              : (submitLabel ?? t('profile.submit'))}
           {onboarding && step < 3 && <ArrowRight />}
         </Button>
       </div>

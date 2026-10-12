@@ -7,6 +7,7 @@ import { clock } from '#/core/time'
 import type { TripView } from '#/core/view'
 import type { AgentUIMessage } from '#/server/agent/harness'
 import { Shell } from '#/home/shell'
+import { useI18n } from '#/i18n/react'
 
 export const Route = createFileRoute('/')({
   // The device only knows its trip id (localStorage), so render on the client.
@@ -28,24 +29,27 @@ type Loaded = { trip: TripView; messages: AgentUIMessage[] }
 /** Offline: the server holds the trip, so show the last view read-only. */
 const Offline = () => {
   const view = cachedView()
+  const { t } = useI18n()
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-3 p-6 text-sm">
-      <p className="font-semibold">서버에 연결할 수 없어요</p>
+      <p className="font-semibold">{t('offline.title')}</p>
       {view?.state.created ? (
         <p className="text-muted-foreground tabular-nums">
-          마지막으로 본 일정: {view.state.plan.departTime} 출발
+          {t('offline.last', { time: view.state.plan.departTime })}
           {view.itinerary.planningArrival !== null &&
-            ` · ${clock(view.itinerary.planningArrival)} 도착 (계획)`}
+            t('offline.arrival', {
+              time: clock(view.itinerary.planningArrival),
+            })}
         </p>
       ) : (
-        <p className="text-muted-foreground">
-          연결되면 이어서 대화할 수 있어요.
-        </p>
+        <p className="text-muted-foreground">{t('offline.later')}</p>
       )}
       <div className="flex gap-2">
-        <Button onClick={() => window.location.reload()}>다시 시도</Button>
+        <Button onClick={() => window.location.reload()}>
+          {t('common.retry')}
+        </Button>
         <Button asChild variant="outline">
-          <Link to="/classic">화면으로 보기</Link>
+          <Link to="/classic">{t('menu.classic')}</Link>
         </Button>
       </div>
     </div>

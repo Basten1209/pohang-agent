@@ -41,6 +41,8 @@ import {
   stageInstructions,
   stageTools,
 } from './prompts'
+import type { Locale } from '#/i18n'
+import { languageInstruction } from '#/i18n'
 import { scriptedModel, withFallback } from './scripted-model'
 import type { AgentTools, AskTool, ToolName, TurnContext } from './tools'
 import { askTools, makeTools, progressAnswerSchema } from './tools'
@@ -217,7 +219,7 @@ const withKnownTools = (messages: AgentUIMessage[], tools: AgentTools) =>
 
 export const runTurn = async (
   deps: HarnessDeps,
-  input: { tripId: string; message: AgentUIMessage },
+  input: { tripId: string; message: AgentUIMessage; locale?: Locale },
 ): Promise<ReadableStream<UIMessageChunk>> => {
   const { config, db } = deps
   let record: TripRecord = await openTrip(
@@ -515,6 +517,7 @@ export const runTurn = async (
     ...(demoCommand ? (['set_demo_observation'] as ToolName[]) : []),
   ]
 
+  const language = languageInstruction(input.locale)
   const agent = new ToolLoopAgent({
     model,
     tools,
@@ -610,6 +613,7 @@ export const runTurn = async (
           baseInstructions,
           stageInstructions[stage],
           snapshot(config, current.state, stage),
+          ...(language ? [language] : []),
           ...(progressRepair.length
             ? [
                 `진행 버튼은 이미 반영했다: ${progressReply} 이전 사용자 문장을 다시 실행하지 않는다. 남은 장소가 완료된 것이 아니라 기존 이동 선택이 검증에 실패했다: ${progressRepair.join(' ')} get_planning_context를 조회하고 남은 방문을 위한 새 proposal을 제출한다. 변경안은 승인을 받아 적용한다.`,
