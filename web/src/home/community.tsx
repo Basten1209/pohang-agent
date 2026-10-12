@@ -75,17 +75,20 @@ export const CommunityTab = ({
     courses.some((c) => c.id === p.course) &&
     (tag === 'all' || p.course === tag)
   const shown = posts.filter(visible)
+  // The place's name in the runner's language; the stored name otherwise.
+  const placeName = (p: CommunityPost) =>
+    config.places.find((x) => x.id === p.placeId)?.attrs.short ?? p.placeName
   const textOf = (p: CommunityPost): PostText => ({
     title:
-      p.kind === 'VISIT' && p.placeName
-        ? p.placeName
+      p.kind === 'VISIT' && placeName(p)
+        ? placeName(p)!
         : t('journey.finishMeta', { area: area(p.course) }),
     date: new Date(p.createdAt).toLocaleDateString(
       locale === 'ko' ? 'ko-KR' : htmlLang[locale],
       { timeZone: 'Asia/Seoul' },
     ),
-    alt: p.placeName
-      ? t('journey.postAltVisit', { author: p.author, place: p.placeName })
+    alt: placeName(p)
+      ? t('journey.postAltVisit', { author: p.author, place: placeName(p)! })
       : t('journey.postAltFinish', { author: p.author }),
     note:
       p.photoKind === 'DEMO'

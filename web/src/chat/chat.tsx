@@ -41,6 +41,7 @@ import { Choices, ToolCard } from './cards'
 import { VoiceControl } from './voice'
 import type { AgentPart, ChatContext, ToolPart } from './context'
 import { ChatProvider, useChatContext } from './context'
+import { localizeDeep } from '#/i18n/phrases'
 import { readLocale, useI18n } from '#/i18n/react'
 
 /**
@@ -85,6 +86,7 @@ export const useAgent = ({
   tripId: string
   initial: { trip: TripView; messages: AgentUIMessage[] }
 }) => {
+  const { locale } = useI18n()
   const [view, setView] = useState(initial.trip)
   const [progress, setProgress] = useState<PlanProgress | null>(null)
   /** Callers of `ask` waiting for the reply to finish streaming. */
@@ -160,10 +162,12 @@ export const useAgent = ({
     .reverse()
     .find((m) => m.metadata?.mode)?.metadata?.mode
 
+  // Cards read the trip in the runner's language.
+  const shownView = useMemo(() => localizeDeep(view, locale), [view, locale])
   const context = (showTools: boolean): ChatContext => ({
     tripId,
     config,
-    view,
+    view: shownView,
     send,
     showTools,
     answer: (tool, toolCallId, output) =>
@@ -222,6 +226,28 @@ export const AgentProvider = ({
 )
 
 /**
+ * Messages as shown: the server's Korean replies and card text in the
+ * runner's language (known phrases only). Each message is translated once.
+ */
+const useShownMessages = (messages: AgentUIMessage[]) => {
+  const { locale } = useI18n()
+  const cache = useRef(new WeakMap<AgentUIMessage, AgentUIMessage>())
+  const cachedFor = useRef(locale)
+  if (cachedFor.current !== locale) {
+    cache.current = new WeakMap()
+    cachedFor.current = locale
+  }
+  return messages.map((m) => {
+    if (m.role !== 'assistant' || locale === 'ko') return m
+    const hit = cache.current.get(m)
+    if (hit) return hit
+    const shown = localizeDeep(m, locale)
+    cache.current.set(m, shown)
+    return shown
+  })
+}
+
+/**
  * The conversation and the composer. `suggestions` are the chips of the
  * screen the sheet was opened from; the stage's own chips follow.
  */
@@ -238,8 +264,9 @@ export const ChatPanel = ({
   voice?: boolean
 }) => {
   const { view, config, tripId } = useChatContext()
-  const { t } = useI18n()
-  const { messages, status, stop, error } = agent.chat
+  const { t, tx } = useI18n()
+  const { status, stop, error } = agent.chat
+  const messages = useShownMessages(agent.chat.messages)
   const [input, setInput] = useState('')
   const last = messages.at(-1)
   // The open question of the latest message, if the app asked one.
@@ -247,7 +274,9 @@ export const ChatPanel = ({
     last?.role === 'assistant'
       ? last.parts.find((p) => p.type === 'data-choices')?.data
       : undefined
-  const chips = [...new Set([...suggestions, ...suggestionsFor[view.stage]])]
+  const chips = [
+    ...new Set([...suggestions, ...suggestionsFor[view.stage].map(tx)]),
+  ]
   const send = (text: string) => {
     agent.send(text)
     setInput('')
@@ -276,7 +305,7 @@ export const ChatPanel = ({
                 {m.role === 'assistant' && (
                   <div className="mb-2 flex items-center gap-2 text-xs font-medium text-primary">
                     <Gull className="size-7" />
-                    {agentName}
+                    {tx(agentName)}
                   </div>
                 )}
                 {m.parts.map((p, i) => {
@@ -338,7 +367,7 @@ export const ChatPanel = ({
             >
               <span className="size-2 shrink-0 animate-pulse rounded-full bg-primary" />
               {agent.progress
-                ? progressLabels[agent.progress.phase]
+                ? tx(progressLabels[agent.progress.phase])
                 : t('chat.checking')}
             </div>
           )}

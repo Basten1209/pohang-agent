@@ -12,6 +12,8 @@ import {
   fetchTrip,
   postEvents,
 } from './trip-client'
+import { localizeDeep } from '#/i18n/phrases'
+import { useI18n } from '#/i18n/react'
 
 /**
  * Classic screens' view of the server-held trip.
@@ -80,8 +82,14 @@ export const useTrip = (config: TripConfig) => {
     [config, state.plan, state.observations],
   )
   courseRef.current = itinerary.course
+  // The planner writes Korean reasons; show them in the runner's language.
+  const { locale } = useI18n()
+  const shown = useMemo(
+    () => localizeDeep(itinerary, locale),
+    [itinerary, locale],
+  )
 
-  return { state, latest, itinerary, run, online }
+  return { state, latest, itinerary: shown, run, online }
 }
 
 export type TripStore = ReturnType<typeof useTrip>

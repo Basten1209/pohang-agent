@@ -1,9 +1,10 @@
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { Ellipsis, Flag, House, Map as MapIcon, Users } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { localizeDeep } from '#/i18n/phrases'
 import { useI18n } from '#/i18n/react'
 import {
   DropdownMenu,
@@ -103,9 +104,12 @@ export const Shell = ({
   tripId: string
   initial: { trip: TripView; messages: AgentUIMessage[] }
 }) => {
-  const { t } = useI18n()
+  const { t, tx, locale } = useI18n()
   const agent = useAgent({ config, tripId, initial })
-  const { view } = agent
+  const view = useMemo(
+    () => localizeDeep(agent.view, locale),
+    [agent.view, locale],
+  )
   const { tab } = useSearch({ from: '/' })
   const navigate = useNavigate({ from: '/' })
   const setTab = (next: Tab) => {
@@ -464,7 +468,7 @@ export const Shell = ({
           <DrawerHeader className="border-b">
             <DrawerTitle className="flex items-center justify-center gap-2 md:justify-start">
               <GullPose className="w-12" decorative />
-              {agentName}
+              {tx(agentName)}
             </DrawerTitle>
             <DrawerDescription>{t('agent.sheetDescription')}</DrawerDescription>
           </DrawerHeader>
