@@ -33,10 +33,11 @@ export const liveSessionConfig = (voice: VoiceConfig, locale?: Locale) => ({
     locale && locale !== 'ko'
       ? `${voice.instructions}\n사용자와는 ${agentLanguage[locale]}로 말한다. 위임 결과도 그 언어로 읽어 준다.`
       : voice.instructions,
+  // A built-in voice is a plain name; `{ id }` is only for custom voices.
+  voice: voice.voice,
   providerOptions: {
     openai: {
       delegation: { type: 'client' as const },
-      voice: { id: voice.voice },
       store: false,
       client: {
         dataChannel: {
