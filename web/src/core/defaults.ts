@@ -16,7 +16,7 @@ export const seedConfig: TripConfig = {
   // 6: Guryongpo/Homigot scope and precise demo-route diagnostics.
   // Operator-edited documents are preserved.
   // 7: distinct modal estimates; official route references do not supply these minutes.
-  version: 8,
+  version: 10,
   event,
   courses,
   modes,

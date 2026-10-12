@@ -159,7 +159,7 @@ export const PlanScreen = () => {
             </FieldSet>
             <Field>
               <FieldLabel htmlFor="train-time">
-                {mode.noun === '귀가'
+                {mode.id === 'LOCAL'
                   ? t('classic.plan.returnTime')
                   : t('classic.plan.departTime', { noun: names.noun(plan) })}
               </FieldLabel>

@@ -1,5 +1,6 @@
 import type { Interest, Place } from '../schema'
 import { images } from './images'
+import { placeTranslations } from './place-translations'
 import { venueCandidates } from './venues'
 import { visitDemoImages } from '../demo-images'
 
@@ -48,6 +49,7 @@ const at =
         ...attrs,
         course,
         candidates: venueCandidates[id] ?? [],
+        translations: placeTranslations[id],
         image: attrs.image || photo?.url || visitDemoImages[id] || '',
       },
       meta: {
