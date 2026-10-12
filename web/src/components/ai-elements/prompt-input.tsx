@@ -921,7 +921,11 @@ export const PromptInput = ({
         ref={formRef}
         {...props}
       >
-        <InputGroup className="overflow-hidden">{children}</InputGroup>
+        {/* A disabled button (send, photo) must not grey out the whole box;
+            only a disabled text field does. */}
+        <InputGroup className="overflow-hidden bg-card has-disabled:bg-card has-disabled:opacity-100 has-[textarea:disabled]:opacity-50">
+          {children}
+        </InputGroup>
       </form>
     </>
   );
