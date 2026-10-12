@@ -72,7 +72,8 @@ export function DisplaySettings() {
     </Button>
   )
   return (
-    <DropdownMenu>
+    // No scroll lock: hiding the scrollbar would shift the header.
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuLabel>{t('display.language')}</DropdownMenuLabel>

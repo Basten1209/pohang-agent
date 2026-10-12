@@ -250,7 +250,7 @@ export const Shell = ({
         <header
           className={
             tab === 'home'
-              ? `fixed inset-x-0 top-0 z-30 isolate border-b pt-safe text-foreground transition-colors ${heroState === 'page' ? '' : 'border-transparent'}`
+              ? `right-scroll-bar-position fixed inset-x-0 top-0 z-30 isolate border-b pt-safe text-foreground transition-colors ${heroState === 'page' ? '' : 'border-transparent'}`
               : 'sticky top-0 z-30 isolate border-b pt-safe text-foreground'
           }
           // Over the photo the header reads in white: swap the theme's ink.
@@ -316,7 +316,8 @@ export const Shell = ({
                 />
               </div>
               <div className="hidden md:block">
-                <DropdownMenu>
+                {/* No scroll lock: hiding the scrollbar would shift the header. */}
+                <DropdownMenu modal={false}>
                   <DropdownMenuTrigger asChild>
                     <Button
                       size="icon"
