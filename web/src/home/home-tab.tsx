@@ -11,7 +11,6 @@ import { durationText } from '#/i18n'
 import { useI18n } from '#/i18n/react'
 import { RaceDetails, RaceHeadline } from '#/race/overview'
 import { PlaceThumb } from './thumb'
-import { InstallApp } from './install'
 import { Section } from './section'
 
 const MyPlan = ({
@@ -86,8 +85,8 @@ const AfterRace = ({
   const hub = hubOf(config, state.plan)
   return (
     <Section
-      eyebrow={`${t('home.afterRace')} · ${t('home.preview')}`}
-      title={d(`course.${course.id}`, course.title)}
+      title={t('home.preview')}
+      description={d(`course.${course.id}`, course.title)}
     >
       {places.length > 0 && (
         <div className="flex flex-col gap-3">
@@ -151,9 +150,6 @@ export const HomeTab = ({
         {view.state.phase >= 3 ? t('home.viewRecord') : t('home.prepareRace')}
         <ArrowRight />
       </Button>
-      <div className="flex justify-end">
-        <InstallApp compact />
-      </div>
       <RaceHeadline event={config.event} />
       <MyPlan config={config} view={view} onEdit={onEditProfile} />
       <AfterRace config={config} view={view} />

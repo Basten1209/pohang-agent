@@ -3,13 +3,11 @@ import { Separator } from '@/components/ui/separator'
 
 /** A home section: a separator above, a heading, then its content. No card. */
 export const Section = ({
-  eyebrow,
   title,
   description,
   action,
   children,
 }: {
-  eyebrow?: ReactNode
   title?: ReactNode
   description?: ReactNode
   action?: ReactNode
@@ -20,9 +18,6 @@ export const Section = ({
     {title && (
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          {eyebrow && (
-            <p className="text-sm text-muted-foreground">{eyebrow}</p>
-          )}
           <h2 className="font-heading text-base leading-snug font-medium">
             {title}
           </h2>

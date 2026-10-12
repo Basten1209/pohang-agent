@@ -11,13 +11,9 @@ export default defineMessages(
     'tour.badge.done': '여행 완료',
     'tour.badge.recommended': '추천 코스',
     'tour.badge.homeFirst': '귀가 우선',
-    'tour.source.ai': 'AI가 내 조건과 관측을 살펴 구성한 일정이에요.',
-    'tour.source.demo':
-      '시연용 기본 일정이에요. 에이전트에게 맞춤 일정을 요청할 수 있어요.',
     'tour.needsReview':
       '관측이나 여행 조건이 바뀌었어요. 이전 일정을 유지하고 있으니 다시 검토해 주세요.',
-    'tour.reviewAgain': '일정 다시 검토하기',
-    'tour.requestCustom': '맞춤 일정 요청하기',
+    'tour.requestCustom': '맞춤 일정 다시 요청하기',
     'tour.nowTodo': '지금 할 일',
     'tour.todo.photo': '오늘의 여행을 사진으로 남겨요',
     'tour.todo.return': '{hub}으로 돌아가요',
@@ -88,14 +84,9 @@ export default defineMessages(
       'tour.badge.done': 'Trip done',
       'tour.badge.recommended': 'Recommended',
       'tour.badge.homeFirst': 'Home first',
-      'tour.source.ai':
-        'AI built this plan from your conditions and the latest observations.',
-      'tour.source.demo':
-        'This is the default demo plan. You can ask the agent for a custom one.',
       'tour.needsReview':
         'Observations or trip conditions have changed. We kept your previous plan, so please review it again.',
-      'tour.reviewAgain': 'Review plan again',
-      'tour.requestCustom': 'Request a custom plan',
+      'tour.requestCustom': 'Request a custom plan again',
       'tour.nowTodo': 'Up next',
       'tour.todo.photo': 'Capture today’s trip in photos',
       'tour.todo.return': 'Head back to {hub}',
@@ -167,13 +158,9 @@ export default defineMessages(
       'tour.badge.done': '旅行完了',
       'tour.badge.recommended': 'おすすめ',
       'tour.badge.homeFirst': '帰宅優先',
-      'tour.source.ai': 'AIが条件と観測をもとに組んだ予定です。',
-      'tour.source.demo':
-        'デモ用の基本予定です。エージェントにカスタム予定を頼めます。',
       'tour.needsReview':
         '観測や旅行の条件が変わりました。前の予定を維持しているので、もう一度確認してください。',
-      'tour.reviewAgain': '予定を見直す',
-      'tour.requestCustom': 'カスタム予定を頼む',
+      'tour.requestCustom': 'カスタム予定をもう一度頼む',
       'tour.nowTodo': '今やること',
       'tour.todo.photo': '今日の旅を写真に残しましょう',
       'tour.todo.return': '{hub}へ戻ります',
@@ -244,12 +231,9 @@ export default defineMessages(
       'tour.badge.done': '旅行完成',
       'tour.badge.recommended': '推荐路线',
       'tour.badge.homeFirst': '优先返程',
-      'tour.source.ai': '这是 AI 根据你的条件和观测数据制定的行程。',
-      'tour.source.demo': '这是演示用的默认行程。你可以请助手制定专属行程。',
       'tour.needsReview':
         '观测或旅行条件有变化。已保留之前的行程，请重新检查。',
-      'tour.reviewAgain': '重新检查行程',
-      'tour.requestCustom': '请求专属行程',
+      'tour.requestCustom': '重新请求专属行程',
       'tour.nowTodo': '现在要做的',
       'tour.todo.photo': '用照片记录今天的旅行',
       'tour.todo.return': '返回{hub}',
