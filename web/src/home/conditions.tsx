@@ -1,7 +1,6 @@
 import { Sparkles, ArrowUpRight, Bus, CarTaxiFront, Copy } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { TripConfig } from '#/core/schema'
 import type { TripView } from '#/core/view'
 import { usableReading } from '#/core/signals'
@@ -48,7 +47,7 @@ export const ConditionsCard = ({
     <Accordion
       type="single"
       collapsible
-      className="rounded-xl border bg-card px-4 text-xs text-muted-foreground"
+      className="text-xs text-muted-foreground"
     >
       <AccordionItem value="conditions">
         <AccordionTrigger className="py-3 text-xs font-normal leading-relaxed">
@@ -194,11 +193,9 @@ export const TransportCard = ({
     }
   }
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{rec.title}</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 pt-1">
+      <p className="text-sm font-medium text-foreground">{rec.title}</p>
+      <div className="flex flex-col gap-3">
         <ul className="flex list-disc flex-col gap-1 pl-4 text-sm text-muted-foreground">
           {rec.reasons.map((reason) => (
             <li key={reason}>{reason}</li>
@@ -296,7 +293,7 @@ export const TransportCard = ({
             {message}
           </p>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
