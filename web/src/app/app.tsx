@@ -12,9 +12,10 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { canTravel } from '#/core/planner'
 import type { Screen, TripConfig } from '#/core/schema'
 import { screenSchema } from '#/core/schema'
-import { departLabel, hubOf } from '#/core/route'
 import { clock } from '#/core/time'
 import { accept, navigate } from '#/core/trip'
+import type { MessageKey } from '#/i18n'
+import { useI18n } from '#/i18n/react'
 import { AppProvider, useApp } from './context'
 import {
   CourseScreen,
@@ -24,14 +25,15 @@ import {
   PlanScreen,
 } from './screens'
 import { Sheets } from './sheets'
+import { useNames } from './cards'
 import { useTrip } from './use-trip'
 
-const steps: { id: Screen; label: string }[] = [
-  { id: 'plan', label: '하루 만들기' },
-  { id: 'day', label: '내 하루' },
-  { id: 'finish', label: '완주 후' },
-  { id: 'course', label: '코스' },
-  { id: 'next', label: '다음 행동' },
+const steps: { id: Screen; label: MessageKey }[] = [
+  { id: 'plan', label: 'classic.step.plan' },
+  { id: 'day', label: 'classic.step.day' },
+  { id: 'finish', label: 'classic.step.finish' },
+  { id: 'course', label: 'classic.step.course' },
+  { id: 'next', label: 'classic.step.next' },
 ]
 
 /** Screen components by id — the shell never switches on screen names itself. */
@@ -45,6 +47,7 @@ const screens: Record<Screen, () => React.ReactNode> = {
 
 const Header = () => {
   const { state, run, open } = useApp()
+  const { t } = useI18n()
   return (
     <header className="sticky top-0 z-30 border-b bg-background pt-safe">
       <div className="mx-auto flex h-14 max-w-5xl items-center gap-2 px-4">
@@ -52,13 +55,13 @@ const Header = () => {
         <div className="ml-auto flex gap-1">
           <Button asChild size="sm" variant="ghost">
             <Link to="/" search={{ tab: 'home' }}>
-              <MessageCircle /> 채팅
+              <MessageCircle /> {t('classic.chat')}
             </Link>
           </Button>
           <Button
             size="icon"
             variant="ghost"
-            aria-label="데모 시나리오"
+            aria-label={t('classic.demo')}
             onClick={() => open('demo')}
           >
             <SlidersHorizontal />
@@ -66,7 +69,7 @@ const Header = () => {
           <Button
             size="icon"
             variant="ghost"
-            aria-label="데이터와 연결 상태"
+            aria-label={t('classic.evidence')}
             onClick={() => open('evidence')}
           >
             <Info />
@@ -81,7 +84,7 @@ const Header = () => {
           <TabsList>
             {steps.map((s) => (
               <TabsTrigger key={s.id} value={s.id}>
-                {s.label}
+                {t(s.label)}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -93,7 +96,9 @@ const Header = () => {
 
 /** Sticky action bar on phones for the course screen. */
 const CourseBar = () => {
-  const { state, itinerary, run, config } = useApp()
+  const { state, itinerary, run } = useApp()
+  const { t } = useI18n()
+  const names = useNames()
   if (
     state.screen !== 'course' ||
     !canTravel(itinerary) ||
@@ -105,15 +110,14 @@ const CourseBar = () => {
       <div className="mx-auto flex max-w-xl items-center justify-between gap-4">
         <div className="flex flex-col">
           <span className="text-xs text-muted-foreground">
-            {hubOf(config, state.plan).name} 도착 (시연)
+            {t('classic.bar.arrive', { hub: names.hub(state.plan) })}
           </span>
           <span className="font-semibold tabular-nums">
-            {clock(itinerary.planningArrival)} ·{' '}
-            {departLabel(config, state.plan)}
+            {clock(itinerary.planningArrival)} · {names.depart(state.plan)}
           </span>
         </div>
         <Button onClick={() => run(accept(state, itinerary))}>
-          이 코스로 갈게요 <ArrowRight />
+          {t('classic.go')} <ArrowRight />
         </Button>
       </div>
     </div>
@@ -122,6 +126,7 @@ const CourseBar = () => {
 
 const Shell = () => {
   const { state, online } = useApp()
+  const { t } = useI18n()
   const Current = screens[state.screen]
   useEffect(() => {
     window.scrollTo({ top: 0 })
@@ -145,7 +150,7 @@ const Shell = () => {
           role="alert"
           className="fixed inset-x-4 top-28 z-40 rounded-lg border bg-background p-3 text-sm"
         >
-          서버에 연결되지 않아 마지막으로 본 일정만 보여요.
+          {t('classic.offline')}
         </p>
       )}
       <Toaster position="top-center" />

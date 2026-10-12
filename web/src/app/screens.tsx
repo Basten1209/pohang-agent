@@ -56,13 +56,7 @@ import { RadioGroup } from '@/components/ui/radio-group'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { canTravel } from '#/core/planner'
 import type { Decision } from '#/core/planner'
-import {
-  activeCourses,
-  courseById,
-  departLabel,
-  hubOf,
-  modeOf,
-} from '#/core/route'
+import { activeCourses, courseById, hubOf, modeOf } from '#/core/route'
 import type { Plan } from '#/core/schema'
 import { clock, minutes } from '#/core/time'
 import {
@@ -74,6 +68,8 @@ import {
   skipStop,
   startReturn,
 } from '#/core/trip'
+import type { MessageKey } from '#/i18n'
+import { useI18n } from '#/i18n/react'
 import { Choice, PageHeader } from './bits'
 import {
   AdjustCard,
@@ -81,6 +77,7 @@ import {
   ObservationCard,
   StatsCard,
   TrainCard,
+  useNames,
 } from './cards'
 import { useApp } from './context'
 import { chipOn } from './bits'
@@ -105,27 +102,31 @@ const Columns = ({ main, rail }: { main: ReactNode; rail: ReactNode }) => (
 
 export const PlanScreen = () => {
   const { state, config, run } = useApp()
+  const { t, d } = useI18n()
+  const names = useNames()
   const { plan } = state
   const mode = modeOf(config, plan)
   const interests = config.conversation.slots.interests?.choices ?? []
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6">
       <PageHeader
-        title="완주 후 포항, 어디까지 다녀올 수 있을까요?"
-        description="돌아가는 방법과 시각을 알려주면 완주 후 일정과 복귀 시간을 함께 계산해요."
+        title={t('classic.plan.title')}
+        description={t('classic.plan.lead')}
       />
       <Card>
         <CardHeader>
-          <CardTitle>내 하루 만들기</CardTitle>
+          <CardTitle>{t('classic.plan.make')}</CardTitle>
           <CardDescription>
             {config.event.name} · {config.event.dateLabel} {config.event.gun} ·{' '}
-            {config.event.venue} (가상 행사)
+            {config.event.venue} {t('classic.plan.virtual')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="arrival">포항 도착 시간</FieldLabel>
+              <FieldLabel htmlFor="arrival">
+                {t('classic.plan.arrival')}
+              </FieldLabel>
               <Input
                 id="arrival"
                 type="datetime-local"
@@ -137,7 +138,9 @@ export const PlanScreen = () => {
               />
             </Field>
             <FieldSet>
-              <FieldLegend variant="label">돌아가는 방법</FieldLegend>
+              <FieldLegend variant="label">
+                {t('classic.plan.mode')}
+              </FieldLegend>
               <ToggleGroup
                 type="single"
                 variant="outline"
@@ -149,7 +152,7 @@ export const PlanScreen = () => {
               >
                 {config.modes.map((m) => (
                   <ToggleGroupItem className={chipOn} key={m.id} value={m.id}>
-                    {m.label}
+                    {d(`mode.${m.id}`, m.label)}
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
@@ -157,8 +160,8 @@ export const PlanScreen = () => {
             <Field>
               <FieldLabel htmlFor="train-time">
                 {mode.noun === '귀가'
-                  ? '돌아올 시각'
-                  : `${mode.noun} 출발 시각`}
+                  ? t('classic.plan.returnTime')
+                  : t('classic.plan.departTime', { noun: names.noun(plan) })}
               </FieldLabel>
               <Input
                 id="train-time"
@@ -169,11 +172,13 @@ export const PlanScreen = () => {
                 }
               />
               <FieldDescription>
-                {config.event.dateLabel} · {hubOf(config, plan).name}
+                {config.event.dateLabel} · {names.hub(plan)}
               </FieldDescription>
             </Field>
             <FieldSet>
-              <FieldLegend variant="label">가 보고 싶은 곳</FieldLegend>
+              <FieldLegend variant="label">
+                {t('classic.plan.course')}
+              </FieldLegend>
               <ToggleGroup
                 type="single"
                 variant="outline"
@@ -182,17 +187,19 @@ export const PlanScreen = () => {
                 onValueChange={(v) => v && run(patch({ course: v }))}
               >
                 <ToggleGroupItem className={chipOn} value="auto">
-                  추천
+                  {t('classic.plan.auto')}
                 </ToggleGroupItem>
                 {activeCourses(config).map((c) => (
                   <ToggleGroupItem className={chipOn} key={c.id} value={c.id}>
-                    {c.title}
+                    {d(`course.${c.id}`, c.title)}
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
             </FieldSet>
             <FieldSet>
-              <FieldLegend variant="label">완주 후 하고 싶은 일</FieldLegend>
+              <FieldLegend variant="label">
+                {t('classic.plan.interests')}
+              </FieldLegend>
               <ToggleGroup
                 type="multiple"
                 variant="outline"
@@ -208,15 +215,17 @@ export const PlanScreen = () => {
                     key={String(c.value)}
                     value={String(c.value)}
                   >
-                    {c.label}
+                    {d(`interest.${String(c.value)}`, c.label)}
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
             </FieldSet>
             <FieldSet>
-              <FieldLegend variant="label">관광 출발 장소</FieldLegend>
+              <FieldLegend variant="label">
+                {t('classic.plan.origin')}
+              </FieldLegend>
               <FieldDescription>
-                숙소는 영일대 권역으로 가정해요.
+                {t('classic.plan.originHint')}
               </FieldDescription>
               <RadioGroup
                 value={plan.origin}
@@ -232,14 +241,14 @@ export const PlanScreen = () => {
                 <Choice
                   id="origin-race"
                   value="RACE"
-                  title="대회장"
-                  description="짐을 가지고 바로 이동"
+                  title={t('classic.plan.race')}
+                  description={t('classic.plan.raceHint')}
                 />
                 <Choice
                   id="origin-hotel"
                   value="HOTEL"
-                  title="숙소"
-                  description="짐을 찾은 뒤 출발"
+                  title={t('classic.plan.hotel')}
+                  description={t('classic.plan.hotelHint')}
                 />
               </RadioGroup>
             </FieldSet>
@@ -250,10 +259,10 @@ export const PlanScreen = () => {
             className="w-full"
             onClick={() => run(createTrip(config, state))}
           >
-            내 하루 만들기 <ArrowRight />
+            {t('classic.plan.make')} <ArrowRight />
           </Button>
           <p className="text-xs text-muted-foreground">
-            현지 이동은 버스를 기본으로 계산해요.
+            {t('classic.plan.bus')}
           </p>
         </CardFooter>
       </Card>
@@ -263,63 +272,67 @@ export const PlanScreen = () => {
 
 // ── S2 내 하루 ────────────────────────────────────────────────────────────
 
-const phases = [
-  {
-    title: '포항에 도착하면 알려주세요',
-    description: '대회 전날, 영일대 근처 숙소에서 쉬어요.',
-  },
-  {
-    title: '출발 준비',
-    description: '대회장 집결 · 출발 30분 전까지 (가상 행사)',
-  },
-  { title: '달리는 중', description: '완주하면 다음 단계로 넘어가요.' },
+const phases: { title: MessageKey; description: MessageKey }[] = [
+  { title: 'classic.day.phase0', description: 'classic.day.phase0Desc' },
+  { title: 'classic.day.phase1', description: 'classic.day.phase1Desc' },
+  { title: 'classic.day.phase2', description: 'classic.day.phase2Desc' },
 ]
-const checklist = ['배번호와 러닝화', '마실 물과 간식', '완주 후 짐 회수 계획']
+const checklist: MessageKey[] = [
+  'classic.day.check0',
+  'classic.day.check1',
+  'classic.day.check2',
+]
 
 export const DayScreen = () => {
   const { state, run, map, config, itinerary } = useApp()
+  const { t } = useI18n()
+  const names = useNames()
   const phase = phases[state.phase]
   const hub = hubOf(config, state.plan)
   const course = courseById(config, itinerary.course)
+  const courseTitle = names.course(itinerary.course)
   const timeline: [string, string, string, LucideIcon][] = [
     [
-      `전날 ${state.plan.arrivalAt.slice(11)}`,
-      '포항 도착',
-      '영일대 근처 숙소',
+      t('classic.day.eve', { time: state.plan.arrivalAt.slice(11) }),
+      t('classic.day.arrive'),
+      t('classic.day.hotel'),
       TrainFront,
     ],
     [
       config.event.gun,
-      `${config.event.course.distanceKm}km 달리기`,
+      t('classic.day.run', { km: config.event.course.distanceKm }),
       config.event.venue,
       Flag,
     ],
     [
-      '완주 후',
-      course?.title ?? '코스 추천',
-      '컨디션 확인 뒤 코스 결정',
+      t('classic.day.after'),
+      courseTitle ?? t('classic.day.pick'),
+      t('classic.day.decide'),
       MapPin,
     ],
     [
       state.plan.departTime,
-      `${hub.name} ${hub.mode.noun}`,
+      `${names.hub(state.plan)} ${names.noun(state.plan)}`,
       hub.mode.bufferMin
-        ? `${hub.mode.bufferMin}분 전 도착 목표`
-        : '돌아올 시각',
+        ? t('classic.day.buffer', { n: hub.mode.bufferMin })
+        : t('classic.plan.returnTime'),
       TrainFront,
     ],
   ]
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="내 하루" description={config.event.dateLabel} />
+      <PageHeader
+        title={t('classic.step.day')}
+        description={config.event.dateLabel}
+      />
       <Columns
         main={
           <>
             <Card>
               <CardHeader>
-                <CardDescription>지금 할 일</CardDescription>
-                <CardTitle>{phase.title}</CardTitle>
-                <CardDescription>{phase.description}</CardDescription>
+                <CardDescription>{t('classic.day.now')}</CardDescription>
+                <CardTitle>{t(phase.title)}</CardTitle>
+                <CardDescription>{t(phase.description)}</CardDescription>
               </CardHeader>
               {state.phase === 1 && (
                 <CardContent>
@@ -339,7 +352,7 @@ export const DayScreen = () => {
                           htmlFor={`check-${i}`}
                           className="font-normal"
                         >
-                          {text}
+                          {t(text)}
                         </FieldLabel>
                       </Field>
                     ))}
@@ -353,7 +366,7 @@ export const DayScreen = () => {
                       run({ events: [{ type: 'day.advanced', phase: 1 }] })
                     }
                   >
-                    포항에 도착했어요
+                    {t('classic.day.arrived')}
                   </Button>
                 )}
                 {state.phase === 1 && (
@@ -363,25 +376,27 @@ export const DayScreen = () => {
                         run({ events: [{ type: 'day.advanced', phase: 2 }] })
                       }
                     >
-                      출발해요
+                      {t('classic.day.start')}
                     </Button>
                     <Button variant="outline" asChild>
                       <a href={map('RACE')} target="_blank" rel="noreferrer">
-                        집결지 보기 <ArrowUpRight />
+                        {t('classic.day.meet')} <ArrowUpRight />
                       </a>
                     </Button>
                   </>
                 )}
                 {state.phase === 2 && (
-                  <Button onClick={() => run(go('finish'))}>완주했어요</Button>
+                  <Button onClick={() => run(go('finish'))}>
+                    {t('classic.day.finished')}
+                  </Button>
                 )}
               </CardFooter>
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle>일정</CardTitle>
+                <CardTitle>{t('classic.day.schedule')}</CardTitle>
                 <CardDescription>
-                  이동수단별 시연 추정으로 계산해요.
+                  {t('classic.day.scheduleHint')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -410,10 +425,12 @@ export const DayScreen = () => {
             <Card>
               <CardHeader>
                 <CardTitle>
-                  완주 후 후보: {course?.title ?? '추천 코스'}
+                  {t('classic.day.candidate', {
+                    course: courseTitle ?? t('classic.day.recommended'),
+                  })}
                 </CardTitle>
                 <CardDescription>
-                  {course?.desc ?? ''} 완주 후 컨디션에 맞춰 다시 계산해요.
+                  {course?.desc ?? ''} {t('classic.day.recalc')}
                 </CardDescription>
               </CardHeader>
               <CardFooter>
@@ -424,18 +441,20 @@ export const DayScreen = () => {
                     run({
                       events: [{ type: 'candidate.toggled' }],
                       notice: state.candidate
-                        ? '후보에서 뺐어요.'
-                        : '후보로 담았어요.',
+                        ? t('classic.day.removed')
+                        : t('classic.day.added'),
                     })
                   }
                 >
                   {state.candidate ? <Check /> : <Bookmark />}
-                  {state.candidate ? '후보로 담음' : '후보로 담기'}
+                  {state.candidate
+                    ? t('classic.day.saved')
+                    : t('classic.day.save')}
                 </Button>
               </CardFooter>
             </Card>
             <Button variant="ghost" onClick={() => run(go('finish'))}>
-              시연: 완주 직후로 이동 <ArrowRight />
+              {t('classic.day.skip')} <ArrowRight />
             </Button>
           </>
         }
@@ -448,13 +467,14 @@ export const DayScreen = () => {
 
 export const FinishScreen = () => {
   const { state, run } = useApp()
+  const { t } = useI18n()
   const { plan } = state
   const ready = plan.condition !== 'UNANSWERED' && plan.baggageCollected
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="완주했어요"
-        description="지금 컨디션에 맞춰 코스를 계산할게요. 세 가지만 알려주세요."
+        title={t('classic.day.finished')}
+        description={t('classic.finish.lead')}
       />
       <Columns
         main={
@@ -462,7 +482,7 @@ export const FinishScreen = () => {
             <CardContent>
               <FieldGroup>
                 <FieldSet>
-                  <FieldLegend>지금 상태</FieldLegend>
+                  <FieldLegend>{t('classic.finish.state')}</FieldLegend>
                   <RadioGroup
                     value={
                       plan.condition === 'UNANSWERED' ? '' : plan.condition
@@ -471,31 +491,38 @@ export const FinishScreen = () => {
                       run(patch({ condition: v as Plan['condition'] }))
                     }
                   >
-                    <Choice id="c-ok" value="OK" title="괜찮아요" />
-                    <Choice id="c-tired" value="TIRED" title="조금 지쳤어요" />
+                    <Choice
+                      id="c-ok"
+                      value="OK"
+                      title={t('classic.finish.ok')}
+                    />
+                    <Choice
+                      id="c-tired"
+                      value="TIRED"
+                      title={t('classic.finish.tired')}
+                    />
                     <Choice
                       id="c-unwell"
                       value="UNWELL"
-                      title="몸이 안 좋아요"
-                      description="관광 계산을 멈추고 도움을 안내해요."
+                      title={t('classic.finish.unwell')}
+                      description={t('classic.finish.unwellHint')}
                     />
                   </RadioGroup>
                 </FieldSet>
                 {plan.condition === 'UNWELL' ? (
                   <Alert variant="destructive">
                     <HeartPulse />
-                    <AlertTitle>몸을 먼저 살펴주세요</AlertTitle>
+                    <AlertTitle>{t('classic.finish.alertTitle')}</AlertTitle>
                     <AlertDescription>
-                      관광 계획을 멈췄어요. 현장 의료부스나 운영요원에게 도움을
-                      요청해 주세요.
+                      {t('classic.finish.alertBody')}
                     </AlertDescription>
                   </Alert>
                 ) : (
                   <>
                     <FieldSet>
-                      <FieldLegend>걷기</FieldLegend>
+                      <FieldLegend>{t('classic.stats.walk')}</FieldLegend>
                       <FieldDescription>
-                        정류장과 장소 사이를 걷는 시간도 포함해요.
+                        {t('classic.finish.walkHint')}
                       </FieldDescription>
                       <RadioGroup
                         value={String(plan.walkingLimit)}
@@ -506,20 +533,20 @@ export const FinishScreen = () => {
                         <Choice
                           id="w-15"
                           value="15"
-                          title="15분 이내"
-                          description="최소한으로"
+                          title={t('classic.finish.w15')}
+                          description={t('classic.finish.w15Hint')}
                         />
                         <Choice
                           id="w-30"
                           value="30"
-                          title="30분 이내"
-                          description="짧은 구경은 괜찮아요"
+                          title={t('classic.finish.w30')}
+                          description={t('classic.finish.w30Hint')}
                         />
                       </RadioGroup>
                     </FieldSet>
                     <Field>
                       <FieldLabel htmlFor="ready">
-                        출발 준비 완료 시각
+                        {t('classic.finish.ready')}
                       </FieldLabel>
                       <div className="flex gap-2">
                         <Input
@@ -543,13 +570,13 @@ export const FinishScreen = () => {
                             run(patch({ readyTime: t, currentTime: t }))
                           }}
                         >
-                          +30분
+                          {t('classic.finish.plus30')}
                         </Button>
                       </div>
                       <FieldDescription>
                         {plan.origin === 'HOTEL'
-                          ? '숙소에서 짐을 찾고 출발하는 시각이에요.'
-                          : '휴식과 짐 회수를 마친 뒤의 시각이에요.'}
+                          ? t('classic.finish.readyHotel')
+                          : t('classic.finish.readyRace')}
                       </FieldDescription>
                     </Field>
                     <Field orientation="horizontal">
@@ -561,7 +588,7 @@ export const FinishScreen = () => {
                         }
                       />
                       <FieldLabel htmlFor="baggage" className="font-normal">
-                        출발 전에 짐을 모두 챙길 수 있어요
+                        {t('classic.finish.baggage')}
                       </FieldLabel>
                     </Field>
                   </>
@@ -571,7 +598,7 @@ export const FinishScreen = () => {
             {plan.condition === 'UNWELL' ? (
               <CardFooter>
                 <Button variant="destructive" className="w-full" asChild>
-                  <a href="tel:119">긴급하면 119</a>
+                  <a href="tel:119">{t('classic.finish.sos')}</a>
                 </Button>
               </CardFooter>
             ) : (
@@ -581,7 +608,7 @@ export const FinishScreen = () => {
                   disabled={!ready}
                   onClick={() => run(go('course'))}
                 >
-                  가능한 코스 보기 <ArrowRight />
+                  {t('classic.finish.see')} <ArrowRight />
                 </Button>
               </CardFooter>
             )}
@@ -595,40 +622,41 @@ export const FinishScreen = () => {
 
 // ── S4 코스 ──────────────────────────────────────────────────────────────
 
-const decisionLabel: Record<Decision, string> = {
-  GO: '추천 코스',
-  INDOOR: '실내 위주',
-  SHORTEN: '단축 코스',
-  CANCEL: '귀가 우선',
-  MEDICAL_FIRST: '의료 우선',
-  NEEDS_DATA: '확인 필요',
-  INCOMPLETE: '입력 필요',
+const decisionLabel: Record<Decision, MessageKey> = {
+  GO: 'classic.decision.GO',
+  INDOOR: 'classic.decision.INDOOR',
+  SHORTEN: 'classic.decision.SHORTEN',
+  CANCEL: 'classic.decision.CANCEL',
+  MEDICAL_FIRST: 'classic.decision.MEDICAL_FIRST',
+  NEEDS_DATA: 'classic.decision.NEEDS_DATA',
+  INCOMPLETE: 'classic.decision.INCOMPLETE',
 }
 
-const emptyTitle: Partial<Record<Decision, string>> = {
-  MEDICAL_FIRST: '오늘은 몸이 먼저예요',
-  NEEDS_DATA: '이동 경로 확인이 필요해요',
-  INCOMPLETE: '출발 조건을 먼저 확인해요',
-  CANCEL: '오늘은 귀가를 먼저 챙겨요',
+const emptyTitle: Partial<Record<Decision, MessageKey>> = {
+  MEDICAL_FIRST: 'classic.empty.MEDICAL_FIRST',
+  NEEDS_DATA: 'classic.empty.NEEDS_DATA',
+  INCOMPLETE: 'classic.empty.INCOMPLETE',
+  CANCEL: 'classic.empty.CANCEL',
 }
 
 export const CourseScreen = () => {
   const { state, itinerary: it, run, open, config, map } = useApp()
+  const { t } = useI18n()
+  const names = useNames()
   const travel = canTravel(it)
   const hub = hubOf(config, state.plan)
-  const names = it.stops
+  const empty = emptyTitle[it.decision]
+  const stops = it.stops
     .map((s) => config.places.find((p) => p.id === s.id)?.attrs.short)
     .join(' → ')
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title={courseById(config, it.course)?.title ?? '코스'}
-        description={
-          travel ? names : '지금 조건으로는 관광 코스를 만들 수 없어요.'
-        }
+        title={names.course(it.course) ?? t('classic.step.course')}
+        description={travel ? stops : t('classic.course.none')}
         action={
           <Badge variant={travel ? 'secondary' : 'outline'}>
-            {decisionLabel[it.decision]}
+            {t(decisionLabel[it.decision])}
           </Badge>
         }
       />
@@ -639,7 +667,7 @@ export const CourseScreen = () => {
               <>
                 <Alert>
                   <Info />
-                  <AlertTitle>이 코스인 이유</AlertTitle>
+                  <AlertTitle>{t('classic.course.why')}</AlertTitle>
                   <AlertDescription>
                     <p>{it.reasons.join(' ')}</p>
                     <Button
@@ -647,7 +675,7 @@ export const CourseScreen = () => {
                       className="h-auto p-0"
                       onClick={() => open('why')}
                     >
-                      계산 근거 보기
+                      {t('classic.course.basis')}
                     </Button>
                   </AlertDescription>
                 </Alert>
@@ -665,17 +693,20 @@ export const CourseScreen = () => {
                     )}
                   </EmptyMedia>
                   <EmptyTitle>
-                    {emptyTitle[it.decision] ?? '확인이 필요해요'}
+                    {empty ? t(empty) : t('classic.empty.other')}
                   </EmptyTitle>
                   <EmptyDescription>{it.reasons.join(' ')}</EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent className="flex-row justify-center gap-2">
                   <Button onClick={() => run(navigate(state, 'finish'))}>
-                    조건 다시 확인
+                    {t('classic.course.retry')}
                   </Button>
                   <Button variant="outline" asChild>
                     <a href={map(hub.id)} target="_blank" rel="noreferrer">
-                      {hub.name} 길찾기 <ArrowUpRight />
+                      {t('classic.course.directions', {
+                        hub: names.hub(state.plan),
+                      })}{' '}
+                      <ArrowUpRight />
                     </a>
                   </Button>
                 </EmptyContent>
@@ -683,8 +714,7 @@ export const CourseScreen = () => {
             )}
             <ObservationCard />
             <p className="text-xs text-muted-foreground">
-              이동시간과 관측값은 시연용 가정값이에요. 실제 버스편·영업시간·보행
-              경로는 확인이 필요해요.
+              {t('classic.course.note')}
             </p>
           </>
         }
@@ -697,7 +727,7 @@ export const CourseScreen = () => {
               disabled={!travel}
               onClick={() => run(accept(state, it))}
             >
-              이 코스로 갈게요 <ArrowRight />
+              {t('classic.go')} <ArrowRight />
             </Button>
           </>
         }
@@ -708,26 +738,26 @@ export const CourseScreen = () => {
 
 // ── S5 다음 행동 ──────────────────────────────────────────────────────────
 
-const stageLabel = (
-  area: string,
-  hub: string,
-): Record<Plan['stage'], string> => ({
-  BEFORE: '출발 전',
-  OUTBOUND: `${area}(으)로 이동 중`,
-  LOCAL: `${area}에 머무는 중`,
-  RETURN: `${hub}(으)로 이동 중`,
-  DONE: '도착',
-})
+const stageLabel: Record<Plan['stage'], MessageKey> = {
+  BEFORE: 'classic.stage.BEFORE',
+  OUTBOUND: 'classic.stage.OUTBOUND',
+  LOCAL: 'classic.stage.LOCAL',
+  RETURN: 'classic.stage.RETURN',
+  DONE: 'classic.stage.DONE',
+}
 
 export const NextScreen = () => {
   const { state, itinerary: it, run, config, map, open } = useApp()
+  const { t } = useI18n()
+  const names = useNames()
   const { plan } = state
   const next = it.stops[0]
     ? config.places.find((p) => p.id === it.stops[0].id)
     : undefined
   const travel = canTravel(it)
   const hub = hubOf(config, plan)
-  const area = courseById(config, it.course)?.area ?? '코스'
+  const hubName = names.hub(plan)
+  const area = names.area(it.course) ?? t('classic.step.course')
 
   if (plan.stage === 'DONE')
     return (
@@ -736,9 +766,13 @@ export const NextScreen = () => {
           <EmptyMedia variant="icon">
             <Check />
           </EmptyMedia>
-          <EmptyTitle>여행을 마쳤어요</EmptyTitle>
+          <EmptyTitle>{t('classic.next.doneTitle')}</EmptyTitle>
           <EmptyDescription>
-            {hub.name} 도착 {plan.currentTime} · {departLabel(config, plan)}
+            {t('classic.next.doneDesc', {
+              hub: hubName,
+              time: plan.currentTime,
+              depart: names.depart(plan),
+            })}
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
@@ -750,7 +784,7 @@ export const NextScreen = () => {
             ))}
           </div>
           <Button variant="outline" onClick={() => open('demo')}>
-            다른 시나리오 보기
+            {t('classic.next.other')}
           </Button>
         </EmptyContent>
       </Empty>
@@ -758,20 +792,20 @@ export const NextScreen = () => {
 
   const headline =
     plan.stage === 'OUTBOUND'
-      ? `${area}(으)로`
+      ? t('classic.next.to', { place: area })
       : plan.stage === 'RETURN'
-        ? `${hub.name}(으)로`
+        ? t('classic.next.to', { place: hubName })
         : !travel || !next
-          ? `${hub.name}(으)로 돌아갈 시간이에요`
+          ? t('classic.next.backTime', { hub: hubName })
           : next.attrs.short
   const description =
     plan.stage === 'OUTBOUND'
-      ? '버스 경로와 승차 정류장은 지도에서 확인해 주세요.'
+      ? t('classic.next.outboundDesc')
       : plan.stage === 'RETURN'
-        ? `${departLabel(config, plan)} 전까지 여유 있게 이동해요.`
+        ? t('classic.next.returnDesc', { depart: names.depart(plan) })
         : next
           ? next.attrs.desc
-          : '남은 관광 대신 귀가 동선을 먼저 확인해요.'
+          : t('classic.next.noneDesc')
   const actionable =
     plan.stage === 'OUTBOUND' || plan.stage === 'RETURN' || it.stops.length > 0
   const destination =
@@ -784,8 +818,8 @@ export const NextScreen = () => {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="다음 행동"
-        description="남은 일정과 복귀 시간을 계속 다시 계산해요."
+        title={t('classic.step.next')}
+        description={t('classic.next.lead')}
         action={
           <Badge variant="outline">
             <Clock /> {plan.currentTime}
@@ -798,7 +832,7 @@ export const NextScreen = () => {
             <Card>
               <CardHeader>
                 <CardDescription>
-                  {stageLabel(area, hub.name)[plan.stage]}
+                  {t(stageLabel[plan.stage], { area, hub: hubName })}
                 </CardDescription>
                 <CardTitle className="text-xl">{headline}</CardTitle>
                 <CardDescription>{description}</CardDescription>
@@ -814,7 +848,9 @@ export const NextScreen = () => {
                       target="_blank"
                       rel="noreferrer"
                     >
-                      {plan.stage === 'LOCAL' ? '길찾기' : '대중교통 경로'}{' '}
+                      {plan.stage === 'LOCAL'
+                        ? t('classic.next.walkRoute')
+                        : t('classic.next.transit')}{' '}
                       <ArrowUpRight />
                     </a>
                   </Button>
@@ -824,13 +860,17 @@ export const NextScreen = () => {
                     onClick={() => run(advance(state, it))}
                   >
                     {plan.stage === 'OUTBOUND'
-                      ? `${area}에 도착했어요`
+                      ? t('classic.next.arrivedAt', { place: area })
                       : plan.stage === 'RETURN'
-                        ? `${hub.name}에 도착했어요`
-                        : `${next?.attrs.actionLabel ?? '방문'} 마쳤어요`}
+                        ? t('classic.next.arrivedAt', { place: hubName })
+                        : t('classic.next.done', {
+                            action:
+                              next?.attrs.actionLabel ??
+                              t('classic.next.visit'),
+                          })}
                   </Button>
                   <p className="text-xs text-muted-foreground">
-                    위치를 추적하지 않아요. 도착·완료는 직접 눌러 주세요.
+                    {t('classic.next.manual')}
                   </p>
                 </CardFooter>
               )}
@@ -841,13 +881,13 @@ export const NextScreen = () => {
                   variant="outline"
                   onClick={() => run(skipStop(state, it))}
                 >
-                  <SkipForward /> 건너뛰기
+                  <SkipForward /> {t('classic.next.skip')}
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => run(restMore(config, state))}
                 >
-                  <Coffee /> 30분 더 쉬기
+                  <Coffee /> {t('classic.next.rest')}
                 </Button>
               </div>
             )}
@@ -861,7 +901,7 @@ export const NextScreen = () => {
               variant="outline"
               onClick={() => run(startReturn(state, it))}
             >
-              <TrainFront /> {hub.name}(으)로 돌아가기
+              <TrainFront /> {t('classic.next.goBack', { hub: hubName })}
             </Button>
             <ObservationCard />
           </>

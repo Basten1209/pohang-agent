@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { GullPose } from '#/brand/brand'
 import { agentName } from '#/core/identity'
 import type { Place } from '#/core/schema'
+import { useI18n } from '#/i18n/react'
 
 export function VisitPhotoPrompt({
   place,
@@ -13,27 +14,28 @@ export function VisitPhotoPrompt({
   share: () => void
   dismiss: () => void
 }) {
+  const { t } = useI18n()
   return (
     <section
-      aria-label="여행 친구의 사진 제안"
+      aria-label={t('journey.promptLabel')}
       className="mascot-panel mascot-message gap-3 rounded-2xl border border-primary/15 p-4"
     >
       <GullPose pose="cheer" className="w-full self-start" decorative />
       <div className="min-w-0">
         <p className="text-xs font-medium text-primary">{agentName}</p>
         <p className="mt-1 text-sm font-semibold">
-          {place.attrs.short}에서의 순간, 사진으로 남겨볼까요?
+          {t('journey.promptQuestion', { place: place.attrs.short })}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          공유는 선택이에요. 사진과 공개 내용을 확인한 뒤 게시해요.
+          {t('journey.promptNote')}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button size="sm" onClick={share}>
             <Camera />
-            사진 남기기
+            {t('journey.promptShare')}
           </Button>
           <Button size="sm" variant="ghost" onClick={dismiss}>
-            나중에
+            {t('journey.promptLater')}
           </Button>
         </div>
       </div>

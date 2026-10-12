@@ -13,6 +13,7 @@ import {
   DialogDescription,
   DialogClose,
 } from '@/components/ui/dialog'
+import { useI18n } from '#/i18n/react'
 
 /** Old conversations still contain these retired source URLs. Keep their link destinations useful. */
 export const chatUrlTransform: UrlTransform = (url, key, node) => {
@@ -55,6 +56,7 @@ export function ExternalLinkDialog({
   onClose,
   onConfirm,
 }: LinkSafetyModalProps) {
+  const { t } = useI18n()
   const [copy, setCopy] = useState<'idle' | 'done' | 'error'>('idle')
   useEffect(() => {
     setCopy('idle')
@@ -70,14 +72,14 @@ export function ExternalLinkDialog({
         showCloseButton={false}
         className="z-[60] max-h-[85dvh] overflow-y-auto"
       >
-        <DialogTitle>외부 사이트로 이동</DialogTitle>
-        <DialogDescription>아래 주소를 새 창에서 열어요.</DialogDescription>
+        <DialogTitle>{t('chatx.link.title')}</DialogTitle>
+        <DialogDescription>{t('chatx.link.description')}</DialogDescription>
         <p className="select-text break-all rounded-lg bg-muted p-3 text-xs">
           {url}
         </p>
         <div className="flex flex-wrap justify-end gap-2">
           <DialogClose asChild>
-            <Button variant="ghost">닫기</Button>
+            <Button variant="ghost">{t('chatx.link.close')}</Button>
           </DialogClose>
           <Button
             variant="outline"
@@ -90,7 +92,7 @@ export function ExternalLinkDialog({
               }
             }}
           >
-            {copy === 'done' ? '복사했어요' : '링크 복사'}
+            {copy === 'done' ? t('chatx.link.copied') : t('chatx.link.copy')}
           </Button>
           <Button
             onClick={() => {
@@ -98,12 +100,12 @@ export function ExternalLinkDialog({
               onClose()
             }}
           >
-            링크 열기
+            {t('chatx.link.open')}
           </Button>
         </div>
         {copy === 'error' && (
           <p role="status" className="text-xs">
-            복사하지 못했어요. 위 주소를 길게 눌러 복사해 주세요.
+            {t('chatx.link.copyFailed')}
           </p>
         )}
       </DialogContent>

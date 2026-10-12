@@ -1,4 +1,17 @@
-import { CalendarDays, MapPin, Navigation, Timer } from 'lucide-react'
+import {
+  CalendarDays,
+  CircleDot,
+  Flag,
+  MapPin,
+  Navigation,
+  Timer,
+} from 'lucide-react'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,7 +30,7 @@ import {
   ItemMedia,
   ItemTitle,
 } from '@/components/ui/item'
-import { Separator } from '@/components/ui/separator'
+import { eventIn } from '#/core/race-event'
 import type { RaceEvent } from '#/core/schema'
 import { bib } from './mock'
 import { useI18n } from '#/i18n/react'
@@ -26,9 +39,11 @@ const directionsTo = (event: RaceEvent) =>
   `https://map.kakao.com/link/to/${encodeURIComponent(event.venue)},${event.geo.lat},${event.geo.lng}`
 
 /** When and where: the race at a glance. */
-export const RaceHeadline = ({ event }: { event: RaceEvent }) => {
-  const directions = directionsTo(event)
-  const { t } = useI18n()
+export const RaceHeadline = ({ event: source }: { event: RaceEvent }) => {
+  // Directions search the Korean venue name; the card reads in the runner's language.
+  const directions = directionsTo(source)
+  const { t, locale } = useI18n()
+  const event = eventIn(source, locale)
   return (
     <Card>
       {event.image && (
@@ -92,95 +107,127 @@ export const RaceHeadline = ({ event }: { event: RaceEvent }) => {
   )
 }
 
-/** What a participant needs before the gun: schedule, course, kit, facilities, FAQ. */
-export const RaceDetails = ({ event }: { event: RaceEvent }) => (
-  <>
-    <Card>
-      <CardHeader>
-        <CardTitle>당일 일정</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ol className="flex flex-col gap-2">
-          {event.schedule.map((s) => (
-            <li key={s.time} className="flex gap-3">
-              <span className="w-12 shrink-0 font-medium tabular-nums">
-                {s.time}
-              </span>
-              <span className="text-muted-foreground">{s.label}</span>
-            </li>
-          ))}
-        </ol>
-      </CardContent>
-    </Card>
+/** What a participant needs before the gun, folded so the home stays short. */
+export const RaceDetails = ({ event: source }: { event: RaceEvent }) => {
+  const { t, locale } = useI18n()
+  const event = eventIn(source, locale)
+  const last = event.course.route.length - 1
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('race.detail.guide')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Accordion type="multiple">
+            <AccordionItem value="schedule">
+              <AccordionTrigger>{t('race.detail.schedule')}</AccordionTrigger>
+              <AccordionContent>
+                <ol className="flex flex-col gap-2">
+                  {event.schedule.map((s) => (
+                    <li key={s.time} className="flex gap-3">
+                      <span className="w-12 shrink-0 font-medium tabular-nums">
+                        {s.time}
+                      </span>
+                      <span className="text-muted-foreground">{s.label}</span>
+                    </li>
+                  ))}
+                </ol>
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="course">
+              <AccordionTrigger>{t('race.detail.course')}</AccordionTrigger>
+              <AccordionContent className="flex flex-col gap-2">
+                <p className="text-muted-foreground">{event.course.summary}</p>
+                <ItemGroup>
+                  {event.course.route.map((c, i) => (
+                    <Item key={c} size="sm">
+                      <ItemMedia variant="icon">
+                        {i === 0 ? (
+                          <MapPin />
+                        ) : i === last ? (
+                          <Flag />
+                        ) : (
+                          <CircleDot />
+                        )}
+                      </ItemMedia>
+                      <ItemContent>
+                        <ItemTitle>{c}</ItemTitle>
+                      </ItemContent>
+                    </Item>
+                  ))}
+                </ItemGroup>
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="kit">
+              <AccordionTrigger>{t('race.detail.kit')}</AccordionTrigger>
+              <AccordionContent>
+                <ul className="flex list-disc flex-col gap-1 pl-5">
+                  {event.kit.map((k) => (
+                    <li key={k}>{k}</li>
+                  ))}
+                </ul>
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="facilities">
+              <AccordionTrigger>{t('race.detail.facilities')}</AccordionTrigger>
+              <AccordionContent>
+                <ItemGroup>
+                  {event.facilities.map((f) => (
+                    <Item key={f.label} size="sm">
+                      <ItemContent>
+                        <ItemTitle>{f.label}</ItemTitle>
+                        <ItemDescription>{f.detail}</ItemDescription>
+                      </ItemContent>
+                    </Item>
+                  ))}
+                </ItemGroup>
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="notes">
+              <AccordionTrigger>{t('race.detail.notes')}</AccordionTrigger>
+              <AccordionContent>
+                <ul className="flex list-disc flex-col gap-1 pl-5 text-muted-foreground">
+                  {event.notes.map((n) => (
+                    <li key={n}>{n}</li>
+                  ))}
+                </ul>
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="rules">
+              <AccordionTrigger>{t('race.detail.rules')}</AccordionTrigger>
+              <AccordionContent>
+                <ul className="flex list-disc flex-col gap-1 pl-5 text-muted-foreground">
+                  {event.rules.map((n) => (
+                    <li key={n}>{n}</li>
+                  ))}
+                </ul>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </CardContent>
+      </Card>
 
-    <Card>
-      <CardHeader>
-        <CardTitle>코스</CardTitle>
-        <CardDescription>{event.course.summary}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-wrap items-center gap-1.5">
-        {event.course.route.map((c, i) => (
-          <span key={c} className="flex items-center gap-1.5">
-            {i > 0 && <span className="text-muted-foreground">→</span>}
-            <Badge variant="secondary">{c}</Badge>
-          </span>
-        ))}
-      </CardContent>
-    </Card>
-
-    <Card>
-      <CardHeader>
-        <CardTitle>준비물</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ul className="flex list-disc flex-col gap-1 pl-5">
-          {event.kit.map((k) => (
-            <li key={k}>{k}</li>
-          ))}
-        </ul>
-      </CardContent>
-    </Card>
-
-    <Card>
-      <CardHeader>
-        <CardTitle>현장 시설</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">
-        {event.facilities.map((f, i) => (
-          <div key={f.label} className="flex flex-col gap-2">
-            {i > 0 && <Separator />}
-            <div className="flex justify-between gap-3">
-              <span className="font-medium">{f.label}</span>
-              <span className="text-right text-muted-foreground">
-                {f.detail}
-              </span>
-            </div>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-
-    <Card>
-      <CardHeader>
-        <CardTitle>자주 묻는 질문</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        {event.faq.map((f) => (
-          <div key={f.q} className="flex flex-col gap-0.5">
-            <span className="font-medium">{f.q}</span>
-            <span className="text-muted-foreground">{f.a}</span>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-
-    <ul className="flex list-disc flex-col gap-1 px-1 pl-5 text-xs text-muted-foreground">
-      {[...event.notes, ...event.rules].map((n) => (
-        <li key={n}>{n}</li>
-      ))}
-    </ul>
-  </>
-)
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('race.detail.faq')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Accordion type="single" collapsible>
+            {event.faq.map((f, i) => (
+              <AccordionItem key={f.q} value={`faq-${i}`}>
+                <AccordionTrigger>{f.q}</AccordionTrigger>
+                <AccordionContent className="text-muted-foreground">
+                  {f.a}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </CardContent>
+      </Card>
+    </>
+  )
+}
 
 export const RaceOverview = ({ event }: { event: RaceEvent }) => (
   <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4">

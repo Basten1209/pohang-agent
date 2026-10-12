@@ -254,11 +254,6 @@ export const Shell = ({
             <span className="whitespace-nowrap font-bold tracking-tight text-foreground">
               RUN2구룡포
             </span>
-            <Badge variant="secondary">
-              {view.state.plan.stage === 'LOCAL'
-                ? t('stage.touring')
-                : t(`stage.${view.stage}`)}
-            </Badge>
             {showTools && agent.mode && (
               <Badge variant="outline">{t(`mode.${agent.mode}`)}</Badge>
             )}
@@ -338,7 +333,11 @@ export const Shell = ({
           </div>
           <div className="mx-auto max-w-2xl px-4 pb-2">
             <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
-              <TabsList aria-label={t('nav.label')} className="w-full">
+              <TabsList
+                variant="line"
+                aria-label={t('nav.label')}
+                className="w-full"
+              >
                 {(
                   [
                     { id: 'home', Icon: House },
@@ -347,7 +346,11 @@ export const Shell = ({
                     { id: 'community', Icon: Users },
                   ] as const
                 ).map(({ id, Icon }) => (
-                  <TabsTrigger key={id} value={id}>
+                  <TabsTrigger
+                    key={id}
+                    value={id}
+                    className="text-xs sm:text-sm"
+                  >
                     {/* At the largest text size the labels need the room. */}
                     <Icon
                       aria-hidden

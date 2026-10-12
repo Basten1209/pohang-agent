@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button'
 import type { TripConfig, Venue } from '#/core/schema'
 import { courseVenues, venueMapUrl } from '#/core/venues'
 import { pohangTenTastesUrl } from '#/core/seed/venues'
+import { Rich, useI18n } from '#/i18n/react'
 
 const kinds = [
-  { id: 'food', label: '맛집', Icon: Utensils },
-  { id: 'cafe', label: '카페', Icon: Coffee },
-  { id: 'sight', label: '볼거리', Icon: MapPin },
+  { id: 'food', Icon: Utensils },
+  { id: 'cafe', Icon: Coffee },
+  { id: 'sight', Icon: MapPin },
 ] as const
 
 export function CourseCandidates({
@@ -19,6 +20,7 @@ export function CourseCandidates({
   config: TripConfig
   course: string | null
 }) {
+  const { t } = useI18n()
   const [kind, setKind] = useState<Venue['kind']>('food')
   const [expanded, setExpanded] = useState(false)
   const venues = courseVenues(config, course)
@@ -26,19 +28,19 @@ export function CourseCandidates({
   const filtered = venues.filter((v) => v.kind === kind)
   const shown = expanded ? filtered : filtered.slice(0, 3)
   return (
-    <section className="space-y-3" aria-label="관광 안내와 지도 정보의 실제 방문 후보">
+    <section className="space-y-3" aria-label={t('tour.candidatesLabel')}>
       <div>
-        <h3 className="text-base font-semibold">어디에 들러볼까요?</h3>
+        <h3 className="text-base font-semibold">{t('tour.candidatesTitle')}</h3>
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-          관광 안내와 지도 매장 정보에서 찾은 실제 장소예요.
+          {t('tour.candidatesBody')}
         </p>
       </div>
       <div
         className="flex flex-wrap gap-2"
         role="group"
-        aria-label="방문 후보 종류"
+        aria-label={t('tour.kindsLabel')}
       >
-        {kinds.map(({ id, label, Icon }) => (
+        {kinds.map(({ id, Icon }) => (
           <Button
             key={id}
             size="sm"
@@ -50,22 +52,25 @@ export function CourseCandidates({
             }}
           >
             <Icon className="size-3.5" />
-            {label} {venues.filter((v) => v.kind === id).length}
+            {t(`tour.kind.${id}`)} {venues.filter((v) => v.kind === id).length}
           </Button>
         ))}
       </div>
       {kind === 'food' && venues.some((v) => v.tenTaste) && (
         <p className="rounded-lg bg-secondary p-3 text-xs leading-relaxed text-secondary-foreground">
-          포항시가 소개한{' '}
-          <a
-            href={pohangTenTastesUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="font-semibold underline underline-offset-2"
-          >
-            포항 10미
-          </a>{' '}
-          중 모리국수·물회·과메기를 맛볼 곳부터 골라봤어요.
+          <Rich
+            text={t('tour.tenTastesIntro')}
+            icon={
+              <a
+                href={pohangTenTastesUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold underline underline-offset-2"
+              >
+                {t('tour.tenTastes')}
+              </a>
+            }
+          />
         </p>
       )}
       <ul className="space-y-2">
@@ -75,12 +80,12 @@ export function CourseCandidates({
               <p className="text-sm font-semibold">{v.name}</p>
               {v.tenTaste && (
                 <Badge variant="secondary" className="text-[0.625rem]">
-                  포항 10미
+                  {t('tour.tenTastes')}
                 </Badge>
               )}
               {v.detour && (
                 <Badge variant="outline" className="text-[0.625rem]">
-                  별도 이동
+                  {t('tour.detour')}
                 </Badge>
               )}
             </div>
@@ -104,16 +109,19 @@ export function CourseCandidates({
                 target="_blank"
                 rel="noreferrer"
                 className="py-1 font-medium text-primary underline underline-offset-2"
-                aria-label={`${v.name} 지도 보기`}
+                aria-label={t('tour.viewMapOf', { name: v.name })}
               >
-                지도 보기
+                {t('tour.viewMap')}
               </a>
               <a
                 href={v.source.url}
                 target="_blank"
                 rel="noreferrer"
                 className="py-1 text-muted-foreground underline underline-offset-2"
-                aria-label={`${v.name} ${v.source.title} 소개 보기`}
+                aria-label={t('tour.viewSourceOf', {
+                  name: v.name,
+                  source: v.source.title,
+                })}
               >
                 {v.source.title} ↗
               </a>
@@ -128,12 +136,13 @@ export function CourseCandidates({
           className="w-full"
           onClick={() => setExpanded(!expanded)}
         >
-          {expanded ? '접기' : `후보 ${filtered.length - 3}곳 더 보기`}
+          {expanded
+            ? t('tour.collapse')
+            : t('tour.showMore', { n: filtered.length - 3 })}
         </Button>
       )}
       <p className="text-[0.6875rem] leading-relaxed text-muted-foreground">
-        2026.10.12 소개 자료·지도 등록 확인. 방문 후보이며 일정에 자동 추가되지
-        않아요. 영업 여부·메뉴·이동 시간은 방문 전에 확인해 주세요.
+        {t('tour.candidatesNote')}
       </p>
     </section>
   )

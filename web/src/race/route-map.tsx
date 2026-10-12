@@ -4,6 +4,7 @@ import { LocateFixed } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
 import { Button } from '@/components/ui/button'
 import { demoRoute, routeAt } from '#/core/race-route'
+import { useI18n } from '#/i18n/react'
 
 /** Leaflet draws SVG attributes, which cannot use CSS variables: read the theme tokens once. */
 const themeColors = () => {
@@ -26,6 +27,7 @@ export const RaceRouteMap = ({ progress }: { progress: number }) => {
     'loading' | 'ready' | 'tiles-error' | 'error'
   >('loading')
   const [attempt, setAttempt] = useState(0)
+  const { t } = useI18n()
 
   useEffect(() => {
     latest.current = routeAt(progress)
@@ -53,7 +55,10 @@ export const RaceRouteMap = ({ progress }: { progress: number }) => {
         })
         mapRef.current = map
         L.control
-          .zoom({ zoomInTitle: '지도 확대', zoomOutTitle: '지도 축소' })
+          .zoom({
+            zoomInTitle: t('race.map.zoomIn'),
+            zoomOutTitle: t('race.map.zoomOut'),
+          })
           .addTo(map)
         map.fitBounds([...demoRoute], {
           padding: [28, 32],
@@ -93,7 +98,10 @@ export const RaceRouteMap = ({ progress }: { progress: number }) => {
           weight: 2,
         })
           .addTo(map)
-          .bindTooltip('출발 · 도착', { permanent: true, direction: 'left' })
+          .bindTooltip(t('race.map.startFinish'), {
+            permanent: true,
+            direction: 'left',
+          })
         L.circleMarker(demoRoute[(demoRoute.length - 1) / 2], {
           radius: 5,
           color: colors.primary,
@@ -102,7 +110,10 @@ export const RaceRouteMap = ({ progress }: { progress: number }) => {
           weight: 2,
         })
           .addTo(map)
-          .bindTooltip('5km 반환점', { permanent: true, direction: 'right' })
+          .bindTooltip(t('race.map.turn'), {
+            permanent: true,
+            direction: 'right',
+          })
         const marker = L.circleMarker(latest.current.position, {
           radius: 8,
           color: colors.card,
@@ -111,7 +122,7 @@ export const RaceRouteMap = ({ progress }: { progress: number }) => {
           fillOpacity: 1,
         })
           .addTo(map)
-          .bindTooltip('나의 시연 위치', { direction: 'right' })
+          .bindTooltip(t('race.map.me'), { direction: 'right' })
         layers.current = { trail, marker }
         resize = new ResizeObserver(([entry]) => {
           // The race stays mounted behind navigation. A hidden container has
@@ -137,12 +148,12 @@ export const RaceRouteMap = ({ progress }: { progress: number }) => {
       mapRef.current = null
       map?.remove()
     }
-  }, [attempt])
+  }, [attempt, t])
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-semibold">나의 이동 경로</p>
+        <p className="text-sm font-semibold">{t('race.map.title')}</p>
         <Button
           variant="ghost"
           size="sm"
@@ -156,7 +167,7 @@ export const RaceRouteMap = ({ progress }: { progress: number }) => {
           }
         >
           <LocateFixed />
-          전체 경로
+          {t('race.map.fit')}
         </Button>
       </div>
       <div className="relative isolate overflow-hidden rounded-2xl border">
@@ -164,14 +175,14 @@ export const RaceRouteMap = ({ progress }: { progress: number }) => {
           ref={container}
           className="race-map h-72 w-full bg-secondary sm:h-80"
           role="region"
-          aria-label="영일대 주변 가상 GPS 이동 경로 지도"
+          aria-label={t('race.map.region')}
         />
         {status === 'loading' && (
           <p
             role="status"
             className="pointer-events-none absolute inset-0 grid place-items-center text-sm text-muted-foreground"
           >
-            지도를 불러오는 중이에요…
+            {t('race.map.loading')}
           </p>
         )}
       </div>
@@ -182,28 +193,30 @@ export const RaceRouteMap = ({ progress }: { progress: number }) => {
         >
           <p>
             {status === 'error'
-              ? '지도를 불러오지 못했어요.'
-              : '지도 배경 일부를 불러오지 못했어요.'}{' '}
-            시연 기록은 계속 진행돼요.
+              ? t('race.map.error')
+              : t('race.map.tilesError')}{' '}
+            {t('race.map.continues')}
           </p>
           <Button
             variant="outline"
             size="sm"
             onClick={() => setAttempt((n) => n + 1)}
           >
-            지도 다시 불러오기
+            {t('race.map.retry')}
           </Button>
         </div>
       )}
       <p className="text-xs leading-relaxed text-muted-foreground">
-        <span className="font-medium text-primary">━ 이동한 경로</span>
+        <span className="font-medium text-primary">
+          ━ {t('race.map.trail')}
+        </span>
         {' · '}
-        <span className="text-primary">● 현재 위치</span>
-        {' · '}가상 GPS 시연
+        <span className="text-primary">● {t('race.map.here')}</span>
+        {' · '}
+        {t('race.map.demo')}
       </p>
       <p className="text-xs leading-relaxed text-muted-foreground">
-        영일대에서 해안 도로·보행로를 따라 5km 반환하는 시연 경로예요. 실제 대회
-        코스와 달라요.
+        {t('race.map.note')}
       </p>
     </div>
   )

@@ -13,9 +13,42 @@ import {
 import { ItineraryTimeline } from '#/home/timeline'
 import { usableReading } from '#/core/signals'
 import { courseById, hubOf, modeOf } from '#/core/route'
-import { clock, duration } from '#/core/time'
+import type { Plan } from '#/core/schema'
+import { clock } from '#/core/time'
 import { toggleExcluded, toggleWalking } from '#/core/trip'
+import { durationText } from '#/i18n'
+import { useI18n } from '#/i18n/react'
 import { useApp } from './context'
+
+/** Config names (hub, way home, course, area) in the chosen language. */
+export const useNames = () => {
+  const { config } = useApp()
+  const { d } = useI18n()
+  const hub = (plan: Pick<Plan, 'departMode'>) => {
+    const h = hubOf(config, plan)
+    return d(`hub.${h.id}`, h.name)
+  }
+  const noun = (plan: Pick<Plan, 'departMode'>) => {
+    const m = modeOf(config, plan)
+    return d(`noun.${m.id}`, m.noun)
+  }
+  return {
+    hub,
+    noun,
+    /** "18:30 열차" in the chosen language. */
+    depart: (plan: Pick<Plan, 'departMode' | 'departTime'>) =>
+      `${plan.departTime} ${noun(plan)}`,
+    course: (id: string | null | undefined) => {
+      const c = courseById(config, id)
+      return c && d(`course.${c.id}`, c.title)
+    },
+    area: (id: string | null | undefined) => {
+      const c = courseById(config, id)
+      if (!c) return undefined
+      return d(`area.${c.id}`, c.area)
+    },
+  }
+}
 
 const Stat = ({ label, value }: { label: string; value: string }) => (
   <div className="flex flex-col gap-1">
@@ -25,29 +58,36 @@ const Stat = ({ label, value }: { label: string; value: string }) => (
 )
 
 export const TrainCard = () => {
-  const { state, itinerary, open, config } = useApp()
+  const { state, itinerary, open } = useApp()
+  const { t, locale } = useI18n()
+  const names = useNames()
   const slack = itinerary.slack
   return (
     <Card>
       <CardHeader>
-        <CardTitle>귀가 {modeOf(config, state.plan).noun}</CardTitle>
+        <CardTitle>
+          {t('classic.train.title', { noun: names.noun(state.plan) })}
+        </CardTitle>
         <CardDescription>
-          {hubOf(config, state.plan).name} · 실제 예약은 바뀌지 않아요
+          {t('classic.train.desc', { hub: names.hub(state.plan) })}
         </CardDescription>
         <CardAction>
           <Button variant="outline" size="sm" onClick={() => open('train')}>
-            {state.plan.departTime} 변경
+            {t('classic.train.change', { time: state.plan.departTime })}
           </Button>
         </CardAction>
       </CardHeader>
       <CardContent className="grid grid-cols-2 gap-4">
-        <Stat label="역 도착 목표" value={clock(itinerary.stationTarget)} />
         <Stat
-          label="계획상 역 도착"
+          label={t('classic.target')}
+          value={clock(itinerary.stationTarget)}
+        />
+        <Stat
+          label={t('classic.planned')}
           value={
             itinerary.planningArrival !== null
               ? clock(itinerary.planningArrival)
-              : '확인 필요'
+              : t('classic.train.check')
           }
         />
       </CardContent>
@@ -55,8 +95,10 @@ export const TrainCard = () => {
         <CardFooter>
           <Badge variant={slack < 0 ? 'destructive' : 'secondary'}>
             {slack < 0
-              ? `목표보다 ${Math.abs(slack)}분 늦어요`
-              : `목표까지 ${duration(slack)} 여유`}
+              ? t('classic.train.late', { n: Math.abs(slack) })
+              : t('classic.train.slack', {
+                  duration: durationText(locale, slack),
+                })}
           </Badge>
         </CardFooter>
       )}
@@ -66,18 +108,21 @@ export const TrainCard = () => {
 
 export const ObservationCard = () => {
   const { state, open, config } = useApp()
+  const { t } = useI18n()
   const obs = state.observations
   return (
     <Card>
       <CardHeader>
-        <CardTitle>포항 관측</CardTitle>
+        <CardTitle>{t('classic.obs.title')}</CardTitle>
         <CardDescription>
-          E-UM 디지털 트윈 ·{' '}
-          {obs.provenance === 'SIMULATED' ? '시연 관측' : '실관측'}
+          {t('classic.obs.twin')} ·{' '}
+          {obs.provenance === 'SIMULATED'
+            ? t('classic.obs.simulated')
+            : t('classic.obs.live')}
         </CardDescription>
         <CardAction>
           <Button variant="ghost" size="sm" onClick={() => open('evidence')}>
-            근거
+            {t('classic.obs.basis')}
           </Button>
         </CardAction>
       </CardHeader>
@@ -89,7 +134,7 @@ export const ObservationCard = () => {
             <Stat
               key={s.reading}
               label={s.label}
-              value={v === null ? '확인 불가' : `${v}${unit}`}
+              value={v === null ? t('classic.obs.na') : `${v}${unit}`}
             />
           )
         })}
@@ -100,14 +145,21 @@ export const ObservationCard = () => {
 
 export const StatsCard = () => {
   const { itinerary } = useApp()
+  const { t, locale } = useI18n()
   return (
     <Card>
       <CardContent className="grid grid-cols-3 gap-4">
-        <Stat label="걷기" value={`${itinerary.walking}분`} />
-        <Stat label="코스 체류" value={duration(itinerary.localMin)} />
         <Stat
-          label="왕복 이동"
-          value={duration(itinerary.outbound + itinerary.returnMin)}
+          label={t('classic.stats.walk')}
+          value={t('classic.min', { n: itinerary.walking })}
+        />
+        <Stat
+          label={t('classic.stats.stay')}
+          value={durationText(locale, itinerary.localMin)}
+        />
+        <Stat
+          label={t('classic.stats.travel')}
+          value={durationText(locale, itinerary.outbound + itinerary.returnMin)}
         />
       </CardContent>
     </Card>
@@ -116,17 +168,22 @@ export const StatsCard = () => {
 
 export const ItineraryCard = () => {
   const { itinerary: it, config, open, map, state } = useApp()
+  const { t } = useI18n()
+  const names = useNames()
   const place = (id: string) => config.places.find((p) => p.id === id)
   return (
     <Card>
       <CardHeader>
-        <CardTitle>코스</CardTitle>
+        <CardTitle>{t('classic.step.course')}</CardTitle>
         <CardDescription>
-          {it.stops.length}곳 · {courseById(config, it.course)?.title ?? ''}
+          {t('classic.itin.count', {
+            n: it.stops.length,
+            course: names.course(it.course) ?? '',
+          })}
         </CardDescription>
         <CardAction>
           <Button variant="ghost" size="sm" onClick={() => open('taxi')}>
-            이동수단
+            {t('classic.itin.transport')}
           </Button>
         </CardAction>
       </CardHeader>
@@ -136,7 +193,10 @@ export const ItineraryCard = () => {
           <div className="flex flex-wrap gap-2">
             {it.excluded.map((x) => (
               <Badge key={x.id} variant="outline">
-                {place(x.id)?.attrs.short ?? x.id} 제외 · {x.reason}
+                {t('classic.itin.excluded', {
+                  place: place(x.id)?.attrs.short ?? x.id,
+                  reason: x.reason,
+                })}
               </Badge>
             ))}
           </div>
@@ -145,7 +205,8 @@ export const ItineraryCard = () => {
       <CardFooter className="grid grid-cols-2 gap-2">
         <Button variant="outline" asChild>
           <a href={map('COURSE')} target="_blank" rel="noreferrer">
-            {courseById(config, it.course)?.area} 경로 <ArrowUpRight />
+            {t('classic.itin.route', { name: names.area(it.course) ?? '' })}{' '}
+            <ArrowUpRight />
           </a>
         </Button>
         <Button variant="outline" asChild>
@@ -154,7 +215,8 @@ export const ItineraryCard = () => {
             target="_blank"
             rel="noreferrer"
           >
-            {hubOf(config, state.plan).name} 경로 <ArrowUpRight />
+            {t('classic.itin.route', { name: names.hub(state.plan) })}{' '}
+            <ArrowUpRight />
           </a>
         </Button>
       </CardFooter>
@@ -164,12 +226,13 @@ export const ItineraryCard = () => {
 
 export const AdjustCard = () => {
   const { state, run, open } = useApp()
+  const { t } = useI18n()
   const cafeOut = state.plan.excluded.includes('cafe')
   return (
     <Card>
       <CardHeader>
-        <CardTitle>조정</CardTitle>
-        <CardDescription>바꾸면 바로 다시 계산해요.</CardDescription>
+        <CardTitle>{t('classic.adjust.title')}</CardTitle>
+        <CardDescription>{t('classic.adjust.desc')}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         <Button
@@ -179,8 +242,8 @@ export const AdjustCard = () => {
         >
           <Footprints />
           {state.plan.walkingLimit === 30
-            ? '15분 이내로 걷기'
-            : '30분까지 걷기'}
+            ? t('classic.adjust.walk15')
+            : t('classic.adjust.walk30')}
         </Button>
         <Button
           variant="outline"
@@ -188,7 +251,7 @@ export const AdjustCard = () => {
           onClick={() => run(toggleExcluded(state, 'cafe'))}
         >
           <Coffee />
-          {cafeOut ? '카페 다시 넣기' : '카페 빼기'}
+          {cafeOut ? t('classic.adjust.cafeIn') : t('classic.adjust.cafeOut')}
         </Button>
         <Button
           variant="outline"
@@ -196,7 +259,7 @@ export const AdjustCard = () => {
           onClick={() => open('train')}
         >
           <TrainFront />
-          귀가 시각 변경
+          {t('classic.adjust.depart')}
         </Button>
       </CardContent>
     </Card>

@@ -1,4 +1,5 @@
 import type { RaceEvent } from '../schema'
+import { eventTranslations } from './event-translations'
 import { images } from './images'
 
 /**
@@ -112,6 +113,7 @@ export const event: RaceEvent = {
       a: '대회장에는 샤워 시설이 없어요. 탈의실만 운영해요.',
     },
   ],
+  translations: eventTranslations(raceDate),
   meta: {
     provenance: 'DEMO',
     verified: false,
