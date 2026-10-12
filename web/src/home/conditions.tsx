@@ -9,14 +9,18 @@ import { recommendTransport } from '#/core/transport'
 import { mapUrl } from '#/core/links'
 import { hubOf } from '#/core/route'
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
+import { htmlLang } from '#/i18n'
+import type { Locale } from '#/i18n'
+import { Rich, useI18n } from '#/i18n/react'
 
-const at = (iso?: string | null) =>
+const at = (locale: Locale, unknown: string, iso?: string | null) =>
   iso && Number.isFinite(Date.parse(iso))
-    ? new Intl.DateTimeFormat('ko-KR', {
+    ? new Intl.DateTimeFormat(locale === 'ko' ? 'ko-KR' : htmlLang[locale], {
         timeZone: 'Asia/Seoul',
         month: '2-digit',
         day: '2-digit',
@@ -24,7 +28,7 @@ const at = (iso?: string | null) =>
         minute: '2-digit',
         hour12: false,
       }).format(new Date(iso))
-    : '확인 불가'
+    : unknown
 
 export const ConditionsCard = ({
   config,
@@ -34,94 +38,122 @@ export const ConditionsCard = ({
   view: TripView
 }) => {
   const obs = view.state.observations
+  const { t, locale } = useI18n()
   const hasDemo = config.sources.some(
     (source) =>
       source.enabled && obs.sources[source.reading]?.provenance === 'DEMO',
   )
   return (
-    <Collapsible className="rounded-xl border bg-card px-4 py-3 text-xs text-muted-foreground">
-      <CollapsibleTrigger className="cursor-pointer leading-relaxed w-full text-left">
-        <span className="font-semibold text-foreground">
-          {hasDemo ? 'E-UM · 구룡포 조건 시연' : 'E-UM · 구룡포의 지금'}
-        </span>
-        <span className="mt-1 block">
-          {[
-            { reading: 'congestion', label: '교통', unit: '%' },
-            { reading: 'pm25', label: '미세먼지', unit: 'μg/m³' },
-            { reading: 'uvIndex', label: '자외선', unit: '' },
-          ]
-            .filter((s) =>
-              config.sources.some(
-                (source) => source.enabled && source.reading === s.reading,
-              ),
-            )
-            .map((source) => {
-              const value = usableReading(obs, source.reading)
-              return `${source.label} ${value == null ? '확인 중' : `${Math.round(value * 10) / 10}${source.unit}`}`
-            })
-            .join(' · ')}
-        </span>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div className="mt-3 space-y-3 border-t pt-3 leading-relaxed">
-          <p>{[...new Set(view.itinerary.reasons)].join(' ')}</p>
-          {config.sources
-            .filter((s) => s.enabled)
-            .map((source) => {
-              const src = obs.sources[source.reading]
-              const scoped =
-                view.itinerary.course === 'guryongpo' ||
-                (source.reading === 'congestion' &&
-                  view.itinerary.legs.some((leg) => leg.trafficScope))
-              const applies =
-                scoped &&
-                view.itinerary.calculationStatus !== 'NOT_RUN' &&
-                usableReading(obs, source.reading) !== null &&
-                (src?.eligible === true || src?.provenance === 'DEMO')
-              return (
-                <div key={source.id} className="space-y-1">
-                  <p className="font-medium text-foreground">{source.label}</p>
-                  <p>
-                    {src?.value ?? obs.readings[source.reading] ?? '확인 중'}{' '}
-                    {source.unit}
-                  </p>
-                  <p>
-                    {src?.provenance === 'DEMO'
-                      ? '시연 조건'
-                      : src?.provenance === 'LIVE'
-                        ? '실응답'
-                        : src?.provenance === 'SNAPSHOT'
-                          ? '저장 관측'
-                          : '확인 불가'}{' '}
-                    · {src?.freshness === 'STALE' ? '오래된 관측 · ' : ''}
-                    {applies && view.itinerary.needsReview
-                      ? '일정 재검토 필요 · 현재 판단에 미반영'
-                      : applies
-                        ? '현재 코스 판단에 반영'
-                        : '현재 코스 판단에 미반영'}
-                  </p>
-                  <p>
-                    관측 {at(src?.observedAt)} · 조회 {at(src?.fetchedAt)}
-                  </p>
-                  <p>{src?.note}</p>
-                  <a
-                    href={String(source.meta.docs)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline"
-                  >
-                    제공 정보
-                  </a>
-                </div>
-              )
-            })}
-          <p>
-            구룡포 관측은 포항 전역의 상태를 의미하지 않아요. 이동시간은 시연
-            추정이에요.
-          </p>
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+    <Accordion
+      type="single"
+      collapsible
+      className="rounded-xl border bg-card px-4 text-xs text-muted-foreground"
+    >
+      <AccordionItem value="conditions">
+        <AccordionTrigger className="py-3 text-xs font-normal leading-relaxed">
+          <span className="flex flex-col">
+            <span className="font-semibold text-foreground">
+              {hasDemo ? t('race.cond.titleDemo') : t('race.cond.title')}
+            </span>
+            <span className="mt-1 block">
+              {[
+                {
+                  reading: 'congestion',
+                  label: t('race.cond.traffic'),
+                  unit: '%',
+                },
+                { reading: 'pm25', label: t('race.cond.pm25'), unit: 'μg/m³' },
+                { reading: 'uvIndex', label: t('race.cond.uv'), unit: '' },
+              ]
+                .filter((s) =>
+                  config.sources.some(
+                    (source) => source.enabled && source.reading === s.reading,
+                  ),
+                )
+                .map((source) => {
+                  const value = usableReading(obs, source.reading)
+                  return `${source.label} ${value == null ? t('race.cond.checking') : `${Math.round(value * 10) / 10}${source.unit}`}`
+                })
+                .join(' · ')}
+            </span>
+          </span>
+        </AccordionTrigger>
+        <AccordionContent className="text-xs">
+          <div className="space-y-3 border-t pt-3 leading-relaxed">
+            <p>{[...new Set(view.itinerary.reasons)].join(' ')}</p>
+            {config.sources
+              .filter((s) => s.enabled)
+              .map((source) => {
+                const src = obs.sources[source.reading]
+                const scoped =
+                  view.itinerary.course === 'guryongpo' ||
+                  (source.reading === 'congestion' &&
+                    view.itinerary.legs.some((leg) => leg.trafficScope))
+                const applies =
+                  scoped &&
+                  view.itinerary.calculationStatus !== 'NOT_RUN' &&
+                  usableReading(obs, source.reading) !== null &&
+                  (src?.eligible === true || src?.provenance === 'DEMO')
+                return (
+                  <div key={source.id} className="space-y-1">
+                    <p className="font-medium text-foreground">
+                      {source.label}
+                    </p>
+                    <p>
+                      {src?.value ??
+                        obs.readings[source.reading] ??
+                        t('race.cond.checking')}{' '}
+                      {source.unit}
+                    </p>
+                    <p>
+                      {src?.provenance === 'DEMO'
+                        ? t('race.cond.prov.DEMO')
+                        : src?.provenance === 'LIVE'
+                          ? t('race.cond.prov.LIVE')
+                          : src?.provenance === 'SNAPSHOT'
+                            ? t('race.cond.prov.SNAPSHOT')
+                            : t('race.cond.unknown')}{' '}
+                      ·{' '}
+                      {src?.freshness === 'STALE'
+                        ? `${t('race.cond.stale')} · `
+                        : ''}
+                      {applies && view.itinerary.needsReview
+                        ? t('race.cond.review')
+                        : applies
+                          ? t('race.cond.applied')
+                          : t('race.cond.notApplied')}
+                    </p>
+                    <p>
+                      {t('race.cond.times', {
+                        observed: at(
+                          locale,
+                          t('race.cond.unknown'),
+                          src?.observedAt,
+                        ),
+                        fetched: at(
+                          locale,
+                          t('race.cond.unknown'),
+                          src?.fetchedAt,
+                        ),
+                      })}
+                    </p>
+                    <p>{src?.note}</p>
+                    <a
+                      href={String(source.meta.docs)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline"
+                    >
+                      {t('race.cond.docs')}
+                    </a>
+                  </div>
+                )
+              })}
+            <p>{t('race.cond.scope')}</p>
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+    </Accordion>
   )
 }
 
@@ -145,13 +177,14 @@ export const TransportCard = ({
   const [message, setMessage] = useState('')
   const selected = view.state.plan.localTransport ?? 'AUTO'
   const hub = hubOf(config, view.state.plan)
+  const { t } = useI18n()
   const choose = async (mode: 'AUTO' | 'TAXI' | 'TRANSIT') => {
     setPending(true)
     setMessage('')
     try {
       await select(mode)
     } catch {
-      setMessage('선택을 저장하지 못했어요. 다시 시도해 주세요.')
+      setMessage(t('race.cond.saveFailed'))
     } finally {
       setPending(false)
     }
@@ -176,7 +209,7 @@ export const TransportCard = ({
                 onClick={() => choose('AUTO')}
               >
                 <Sparkles />
-                구간별 자동
+                {t('race.cond.auto')}
               </Button>
               <Button
                 variant={selected === 'TRANSIT' ? 'default' : 'outline'}
@@ -184,7 +217,7 @@ export const TransportCard = ({
                 onClick={() => choose('TRANSIT')}
               >
                 <Bus />
-                버스 우선
+                {t('race.cond.transit')}
               </Button>
               <Button
                 variant={selected === 'TAXI' ? 'default' : 'outline'}
@@ -192,19 +225,16 @@ export const TransportCard = ({
                 onClick={() => choose('TAXI')}
               >
                 <CarTaxiFront />
-                택시 우선
+                {t('race.cond.taxi')}
               </Button>
             </div>
             {selected === 'TAXI' ? (
               <div className="rounded-lg bg-secondary p-3 text-sm">
-                <p className="mb-3">
-                  시간표에도 택시 시연 추정을 반영했어요. 실제 배차·요금과
-                  소요시간은 카카오T에서 확인해 주세요.
-                </p>
+                <p className="mb-3">{t('race.cond.taxiNote')}</p>
                 <div className="flex flex-wrap gap-2">
                   <Button asChild>
                     <a href={rec.url} target="_blank" rel="noreferrer">
-                      카카오T 열기
+                      {t('race.cond.openKakaoT')}
                       <ArrowUpRight />
                     </a>
                   </Button>
@@ -213,27 +243,32 @@ export const TransportCard = ({
                     onClick={async () => {
                       try {
                         await navigator.clipboard.writeText(hub.name)
-                        setMessage('목적지를 복사했어요.')
+                        setMessage(t('race.cond.copied'))
                       } catch {
-                        setMessage(`목적지: ${hub.name}`)
+                        setMessage(
+                          t('race.cond.destination', { name: hub.name }),
+                        )
                       }
                     }}
                   >
                     <Copy />
-                    목적지 복사
+                    {t('race.cond.copy')}
                   </Button>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  PC에서는 모바일 앱을 이용해 주세요. 앱이 없다면{' '}
-                  <a
-                    href="https://www.kakaomobility.com/service-kakaot/taxi"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline"
-                  >
-                    공식 설치 안내
-                  </a>
-                  를 확인하세요. 목적지: {hub.name}
+                  <Rich
+                    text={t('race.cond.pcNote', { name: hub.name })}
+                    icon={
+                      <a
+                        href="https://www.kakaomobility.com/service-kakaot/taxi"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline"
+                      >
+                        {t('race.cond.installGuide')}
+                      </a>
+                    }
+                  />
                 </p>
               </div>
             ) : (
@@ -244,7 +279,7 @@ export const TransportCard = ({
                     target="_blank"
                     rel="noreferrer"
                   >
-                    지도에서 실제 노선 확인
+                    {t('race.cond.mapRoute')}
                     <ArrowUpRight />
                   </a>
                 </Button>

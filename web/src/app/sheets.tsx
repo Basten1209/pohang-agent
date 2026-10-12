@@ -25,15 +25,16 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { transportLabel } from '#/core/mobility'
 import { KAKAO_T_URL } from '#/core/transport'
 import type { Evidence } from '#/core/evidence'
-import { departLabel, hubOf } from '#/core/route'
+import { hubOf } from '#/core/route'
 import { clock } from '#/core/time'
 import { changeDepart, runScenario } from '#/core/trip'
+import { useI18n } from '#/i18n/react'
 import { useApp } from './context'
 import type { Sheet } from './context'
 import { chipOn } from './bits'
+import { useNames } from './cards'
 
 type SheetSpec = {
   title: string
@@ -68,34 +69,39 @@ export const Sheets = () => {
 /** Sheet id → title, description, body. */
 const useSpec = (sheet: Sheet): SheetSpec | null => {
   const { config, state } = useApp()
+  const { t } = useI18n()
+  const names = useNames()
   if (sheet === 'demo')
     return {
-      title: '데모 시나리오',
-      description: '설정(jsonb)에 저장된 시연 조건을 적용해요.',
+      title: t('classic.demo'),
+      description: t('classic.demo.desc'),
       ...demo(),
     }
   if (sheet === 'evidence')
     return {
-      title: '데이터와 연결 상태',
-      description: '시연 관측과 실제 연결을 구분해서 보여줘요.',
+      title: t('classic.evidence'),
+      description: t('classic.evidence.desc'),
       body: <EvidenceBody />,
     }
   if (sheet === 'train')
     return {
-      title: '귀가 출발 시각',
-      description: `${config.event.dateLabel} · ${hubOf(config, state.plan).name}. 실제 예약은 바뀌지 않아요.`,
+      title: t('classic.depart.title'),
+      description: t('classic.depart.desc', {
+        date: config.event.dateLabel,
+        hub: names.hub(state.plan),
+      }),
       body: <TrainBody />,
     }
   if (sheet === 'taxi')
     return {
-      title: `${hubOf(config, state.plan).name} 복귀 이동수단`,
-      description: '비교만 하고 선택은 바꾸지 않아요.',
+      title: t('classic.taxi.title', { hub: names.hub(state.plan) }),
+      description: t('classic.taxi.desc'),
       body: <TaxiBody />,
     }
   if (sheet === 'why')
     return {
-      title: '계산 근거',
-      description: '입력한 조건과 결정 엔진의 계산이에요.',
+      title: t('classic.why.title'),
+      description: t('classic.why.desc'),
       body: <WhyBody />,
     }
   if (sheet && typeof sheet === 'object') {
@@ -142,6 +148,7 @@ const DemoBody = () => {
 
 const DemoReset = () => {
   const { config, state, run, open } = useApp()
+  const { t } = useI18n()
   return (
     <Button
       variant="outline"
@@ -150,7 +157,7 @@ const DemoReset = () => {
         open(null)
       }}
     >
-      <RotateCcw /> 처음부터 다시
+      <RotateCcw /> {t('classic.demo.reset')}
     </Button>
   )
 }
@@ -164,6 +171,7 @@ const Row = ({ label, value }: { label: string; value: ReactNode }) => (
 
 const EvidenceBody = () => {
   const { state, storage } = useApp()
+  const { t } = useI18n()
   const [evidence, setEvidence] = useState<Evidence[] | null>(null)
   const [status, setStatus] = useState<Record<string, unknown> | null>(null)
   const [busy, setBusy] = useState(false)
@@ -189,13 +197,13 @@ const EvidenceBody = () => {
   return (
     <>
       <div className="flex flex-col gap-2">
-        <Row label="일정·이동 경로" value="SIMULATED" />
+        <Row label={t('classic.evidence.route')} value="SIMULATED" />
         <Row
-          label="결정에 쓰는 관측"
+          label={t('classic.evidence.obs')}
           value={`${obs.provenance} · ${obs.freshness}`}
         />
         <Row
-          label="혼잡 / 초미세먼지"
+          label={t('classic.evidence.readings')}
           value={`${obs.readings.congestion ?? '—'}% / ${obs.readings.pm25 ?? '—'}`}
         />
         <Row
@@ -203,12 +211,17 @@ const EvidenceBody = () => {
           value={
             status
               ? status.agent === 'CONFIGURED'
-                ? `연결 · ${status.model}`
-                : '미설정 · 시연 응답'
+                ? t('classic.evidence.connected', {
+                    model: String(status.model),
+                  })
+                : t('classic.evidence.unset')
               : '…'
           }
         />
-        <Row label="저장소" value={String(status?.storage ?? storage)} />
+        <Row
+          label={t('classic.evidence.storage')}
+          value={String(status?.storage ?? storage)}
+        />
       </div>
       <Separator />
       {evidence === null || busy ? (
@@ -234,19 +247,19 @@ const EvidenceBody = () => {
         </ItemGroup>
       )}
       <Button variant="outline" onClick={load} disabled={busy}>
-        E-UM 연결 다시 확인
+        {t('classic.evidence.recheck')}
       </Button>
       <p className="text-xs text-muted-foreground">
-        식당·카페는 상호 미정 후보예요. 일정은 이 기기에 저장되고 7일 뒤
-        초기화돼요. 서버에는 구조화된 변경 이벤트만 기록하고 채팅 원문은
-        저장하지 않아요. 사진: 한국관광공사, 바다온.
+        {t('classic.evidence.note')}
       </p>
     </>
   )
 }
 
 const TrainBody = () => {
-  const { state, run, open, config } = useApp()
+  const { state, run, open } = useApp()
+  const { t } = useI18n()
+  const names = useNames()
   const [draft, setDraft] = useState(state.plan.departTime)
   return (
     <form
@@ -259,7 +272,7 @@ const TrainBody = () => {
     >
       <Field>
         <FieldLabel htmlFor="train">
-          {departLabel(config, state.plan)} → 변경
+          {t('classic.depart.label', { depart: names.depart(state.plan) })}
         </FieldLabel>
         <Input
           id="train"
@@ -281,13 +294,14 @@ const TrainBody = () => {
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
-      <Button type="submit">이 시각으로 다시 계산</Button>
+      <Button type="submit">{t('classic.depart.submit')}</Button>
     </form>
   )
 }
 
 const TaxiBody = () => {
   const { map, config, state, itinerary: it } = useApp()
+  const { t } = useI18n()
   return (
     <>
       <ItemGroup>
@@ -297,13 +311,12 @@ const TaxiBody = () => {
             <Item key={option.mode} variant="outline" size="sm">
               <ItemContent>
                 <ItemTitle>
-                  {transportLabel[option.mode]}{' '}
+                  {t(`classic.transport.${option.mode}`)}{' '}
                   {it.legs.find((l) => l.kind === 'RETURN')?.mode ===
-                    option.mode && <Badge>현재 일정</Badge>}
+                    option.mode && <Badge>{t('classic.taxi.current')}</Badge>}
                 </ItemTitle>
                 <ItemDescription>
-                  약 {option.totalMin}분 · 승차·대기·도보·여유 포함 시연 추정.
-                  실제 시간·요금은 확인이 필요해요.
+                  {t('classic.taxi.estimate', { n: option.totalMin })}
                 </ItemDescription>
               </ItemContent>
             </Item>
@@ -311,7 +324,7 @@ const TaxiBody = () => {
       </ItemGroup>
       <Button asChild variant="outline">
         <a href={KAKAO_T_URL} target="_blank" rel="noreferrer">
-          카카오T에서 배차·요금 확인
+          {t('classic.taxi.kakaoT')}
         </a>
       </Button>
       <Button asChild>
@@ -320,7 +333,7 @@ const TaxiBody = () => {
           target="_blank"
           rel="noreferrer"
         >
-          카카오맵에서 경로 확인 <ArrowUpRight />
+          {t('classic.taxi.kakaoMap')} <ArrowUpRight />
         </a>
       </Button>
     </>
@@ -329,27 +342,29 @@ const TaxiBody = () => {
 
 const WhyBody = () => {
   const { state, itinerary: it } = useApp()
+  const { t } = useI18n()
+  const min = (n: number) => t('classic.min', { n })
   return (
     <>
       <div className="flex flex-col gap-2">
-        <Row label="출발 준비" value={state.plan.readyTime} />
-        <Row label="코스까지" value={`${it.outbound}분`} />
-        <Row label="코스 체류" value={`${it.localMin}분`} />
-        <Row label="귀가 거점까지" value={`${it.returnMin}분`} />
-        <Row label="교통 여유" value={`${it.trafficReserve}분`} />
+        <Row label={t('classic.why.ready')} value={state.plan.readyTime} />
+        <Row label={t('classic.why.outbound')} value={min(it.outbound)} />
+        <Row label={t('classic.stats.stay')} value={min(it.localMin)} />
+        <Row label={t('classic.why.return')} value={min(it.returnMin)} />
+        <Row label={t('classic.why.reserve')} value={min(it.trafficReserve)} />
         <Separator />
         <Row
-          label="계획상 역 도착"
+          label={t('classic.planned')}
           value={
             it.planningArrival !== null
               ? clock(it.planningArrival)
-              : '계산 중단'
+              : t('classic.why.stopped')
           }
         />
-        <Row label="역 도착 목표" value={clock(it.stationTarget)} />
+        <Row label={t('classic.target')} value={clock(it.stationTarget)} />
       </div>
       <Alert>
-        <AlertTitle>판단 이유</AlertTitle>
+        <AlertTitle>{t('classic.why.reasons')}</AlertTitle>
         <AlertDescription>
           <ul className="list-disc pl-4">
             {it.reasons.map((r) => (
@@ -359,8 +374,7 @@ const WhyBody = () => {
         </AlertDescription>
       </Alert>
       <p className="text-xs text-muted-foreground">
-        관측 임계값은 시연 정책이며 공인 기준이 아니에요. 코스 변형:{' '}
-        {it.variant ?? '—'}
+        {t('classic.why.note')} {it.variant ?? '—'}
       </p>
     </>
   )
@@ -368,6 +382,7 @@ const WhyBody = () => {
 
 const PlaceBody = ({ id }: { id: string }) => {
   const { config, itinerary, map } = useApp()
+  const { t } = useI18n()
   const place = config.places.find((p) => p.id === id)
   if (!place) return null
   const dwell =
@@ -382,14 +397,16 @@ const PlaceBody = ({ id }: { id: string }) => {
       <p className="text-sm">{place.attrs.desc}</p>
       <p className="text-sm text-muted-foreground">{place.attrs.detail}</p>
       <div className="flex flex-wrap gap-2">
-        <Badge variant="secondary">예상 체류 {dwell}분</Badge>
+        <Badge variant="secondary">
+          {t('classic.place.dwell', { n: dwell })}
+        </Badge>
         {place.meta.verified === false && (
-          <Badge variant="outline">미검증 후보</Badge>
+          <Badge variant="outline">{t('classic.place.unverified')}</Badge>
         )}
       </div>
       <Button variant="outline" asChild>
         <a href={map(place.id, 'walk')} target="_blank" rel="noreferrer">
-          위치 보기 <ArrowUpRight />
+          {t('classic.place.map')} <ArrowUpRight />
         </a>
       </Button>
     </>

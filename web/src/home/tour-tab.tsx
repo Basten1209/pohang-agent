@@ -1,4 +1,4 @@
-import { Camera, ChevronDown, MapPin } from 'lucide-react'
+import { Camera, MapPin } from 'lucide-react'
 import { useEffect, type ReactNode } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -16,7 +16,7 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { canTravel } from '#/core/planner'
-import { courseById, departLabel, hubOf } from '#/core/route'
+import { courseById, hubOf } from '#/core/route'
 import type { TravelMode } from '#/core/mobility'
 import type { Place, TripConfig } from '#/core/schema'
 import { photoEligiblePlaces } from '#/core/community'
@@ -27,11 +27,13 @@ import { AssetCredits, GullPose } from '#/brand/brand'
 import { PlaceThumb } from './thumb'
 import { ItineraryTimeline } from './timeline'
 import { CourseCandidates } from './candidates'
+import { useI18n } from '#/i18n/react'
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
 
 export const TourTab = ({
   config,
@@ -57,6 +59,7 @@ export const TourTab = ({
   onAdvance: () => void
   busy: boolean
 }) => {
+  const { t, d } = useI18n()
   const { state, itinerary: it, stage } = view
   const planned = ['PLANNING', 'JOURNEY', 'DONE'].includes(stage)
   useEffect(() => {
@@ -68,17 +71,16 @@ export const TourTab = ({
         <Empty className="mascot-panel rounded-3xl border px-6 py-8">
           <EmptyHeader>
             <GullPose pose="map" className="mx-auto mb-2 w-36" decorative />
-            <EmptyTitle>달린 다음의 여행도, 함께해요</EmptyTitle>
-            <EmptyDescription>
-              완주 후 에이전트가 지금 컨디션과 귀가 시간에 맞춰 코스를 만들어
-              드려요.
-            </EmptyDescription>
+            <EmptyTitle>{t('tour.emptyTitle')}</EmptyTitle>
+            <EmptyDescription>{t('tour.emptyBody')}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       </div>
     )
   const course = courseById(config, it.course),
     hub = hubOf(config, state.plan)
+  const hubName = d(`hub.${hub.id}`, hub.name)
+  const area = course && d(`area.${course.id}`, course.area)
   const travel = canTravel(it)
   const current =
     state.plan.stage === 'LOCAL'
@@ -91,30 +93,35 @@ export const TourTab = ({
       <div className="flex items-start justify-between gap-3 py-1">
         <div className="min-w-0">
           <p className="text-xs font-medium text-primary">
-            {state.plan.nickname || '러너'}님의 완주 후 여행
+            {t('tour.tripOf', {
+              name: state.plan.nickname || t('common.runner'),
+            })}
           </p>
           <h1 className="brand-heading mt-1 text-2xl">
-            {course?.title ?? '오늘의 여정'}
+            {course
+              ? d(`course.${course.id}`, course.title)
+              : t('tour.todaysJourney')}
           </h1>
           <p className="mt-2 text-xs text-muted-foreground">
-            {departLabel(config, state.plan)}
+            {state.plan.departTime} {d(`noun.${hub.mode.id}`, hub.mode.noun)}
           </p>
         </div>
         <Badge variant="secondary" className="mt-1 shrink-0">
-          {stage === 'DONE' ? '여행 완료' : travel ? '추천 코스' : '귀가 우선'}
+          {stage === 'DONE'
+            ? t('tour.badge.done')
+            : travel
+              ? t('tour.badge.recommended')
+              : t('tour.badge.homeFirst')}
         </Badge>
       </div>
       <div className="rounded-2xl border bg-muted/30 p-3 text-sm">
         <p>
           {it.planningSource === 'OPENAI'
-            ? 'AI가 내 조건과 관측을 살펴 구성한 일정이에요.'
-            : '시연용 기본 일정이에요. 에이전트에게 맞춤 일정을 요청할 수 있어요.'}
+            ? t('tour.source.ai')
+            : t('tour.source.demo')}
         </p>
         {it.needsReview && (
-          <p className="mt-1 text-muted-foreground">
-            관측이나 여행 조건이 바뀌었어요. 이전 일정을 유지하고 있으니 다시
-            검토해 주세요.
-          </p>
+          <p className="mt-1 text-muted-foreground">{t('tour.needsReview')}</p>
         )}
         {(it.needsReview ||
           it.validationErrors?.length ||
@@ -130,23 +137,25 @@ export const TourTab = ({
               }
             >
               {it.planningSource === 'OPENAI'
-                ? '일정 다시 검토하기'
-                : '맞춤 일정 요청하기'}
+                ? t('tour.reviewAgain')
+                : t('tour.requestCustom')}
             </Button>
           )}
       </div>
       <Card className="border-primary/25">
         <CardHeader>
-          <CardDescription>지금 할 일</CardDescription>
+          <CardDescription>{t('tour.nowTodo')}</CardDescription>
           <CardTitle>
             {current?.attrs.short ??
               (stage === 'DONE'
-                ? '오늘의 여행을 사진으로 남겨요'
+                ? t('tour.todo.photo')
                 : state.plan.stage === 'RETURN'
-                  ? `${hub.name}으로 돌아가요`
+                  ? t('tour.todo.return', { hub: hubName })
                   : state.plan.stage === 'OUTBOUND'
-                    ? `${course?.area ?? '관광지'}로 이동해요`
-                    : '마음에 드는 코스로 출발해요')}
+                    ? t('tour.todo.outbound', {
+                        area: area ?? t('tour.spot'),
+                      })
+                    : t('tour.todo.pick'))}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -165,7 +174,7 @@ export const TourTab = ({
               onClick={() => onPhoto(current)}
             >
               <Camera />
-              이곳에서 찍은 사진 올리기
+              {t('tour.uploadPhotoHere')}
             </Button>
           )}
           {stage === 'JOURNEY' && travel && state.plan.stage !== 'DONE' && (
@@ -176,12 +185,12 @@ export const TourTab = ({
               onClick={onAdvance}
             >
               {state.plan.stage === 'OUTBOUND'
-                ? `${course?.area ?? '코스'}에 도착했어요`
+                ? t('tour.arrivedAt', { place: area ?? t('tour.course') })
                 : state.plan.stage === 'RETURN'
-                  ? `${hub.name}에 도착했어요`
+                  ? t('tour.arrivedAt', { place: hubName })
                   : current
-                    ? `${current.attrs.short} 다 봤어요`
-                    : '돌아가기 시작'}
+                    ? t('tour.doneWith', { place: current.attrs.short })
+                    : t('tour.startReturn')}
             </Button>
           )}
           {stage === 'PLANNING' && travel && (
@@ -190,7 +199,7 @@ export const TourTab = ({
               disabled={busy}
               onClick={() => ask('이 코스로 갈게요')}
             >
-              이 코스로 출발하기
+              {t('tour.startCourse')}
             </Button>
           )}
           {photos.filter((p) => p.id !== current?.id).length > 0 && (
@@ -220,10 +229,13 @@ export const TourTab = ({
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>오늘의 일정표</CardTitle>
+          <CardTitle>{t('tour.schedule')}</CardTitle>
           <CardDescription className="leading-relaxed tabular-nums">
-            {hub.name} 도착 목표 {clock(it.stationTarget)}
-            {it.slack !== null && ` · 여유 ${it.slack}분`}
+            {t('tour.arrivalTarget', {
+              hub: hubName,
+              time: clock(it.stationTarget),
+            })}
+            {it.slack !== null && ` · ${t('tour.slack', { min: it.slack })}`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -239,23 +251,32 @@ export const TourTab = ({
           {it.planningArrival !== null && (
             <p className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
               <MapPin className="size-3.5" />
-              {clock(it.planningArrival)} {hub.name} 도착 예정 · 시연 추정
+              {t('tour.planningArrival', {
+                time: clock(it.planningArrival),
+                hub: hubName,
+              })}
             </p>
           )}
           {stage !== 'DONE' && (
-            <Collapsible className="mt-4 text-xs text-muted-foreground">
-              <CollapsibleTrigger className="cursor-pointer py-2 w-full text-left">
-                이동수단 기본 설정
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <TransportCard
-                  config={config}
-                  view={view}
-                  select={selectTransport}
-                  disabled={busy}
-                />
-              </CollapsibleContent>
-            </Collapsible>
+            <Accordion
+              type="single"
+              collapsible
+              className="mt-4 text-xs text-muted-foreground"
+            >
+              <AccordionItem value="transport">
+                <AccordionTrigger className="py-2 text-xs font-normal">
+                  {t('tour.transportDefaults')}
+                </AccordionTrigger>
+                <AccordionContent>
+                  <TransportCard
+                    config={config}
+                    view={view}
+                    select={selectTransport}
+                    disabled={busy}
+                  />
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           )}
         </CardContent>
       </Card>
@@ -269,27 +290,32 @@ export const TourTab = ({
         </CardContent>
       </Card>
       {others.length > 0 && stage === 'PLANNING' && (
-        <Collapsible className="group rounded-xl border bg-card px-4 py-3">
-          <CollapsibleTrigger className="flex cursor-pointer items-center justify-between text-sm w-full text-left">
-            다른 코스 보기
-            <ChevronDown className="size-4 group-data-[state=open]:rotate-180" />
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {others.map((c) => (
-                <Button
-                  key={c.id}
-                  size="sm"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => ask(`${c.area} 코스로 보여줘`)}
-                >
-                  {c.title}
-                </Button>
-              ))}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
+        <Accordion
+          type="single"
+          collapsible
+          className="rounded-xl border bg-card px-4"
+        >
+          <AccordionItem value="others">
+            <AccordionTrigger className="py-3 font-normal">
+              {t('tour.otherCourses')}
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="flex flex-wrap gap-2">
+                {others.map((c) => (
+                  <Button
+                    key={c.id}
+                    size="sm"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => ask(`${c.area} 코스로 보여줘`)}
+                  >
+                    {d(`course.${c.id}`, c.title)}
+                  </Button>
+                ))}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       )}
       <ConditionsCard config={config} view={view} />
       <AssetCredits />

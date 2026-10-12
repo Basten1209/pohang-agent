@@ -14,14 +14,17 @@ import { GullPose } from '#/brand/brand'
 import { visitDemoImages } from '#/core/demo-images'
 import type { Place } from '#/core/schema'
 import type { CommunityPost, CommunityPostInput } from '#/core/community'
+import { useI18n } from '#/i18n/react'
+
+type T = ReturnType<typeof useI18n>['t']
 
 /** Decode and re-encode locally: bounded uploads, consistent orientation, no EXIF. */
-async function preparePhoto(file: File) {
+async function preparePhoto(file: File, t: T) {
   if (
     !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) ||
     file.size > 5_000_000
   )
-    throw new Error('JPG·PNG·WebP 사진을 5MB 이하로 선택해 주세요.')
+    throw new Error(t('journey.errFileType'))
   const bitmap = await createImageBitmap(file)
   try {
     const scale = Math.min(1, 1200 / Math.max(bitmap.width, bitmap.height))
@@ -33,8 +36,7 @@ async function preparePhoto(file: File) {
     context.fillRect(0, 0, canvas.width, canvas.height)
     context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
     const data = canvas.toDataURL('image/jpeg', 0.82)
-    if (data.length > 1_000_000)
-      throw new Error('사진 크기가 커요. 더 작은 사진을 선택해 주세요.')
+    if (data.length > 1_000_000) throw new Error(t('journey.errTooLarge'))
     return data
   } finally {
     bitmap.close()
@@ -61,6 +63,7 @@ export function FinishSheet({
   onOpenChange: (open: boolean) => void
 }) {
   const [busy, setBusy] = useState(false)
+  const { t } = useI18n()
   return (
     <Sheet open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
       <SheetContent
@@ -69,11 +72,9 @@ export function FinishSheet({
       >
         <SheetHeader className="sr-only">
           <SheetTitle>
-            {props.place ? '여행 사진 공유' : '완주 축하해요!'}
+            {props.place ? t('journey.sheetTitlePlace') : t('journey.congrats')}
           </SheetTitle>
-          <SheetDescription>
-            사진과 공개 내용을 확인하고 공유해요.
-          </SheetDescription>
+          <SheetDescription>{t('journey.sheetDescription')}</SheetDescription>
         </SheetHeader>
         {open && (
           <PhotoComposer
@@ -110,11 +111,12 @@ export function PhotoComposer({
   onBusy,
 }: PhotoComposerProps & { onBusy?: (busy: boolean) => void }) {
   const captionId = useId()
+  const { t } = useI18n()
   const [photo, setPhoto] = useState<CommunityPostInput['photo'] | null>(null)
   const [caption, setCaption] = useState(
     place
-      ? `${place.attrs.short}에서 남긴 오늘의 한 장 📷`
-      : '마라톤 완주! 메달의 기쁨을 안고 포항 여행으로 떠나요 🏅',
+      ? t('journey.captionPlace', { place: place.attrs.short })
+      : t('journey.captionFinish'),
   )
   const [drafting, setDrafting] = useState(false)
   const [draftError, setDraftError] = useState('')
@@ -149,6 +151,7 @@ export function PhotoComposer({
           kind: 'UPLOAD',
           data: await preparePhoto(
             new File([blob], 'sample.webp', { type: blob.type }),
+            t,
           ),
         }
       }
@@ -178,9 +181,7 @@ export function PhotoComposer({
         setCaption(result.caption)
     } catch {
       if (!controller.signal.aborted && sequence === generation.current)
-        setDraftError(
-          'AI 글을 만들지 못했어요. 다시 요청하거나 직접 작성해 주세요.',
-        )
+        setDraftError(t('journey.errDraft'))
     } finally {
       if (sequence === generation.current) setDrafting(false)
     }
@@ -227,11 +228,7 @@ export function PhotoComposer({
     try {
       await action()
     } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : '처리하지 못했어요. 잠시 후 다시 시도해 주세요.',
-      )
+      setError(e instanceof Error ? e.message : t('journey.errGeneric'))
     } finally {
       running.current = false
       setBusy(false)
@@ -253,10 +250,7 @@ export function PhotoComposer({
           photo,
         }),
       })
-      if (!response.ok)
-        throw new Error(
-          '사진을 공유하지 못했어요. 선택한 사진은 그대로 있으니 다시 시도해 주세요.',
-        )
+      if (!response.ok) throw new Error(t('journey.errShare'))
       const result = (await response.json()) as { post: CommunityPost }
       setPost(result.post)
       onShared()
@@ -273,19 +267,23 @@ export function PhotoComposer({
     post?.image ?? (photo?.kind === 'DEMO' ? demoImage : photo?.data)
   return (
     <section
-      aria-label={place ? `${place.attrs.short} 사진 공유` : '완주 사진 공유'}
+      aria-label={
+        place
+          ? t('journey.sectionPlace', { place: place.attrs.short })
+          : t('journey.sectionFinish')
+      }
       className="flex min-h-0 flex-col gap-4"
     >
       <div className="mascot-panel mascot-message gap-3 rounded-2xl p-4">
         <GullPose pose="cheer" className="w-full" decorative />
         <div className="min-w-0 space-y-2">
           <h3 className="text-xl font-bold">
-            {place ? '여행의 한 장을 남겨요' : '완주 축하해요!'}
+            {place ? t('journey.headingPlace') : t('journey.congrats')}
           </h3>
           <p className="text-sm text-muted-foreground">
             {place
-              ? `${place.attrs.short}에서의 순간을 커뮤니티에 나눠요.`
-              : '메달의 순간을 남기고, 포항에서 오늘의 기쁨을 이어가요.'}
+              ? t('journey.leadPlace', { place: place.attrs.short })
+              : t('journey.leadFinish')}
           </p>
         </div>
       </div>
@@ -296,17 +294,15 @@ export function PhotoComposer({
               src={preview}
               alt={
                 place
-                  ? `${place.attrs.short} 공유 사진 미리보기`
-                  : '공유할 마라톤 완주 사진'
+                  ? t('journey.previewAltPlace', { place: place.attrs.short })
+                  : t('journey.previewAltFinish')
               }
               className="max-h-64 w-full bg-primary/5 object-contain"
             />
             {(post?.photoKind === 'DEMO' ||
               (!post && photo?.kind === 'DEMO')) && (
               <Badge className="absolute bottom-3 left-3 max-w-[calc(100%-1.5rem)] whitespace-normal">
-                {place
-                  ? 'AI 생성 시연 사진 · 직접 촬영 아님'
-                  : 'AI 생성 시연 사진'}
+                {place ? t('journey.demoBadgePlace') : t('journey.demoBadge')}
               </Badge>
             )}
           </div>
@@ -314,9 +310,7 @@ export function PhotoComposer({
           <div className="flex min-h-36 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed bg-primary/5 text-primary">
             <Camera className="size-8" />
             <p className="text-sm">
-              {place
-                ? '여행에서 기억하고 싶은 한 장'
-                : '오늘 가장 자랑스러운 한 장'}
+              {place ? t('journey.emptyPlace') : t('journey.emptyFinish')}
             </p>
           </div>
         )}
@@ -328,18 +322,18 @@ export function PhotoComposer({
             >
               <Check className="size-4" />
               {place
-                ? `${place.attrs.short} 사진이 커뮤니티에 공유됐어요.`
-                : '완주의 순간이 커뮤니티에 공유됐어요.'}
+                ? t('journey.sharedPlace', { place: place.attrs.short })
+                : t('journey.sharedFinish')}
             </p>
             <p className="whitespace-pre-wrap text-sm">{post.caption}</p>
             {onCommunity && (
               <Button variant="outline" onClick={onCommunity}>
-                {place ? '공유한 여행 사진 보기' : '내 완주 사진 보기'}
+                {place ? t('journey.viewPlace') : t('journey.viewFinish')}
               </Button>
             )}
             <Button disabled={busy || loading} onClick={travel}>
               {continueLabel ??
-                (place ? '일정으로 돌아가기' : '완주 후 여행 준비하기')}
+                (place ? t('journey.backToPlan') : t('journey.prepTravel'))}
             </Button>
           </>
         ) : (
@@ -350,7 +344,11 @@ export function PhotoComposer({
               tabIndex={-1}
               accept="image/jpeg,image/png,image/webp"
               className="sr-only"
-              aria-label={place ? '관광지 사진 파일' : '완주 사진 파일'}
+              aria-label={
+                place
+                  ? t('journey.fileLabelPlace')
+                  : t('journey.fileLabelFinish')
+              }
               onChange={(e) => {
                 const file = e.target.files?.[0]
                 e.target.value = ''
@@ -358,14 +356,13 @@ export function PhotoComposer({
                   void run(async () =>
                     choosePhoto({
                       kind: 'UPLOAD',
-                      data: await preparePhoto(file),
+                      data: await preparePhoto(file, t),
                     }),
                   )
               }}
             />
             <p className="text-xs text-muted-foreground">
-              사진을 선택하면 AI 소개글 작성을 위해 OpenAI로 전송돼요. 커뮤니티
-              공개는 ‘사진 공유하기’를 누른 뒤에만 이루어져요.
+              {t('journey.privacy')}
             </p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <Button
@@ -374,7 +371,7 @@ export function PhotoComposer({
                 onClick={() => input.current?.click()}
               >
                 <Upload />
-                사진 선택
+                {t('journey.choosePhoto')}
               </Button>
               {demoImage && (
                 <Button
@@ -385,19 +382,19 @@ export function PhotoComposer({
                     setError('')
                   }}
                 >
-                  {place ? '샘플 사진 사용' : '시연 사진 사용'}
+                  {place ? t('journey.useSample') : t('journey.useDemo')}
                 </Button>
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              JPG·PNG·WebP, 최대 5MB ·{' '}
+              {t('journey.fileLimits')} ·{' '}
               {place
-                ? '샘플은 AI로 만든 시연 이미지이며 직접 촬영한 방문 사진이 아니에요.'
-                : '시연 사진은 AI로 만든 가상 러너예요.'}
+                ? t('journey.sampleNotePlace')
+                : t('journey.sampleNoteFinish')}
             </p>
             {drafting && (
               <p role="status" className="text-sm text-primary">
-                사진과 장소를 보고 글을 작성하고 있어요…
+                {t('journey.drafting')}
               </p>
             )}
             {draftError && (
@@ -412,11 +409,13 @@ export function PhotoComposer({
                 disabled={busy || drafting}
                 onClick={() => void draft(photo)}
               >
-                AI로 글 다시 쓰기
+                {t('journey.redraft')}
               </Button>
             )}
             <label htmlFor={captionId} className="text-sm font-medium">
-              {place ? '여행 한마디' : '완주 한마디'}
+              {place
+                ? t('journey.captionLabelPlace')
+                : t('journey.captionLabelFinish')}
             </label>
             <Textarea
               id={captionId}
@@ -430,11 +429,8 @@ export function PhotoComposer({
               }}
             />
             <p className="text-xs text-muted-foreground">
-              공유하면 사진과 닉네임, {place ? '장소명, ' : ''}한마디가
-              커뮤니티에 공개돼요.{' '}
-              {place
-                ? '같은 여정에서 장소마다 한 번 공유할 수 있어요.'
-                : '여정당 한 번 공유할 수 있어요.'}
+              {place ? t('journey.publicPlace') : t('journey.publicFinish')}{' '}
+              {place ? t('journey.oncePlace') : t('journey.onceFinish')}
             </p>
             <Button
               disabled={
@@ -443,13 +439,13 @@ export function PhotoComposer({
               onClick={share}
             >
               {busy
-                ? '포항에서의 추억을 남기는 중...'
+                ? t('journey.sharing')
                 : loading
-                  ? '사진을 확인하는 중...'
-                  : '사진 공유하기'}
+                  ? t('journey.checking')
+                  : t('journey.share')}
             </Button>
             <Button variant="ghost" disabled={busy || loading} onClick={travel}>
-              {place ? '나중에 할게요' : '사진 없이 여행 준비하기'}
+              {place ? t('journey.later') : t('journey.skipPhoto')}
             </Button>
           </>
         )}

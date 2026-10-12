@@ -17,6 +17,7 @@ import { RadioGroup } from '@/components/ui/radio-group'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Choice } from '#/app/bits'
 import { useI18n } from '#/i18n/react'
+import { eventIn } from '#/core/race-event'
 import { postEvents } from '#/app/trip-client'
 import { activeCourses, hubOf, modeOf } from '#/core/route'
 import type { Interest, Plan, SlotId, TripConfig } from '#/core/schema'
@@ -81,7 +82,8 @@ export const ProfileForm = ({
   submitLabel?: string
   onboarding?: boolean
 }) => {
-  const { t, d } = useI18n()
+  const { t, d, locale } = useI18n()
+  const event = eventIn(config.event, locale)
   const [step, setStep] = useState(0)
   const [eventSelected, setEventSelected] = useState(false)
   const heading = useRef<HTMLHeadingElement>(null)
@@ -276,11 +278,11 @@ export const ProfileForm = ({
                 <ItemDescription className="font-semibold text-primary">
                   {t('profile.demoEvent')}
                 </ItemDescription>
-                <ItemTitle>{config.event.name}</ItemTitle>
+                <ItemTitle>{event.name}</ItemTitle>
                 <ItemDescription>
-                  {config.event.dateLabel} · {config.event.gun}
+                  {event.dateLabel} · {event.gun}
                   <br />
-                  {config.event.venue} · {config.event.category}
+                  {event.venue} · {event.category}
                 </ItemDescription>
               </ItemContent>
               {eventSelected && (

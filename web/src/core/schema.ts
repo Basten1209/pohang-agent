@@ -302,6 +302,35 @@ export const courseSchema = z.object({
 export type Course = z.infer<typeof courseSchema>
 
 /** The race itself: what a participant asks about. Served by the agent's tools and the 대회 개요 tab. */
+/**
+ * The race's readable text in another language. Anything left out falls
+ * back to the Korean original; lists replace the original as a whole.
+ */
+export const raceEventTextSchema = z
+  .object({
+    name: z.string(),
+    category: z.string(),
+    dateLabel: z.string(),
+    venue: z.string(),
+    address: z.string(),
+    cutoff: z.string(),
+    schedule: z.array(z.object({ time: timeSchema, label: z.string() })),
+    course: z
+      .object({
+        summary: z.string(),
+        route: z.array(z.string()),
+        checkpoints: z.array(z.object({ km: z.number(), label: z.string() })),
+      })
+      .partial(),
+    kit: z.array(z.string()),
+    facilities: z.array(z.object({ label: z.string(), detail: z.string() })),
+    rules: z.array(z.string()),
+    notes: z.array(z.string()),
+    faq: z.array(z.object({ q: z.string(), a: z.string() })),
+  })
+  .partial()
+export type RaceEventText = z.infer<typeof raceEventTextSchema>
+
 export const raceEventSchema = z.object({
   name: z.string(),
   /** Representative photo (optional). */
@@ -326,6 +355,10 @@ export const raceEventSchema = z.object({
   rules: z.array(z.string()),
   notes: z.array(z.string()),
   faq: z.array(z.object({ q: z.string(), a: z.string() })),
+  /** Translations of the text above, by interface language. */
+  translations: z
+    .partialRecord(z.enum(['en', 'ja', 'zh']), raceEventTextSchema)
+    .default({}),
   meta: z.record(z.string(), z.unknown()).default({}),
 })
 export type RaceEvent = z.infer<typeof raceEventSchema>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { seedConfig } from '#/core/defaults'
+import { eventIn } from '#/core/race-event'
 import { activeCourses } from '#/core/route'
 import { liveSessionConfig } from '#/core/voice'
 import {
@@ -36,6 +37,7 @@ describe('다국어 (ko/en/ja/zh)', () => {
       ...activeCourses(seedConfig).flatMap((c) => [
         `course.${c.id}`,
         `tags.${c.id}`,
+        `area.${c.id}`,
       ]),
       ...seedConfig.modes.flatMap((m) => [
         `mode.${m.id}`,
@@ -72,5 +74,24 @@ describe('다국어 (ko/en/ja/zh)', () => {
     const voice = seedConfig.agent.voice!
     expect(liveSessionConfig(voice).instructions).toBe(voice.instructions)
     expect(liveSessionConfig(voice, 'ja').instructions).toContain('Japanese')
+  })
+
+  it('대회 정보(FAQ·코스·일정)는 언어별 번역, 없는 항목은 한국어', () => {
+    const event = seedConfig.event
+    expect(eventIn(event, 'ko')).toBe(event)
+    for (const locale of others) {
+      const e = eventIn(event, locale)
+      expect(e.faq).toHaveLength(event.faq.length)
+      expect(e.faq[0]!.q).not.toBe(event.faq[0]!.q)
+      expect(e.course.route).toHaveLength(event.course.route.length)
+      expect(e.schedule.map((s) => s.time)).toEqual(
+        event.schedule.map((s) => s.time),
+      )
+      // Map data and distances stay with the original.
+      expect(e.geo).toEqual(event.geo)
+      expect(e.course.distanceKm).toBe(event.course.distanceKm)
+    }
+    const partial = { ...event, translations: { en: { name: 'Beach Run' } } }
+    expect(eventIn(partial, 'en').faq).toEqual(event.faq)
   })
 })

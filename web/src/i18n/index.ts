@@ -771,11 +771,11 @@ export const translate = (
   key: MessageKey,
   vars: Record<string, string | number> = {},
 ) =>
-  (dictionaries[locale][key] ?? ko[key]).replace(/\{(\w+)\}/g, (_, k) =>
+  (dictionaries[locale][key] ?? all[key]).replace(/\{(\w+)\}/g, (_, k) =>
     String(vars[k] ?? `{${k}}`),
   )
 
-/** Short config names (ways home, courses, activities, hubs) by id. Missing ids keep the Korean config value. */
+/** Short config names (ways home, courses, areas, activities, hubs) by id. Missing ids keep the Korean config value. */
 const data: Record<Exclude<Locale, 'ko'>, Record<string, string>> = {
   en: {
     'mode.TRAIN': 'Train (KTX·SRT)',
@@ -805,6 +805,10 @@ const data: Record<Exclude<Locale, 'ko'>, Record<string, string>> = {
     'hub.TERMINAL': 'Pohang Bus Terminal',
     'hub.AIRPORT': 'Pohang Gyeongju Airport',
     'hub.PARKING': 'Race venue (Yeongildae)',
+    'area.guryongpo': 'Guryongpo',
+    'area.homigot': 'Homigot',
+    'area.yeongildae': 'Yeongildae',
+    'area.jukdo': 'Jukdo Market',
   },
   ja: {
     'mode.TRAIN': '列車（KTX・SRT）',
@@ -834,6 +838,10 @@ const data: Record<Exclude<Locale, 'ko'>, Record<string, string>> = {
     'hub.TERMINAL': '浦項バスターミナル',
     'hub.AIRPORT': '浦項慶州空港',
     'hub.PARKING': '大会会場（迎日台）',
+    'area.guryongpo': '九龍浦',
+    'area.homigot': '虎尾串',
+    'area.yeongildae': '迎日台',
+    'area.jukdo': '竹島市場',
   },
   zh: {
     'mode.TRAIN': '火车（KTX·SRT）',
@@ -863,6 +871,10 @@ const data: Record<Exclude<Locale, 'ko'>, Record<string, string>> = {
     'hub.TERMINAL': '浦项客运站',
     'hub.AIRPORT': '浦项庆州机场',
     'hub.PARKING': '比赛场地（迎日台）',
+    'area.guryongpo': '九龙浦',
+    'area.homigot': '虎尾串',
+    'area.yeongildae': '迎日台',
+    'area.jukdo': '竹岛市场',
   },
 }
 

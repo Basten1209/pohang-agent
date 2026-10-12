@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { photoEligiblePlaces } from '#/core/community'
 import { PhotoComposer } from '#/home/finish'
+import { useI18n } from '#/i18n/react'
 import type { PartOf } from './context'
 import { useChatContext } from './context'
 
@@ -17,6 +18,7 @@ export function VisitPhotoCard({
 }) {
   const { config, view, tripId, send, photoShared, showCommunity } =
     useChatContext()
+  const { t } = useI18n()
   const [picked, setPicked] = useState<string | null | undefined>(undefined)
   const [busy, setBusy] = useState(false)
   const [closed, setClosed] = useState(false)
@@ -37,9 +39,9 @@ export function VisitPhotoCard({
         <Button
           variant="outline"
           size="sm"
-          onClick={() => send('여행 사진을 커뮤니티에 올릴래요')}
+          onClick={() => send(t('say.sharePhoto'))}
         >
-          <Camera /> 여행 사진 공유 열기
+          <Camera /> {t('chatx.photo.open')}
         </Button>
       ) : interactive && places.length > 0 ? (
         place ? (
@@ -50,7 +52,7 @@ export function VisitPhotoCard({
               disabled={busy}
               onClick={() => setPicked(null)}
             >
-              다른 장소 선택
+              {t('chatx.photo.otherPlace')}
             </Button>
             <PhotoComposer
               onBusy={setBusy}
@@ -61,10 +63,10 @@ export function VisitPhotoCard({
               finish={noChange}
               onShared={() => photoShared?.()}
               onCommunity={showCommunity}
-              continueLabel="대화 계속하기"
+              continueLabel={t('chatx.photo.continue')}
               onContinue={() => {
                 setClosed(true)
-                send('다음 일정 알려줘')
+                send(t('chatx.sayNext'))
               }}
             />
           </>
@@ -82,7 +84,7 @@ export function VisitPhotoCard({
               </Button>
             ))}
             <Button variant="ghost" size="sm" onClick={() => setClosed(true)}>
-              나중에 할게요
+              {t('chatx.photo.later')}
             </Button>
           </div>
         )
