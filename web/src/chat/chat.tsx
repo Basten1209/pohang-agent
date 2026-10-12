@@ -256,12 +256,15 @@ export const ChatPanel = ({
   suggestions = [],
   photoPrompt,
   voice = false,
+  keyboardOpen = false,
 }: {
   agent: Agent
   suggestions?: string[]
   photoPrompt?: React.ReactNode
   /** Show the voice-mode control (an opt-in beta). */
   voice?: boolean
+  /** The on-screen keyboard covers the home-indicator area, so no safe-area padding. */
+  keyboardOpen?: boolean
 }) => {
   const { view, config, tripId } = useChatContext()
   const { t, tx } = useI18n()
@@ -393,7 +396,9 @@ export const ChatPanel = ({
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-      <div className="border-t bg-background pb-safe">
+      <div
+        className={`border-t bg-background ${keyboardOpen ? '' : 'pb-safe'}`}
+      >
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-2 p-3">
           {!open && chips.length > 0 && (
             <div className="grid min-w-0 grid-cols-1">

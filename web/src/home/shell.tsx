@@ -1,5 +1,5 @@
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { Ellipsis } from 'lucide-react'
+import { ChevronDown, Ellipsis } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { localizeDeep } from '#/i18n/phrases'
@@ -42,6 +42,7 @@ import { InstallApp } from './install'
 import { isRacing } from '#/race/use-race'
 import { MobileMenu, NavTabs, type Tab } from './nav'
 import { TourTab } from './tour-tab'
+import { useKeyboardSheet } from '#/app/keyboard-sheet'
 
 /**
  * The app: a profile once, then 홈 · 레이스 · 관광 · 커뮤니티, with the
@@ -113,7 +114,9 @@ export const Shell = ({
     window.scrollTo({ top: 0 })
   }
   const [chatOpen, setChatOpen] = useState(false)
+  const chatSheet = useKeyboardSheet(chatOpen)
   const [profileOpen, setProfileOpen] = useState(false)
+  const profileSheet = useKeyboardSheet(profileOpen)
   const [installOpen, setInstallOpen] = useState(false)
   const [finishOpen, setFinishOpen] = useState(false)
   const [communityRevision, setCommunityRevision] = useState(0)
@@ -454,28 +457,65 @@ export const Shell = ({
         }}
       />
 
-      <Drawer open={chatOpen} onOpenChange={setChatOpen}>
-        <DrawerContent className="h-[88dvh] data-[vaul-drawer-direction=bottom]:max-h-[88dvh]">
-          <DrawerHeader className="border-b">
-            <DrawerTitle className="flex items-center justify-center gap-2 md:justify-start">
-              <GullPose className="w-12" decorative />
-              {tx(agentName)}
-            </DrawerTitle>
-            <DrawerDescription>{t('agent.sheetDescription')}</DrawerDescription>
-          </DrawerHeader>
+      <Drawer open={chatOpen} onOpenChange={setChatOpen} {...chatSheet.drawer}>
+        <DrawerContent
+          className={`h-[88dvh] data-[vaul-drawer-direction=bottom]:max-h-[88dvh] ${chatSheet.className}`}
+          style={chatSheet.style}
+        >
+          {chatSheet.keyboardOpen ? (
+            // Typing: a full-screen chat with a one-line header.
+            <DrawerHeader className="flex-row items-center gap-2 border-b px-3 py-2 text-left">
+              <GullPose className="w-7" decorative />
+              <DrawerTitle className="min-w-0 flex-1 truncate">
+                {tx(agentName)}
+              </DrawerTitle>
+              <DrawerDescription className="sr-only">
+                {t('agent.sheetDescription')}
+              </DrawerDescription>
+              {/* Keep focus on pointer-down: blurring first would close the keyboard
+                  and swap this header out before the tap lands. */}
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={t('common.close')}
+                onPointerDown={(e) => e.preventDefault()}
+                onClick={() => setChatOpen(false)}
+              >
+                <ChevronDown />
+              </Button>
+            </DrawerHeader>
+          ) : (
+            <DrawerHeader className="border-b">
+              <DrawerTitle className="flex items-center justify-center gap-2 md:justify-start">
+                <GullPose className="w-12" decorative />
+                {tx(agentName)}
+              </DrawerTitle>
+              <DrawerDescription>
+                {t('agent.sheetDescription')}
+              </DrawerDescription>
+            </DrawerHeader>
+          )}
           <ChatPanel
             agent={agent}
             suggestions={tabChips(tab, view, t)}
             photoPrompt={photoPrompt}
             voice
+            keyboardOpen={chatSheet.keyboardOpen}
           />
         </DrawerContent>
       </Drawer>
 
       <InstallApp open={installOpen} onOpenChange={setInstallOpen} />
 
-      <Drawer open={profileOpen} onOpenChange={setProfileOpen}>
-        <DrawerContent className="h-[88dvh] data-[vaul-drawer-direction=bottom]:max-h-[88dvh]">
+      <Drawer
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+        {...profileSheet.drawer}
+      >
+        <DrawerContent
+          className={`h-[88dvh] data-[vaul-drawer-direction=bottom]:max-h-[88dvh] ${profileSheet.className}`}
+          style={profileSheet.style}
+        >
           <DrawerHeader className="border-b">
             <DrawerTitle>{t('edit.title')}</DrawerTitle>
             <DrawerDescription>{t('edit.description')}</DrawerDescription>
