@@ -90,11 +90,20 @@ const tabChips = (tab: Tab, view: TripView): string[] => {
 }
 
 const TOOLS_KEY = 'run2-show-tools'
-const readFlag = () => {
+/** Voice mode stays opt-in until Korean speech quality is checked. */
+const VOICE_KEY = 'run2-voice-beta'
+const readFlag = (key: string) => {
   try {
-    return localStorage.getItem(TOOLS_KEY) === '1'
+    return localStorage.getItem(key) === '1'
   } catch {
     return false
+  }
+}
+const writeFlag = (key: string, on: boolean) => {
+  try {
+    localStorage.setItem(key, on ? '1' : '0')
+  } catch {
+    // Private mode: the toggle still works for this visit.
   }
 }
 
@@ -199,7 +208,8 @@ export const Shell = ({
     }
   }
 
-  const [showTools, setShowTools] = useState(readFlag)
+  const [showTools, setShowTools] = useState(() => readFlag(TOOLS_KEY))
+  const [voiceBeta, setVoiceBeta] = useState(() => readFlag(VOICE_KEY))
 
   /** Open the agent, optionally saying something right away. */
   const ask = (text?: string) => {
@@ -307,14 +317,19 @@ export const Shell = ({
                       checked={showTools}
                       onCheckedChange={(on) => {
                         setShowTools(on)
-                        try {
-                          localStorage.setItem(TOOLS_KEY, on ? '1' : '0')
-                        } catch {
-                          // Private mode: the toggle still works for this visit.
-                        }
+                        writeFlag(TOOLS_KEY, on)
                       }}
                     >
                       발표 모드 (도구 호출 보기)
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem
+                      checked={voiceBeta}
+                      onCheckedChange={(on) => {
+                        setVoiceBeta(on)
+                        writeFlag(VOICE_KEY, on)
+                      }}
+                    >
+                      음성 모드 (베타)
                     </DropdownMenuCheckboxItem>
                     <DropdownMenuItem asChild>
                       <Link to="/classic">화면으로 보기</Link>
@@ -467,6 +482,7 @@ export const Shell = ({
             agent={agent}
             suggestions={tabChips(tab, view)}
             photoPrompt={photoPrompt}
+            voice={voiceBeta}
           />
         </SheetContent>
       </Sheet>

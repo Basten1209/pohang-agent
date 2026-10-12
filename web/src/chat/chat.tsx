@@ -5,7 +5,7 @@ import {
   lastAssistantMessageIsCompleteWithApprovalResponses,
   lastAssistantMessageIsCompleteWithToolCalls,
 } from 'ai'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Camera } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { photoEligiblePlaces } from '#/core/community'
@@ -38,6 +38,7 @@ import type { TripView } from '#/core/view'
 import type { AgentMode, AgentUIMessage } from '#/server/agent/harness'
 import { askTools } from '#/server/agent/ask-tools'
 import { Choices, ToolCard } from './cards'
+import { VoiceControl } from './voice'
 import type { AgentPart, ChatContext, ToolPart } from './context'
 import { ChatProvider, useChatContext } from './context'
 
@@ -85,6 +86,8 @@ export const useAgent = ({
 }) => {
   const [view, setView] = useState(initial.trip)
   const [progress, setProgress] = useState<PlanProgress | null>(null)
+  /** Callers of `ask` waiting for the reply to finish streaming. */
+  const waiting = useRef<((message: AgentUIMessage | null) => void)[]>([])
   const transport = useMemo(
     () =>
       new DefaultChatTransport<AgentUIMessage>({
@@ -101,6 +104,12 @@ export const useAgent = ({
     messages: initial.messages,
     transport,
     sendAutomaticallyWhen: shouldContinue,
+    onFinish: ({ message }) => {
+      for (const resolve of waiting.current.splice(0)) resolve(message)
+    },
+    onError: () => {
+      for (const resolve of waiting.current.splice(0)) resolve(null)
+    },
     onData: (part) => {
       if (part.type === 'data-progress') setProgress(part.data)
       if (part.type === 'data-trip') {
@@ -121,6 +130,25 @@ export const useAgent = ({
     setProgress(null)
     chat.sendMessage({ text: text.trim() })
   }
+  /**
+   * Send a message and wait for the finished reply (voice mode speaks it).
+   * Resolves null when busy, on error, or after `timeoutMs`.
+   */
+  const ask = (text: string, timeoutMs = 45_000) =>
+    new Promise<AgentUIMessage | null>((resolve) => {
+      if (!text.trim() || busy) return resolve(null)
+      const timer = setTimeout(() => {
+        waiting.current = waiting.current.filter((w) => w !== done)
+        resolve(null)
+      }, timeoutMs)
+      const done = (message: AgentUIMessage | null) => {
+        clearTimeout(timer)
+        resolve(message)
+      }
+      waiting.current.push(done)
+      setProgress(null)
+      void chat.sendMessage({ text: text.trim() })
+    })
   const mode: AgentMode | undefined = [...chat.messages]
     .reverse()
     .find((m) => m.metadata?.mode)?.metadata?.mode
@@ -160,6 +188,7 @@ export const useAgent = ({
     busy,
     progress,
     send,
+    ask,
     mode,
     context,
   }
@@ -193,12 +222,15 @@ export const ChatPanel = ({
   agent,
   suggestions = [],
   photoPrompt,
+  voice = false,
 }: {
   agent: Agent
   suggestions?: string[]
   photoPrompt?: React.ReactNode
+  /** Show the voice-mode control (an opt-in beta). */
+  voice?: boolean
 }) => {
-  const { view, config } = useChatContext()
+  const { view, config, tripId } = useChatContext()
   const { messages, status, stop, error } = agent.chat
   const [input, setInput] = useState('')
   const last = messages.at(-1)
@@ -346,19 +378,22 @@ export const ChatPanel = ({
               />
             </PromptInputBody>
             <PromptInputFooter className="justify-between">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={
-                  agent.busy ||
-                  view.stage === 'SAFETY' ||
-                  !photoEligiblePlaces(config, view.state).length
-                }
-                onClick={() => send('여행 사진을 커뮤니티에 올릴래요')}
-              >
-                <Camera /> 여행 사진
-              </Button>
+              <div className="flex items-center gap-1">
+                {voice && <VoiceControl agent={agent} tripId={tripId} />}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={
+                    agent.busy ||
+                    view.stage === 'SAFETY' ||
+                    !photoEligiblePlaces(config, view.state).length
+                  }
+                  onClick={() => send('여행 사진을 커뮤니티에 올릴래요')}
+                >
+                  <Camera /> 여행 사진
+                </Button>
+              </div>
               <PromptInputSubmit
                 status={status}
                 onStop={stop}

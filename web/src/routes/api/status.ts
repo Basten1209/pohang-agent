@@ -15,6 +15,7 @@ export const Route = createFileRoute('/api/status')({
           eum: Boolean(env.EUM_SERVICE_KEY),
           airDevice: Boolean(env.EUM_AIR_DEVICE_ID),
           dataGoKr: Boolean(env.DATA_GO_KR_SERVICE_KEY),
+          voice: Boolean(env.OPENAI_API_KEY && config.agent.voice?.enabled),
           storage,
           configIssues: issues.length,
           transport: 'DEMO',
