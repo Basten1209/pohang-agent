@@ -10,7 +10,6 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { Shimmer } from '@/components/ai-elements/shimmer'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -346,14 +345,10 @@ export const CourseSummary = ({
                 time: clock(it.planningArrival),
               })}
         </CardTitle>
-        <div className="flex flex-wrap gap-1">
-          <Badge variant="secondary">
-            {t(`chatx.decision.${it.decision}`)}
-          </Badge>
-          <Badge variant="outline">
-            {depart ?? t('chatx.hubTarget', { time: clock(it.stationTarget) })}
-          </Badge>
-        </div>
+        <CardDescription>
+          {t(`chatx.decision.${it.decision}`)} ·{' '}
+          {depart ?? t('chatx.hubTarget', { time: clock(it.stationTarget) })}
+        </CardDescription>
       </CardHeader>
       {it.stops.length > 0 && (
         <CardContent>

@@ -1,6 +1,5 @@
 import { AssetCredits, MascotBanner } from '#/brand/brand'
 import { Pencil, ArrowRight } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -95,11 +94,10 @@ const AfterRace = ({
   return (
     <Card size="sm">
       <CardHeader>
-        <CardDescription>{t('home.afterRace')}</CardDescription>
+        <CardDescription>
+          {t('home.afterRace')} · {t('home.preview')}
+        </CardDescription>
         <CardTitle>{d(`course.${course.id}`, course.title)}</CardTitle>
-        <CardAction>
-          <Badge variant="outline">{t('home.preview')}</Badge>
-        </CardAction>
       </CardHeader>
       {places.length > 0 && (
         <CardContent className="flex flex-col gap-3">

@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Coffee, MapPin, Utensils } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { TripConfig, Venue } from '#/core/schema'
 import { courseVenues, venueMapUrl } from '#/core/venues'
@@ -79,14 +78,14 @@ export function CourseCandidates({
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-semibold">{v.name}</p>
               {v.tenTaste && (
-                <Badge variant="secondary" className="text-[0.625rem]">
+                <span className="text-xs text-primary">
                   {t('tour.tenTastes')}
-                </Badge>
+                </span>
               )}
               {v.detour && (
-                <Badge variant="outline" className="text-[0.625rem]">
+                <span className="text-xs text-muted-foreground">
                   {t('tour.detour')}
-                </Badge>
+                </span>
               )}
             </div>
             <p className="mt-1 text-xs font-medium text-primary">

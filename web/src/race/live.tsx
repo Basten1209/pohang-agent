@@ -2,7 +2,6 @@ import { Flag, Pause, Play, SkipForward } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { GullPose } from '#/brand/brand'
 import { useRace } from './use-race'
-import { Badge } from '@/components/ui/badge'
 import {
   Card,
   CardContent,
@@ -67,16 +66,13 @@ export const RaceLive = ({
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="brand-heading text-2xl">
-          {ready
-            ? t('race.live.ready')
-            : s.finished
-              ? t('race.live.finished')
-              : t('race.live.running')}
-        </h1>
-        <Badge variant="secondary">{t('race.live.badge')}</Badge>
-      </div>
+      <h1 className="brand-heading text-2xl">
+        {ready
+          ? t('race.live.ready')
+          : s.finished
+            ? t('race.live.finished')
+            : t('race.live.running')}
+      </h1>
       <p className="text-xs leading-relaxed text-muted-foreground">
         {t('race.live.notice')}
       </p>
@@ -110,20 +106,17 @@ export const RaceLive = ({
       ) : (
         <>
           <Card className="gap-3 overflow-hidden border-primary/20">
-            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
+            <CardHeader>
               <CardDescription>
-                {t('race.bib', { category, bib })}
-              </CardDescription>
-              <Badge variant={s.finished ? 'default' : 'secondary'}>
+                {t('race.bib', { category, bib })} ·{' '}
                 {s.finished
                   ? t('race.live.status.finished')
                   : paused
                     ? t('race.live.status.paused')
                     : t('race.live.status.running')}
-              </Badge>
+              </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <RaceRouteMap progress={s.distance / race.distance} />
               <div className="grid grid-cols-2 gap-2">
                 <Stat
                   label={t('race.live.distance')}
@@ -155,6 +148,7 @@ export const RaceLive = ({
                   ? t('race.live.doneNote')
                   : t('race.live.projectedNote')}
               </p>
+              <RaceRouteMap progress={s.distance / race.distance} />
               {!s.finished && (
                 <Button
                   variant="outline"

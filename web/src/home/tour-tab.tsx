@@ -1,6 +1,5 @@
 import { Camera, MapPin } from 'lucide-react'
 import { useEffect, type ReactNode } from 'react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -103,16 +102,14 @@ export const TourTab = ({
               : t('tour.todaysJourney')}
           </h1>
           <p className="mt-2 text-xs text-muted-foreground">
-            {state.plan.departTime} {d(`noun.${hub.mode.id}`, hub.mode.noun)}
+            {state.plan.departTime} {d(`noun.${hub.mode.id}`, hub.mode.noun)} ·{' '}
+            {stage === 'DONE'
+              ? t('tour.badge.done')
+              : travel
+                ? t('tour.badge.recommended')
+                : t('tour.badge.homeFirst')}
           </p>
         </div>
-        <Badge variant="secondary" className="mt-1 shrink-0">
-          {stage === 'DONE'
-            ? t('tour.badge.done')
-            : travel
-              ? t('tour.badge.recommended')
-              : t('tour.badge.homeFirst')}
-        </Badge>
       </div>
       <div className="rounded-2xl border bg-muted/30 p-3 text-sm">
         <p>
