@@ -501,6 +501,7 @@ export const Shell = ({
             photoPrompt={photoPrompt}
             voice
             keyboardOpen={chatSheet.keyboardOpen}
+            bottomInset={chatSheet.bottomInset}
           />
         </DrawerContent>
       </Drawer>

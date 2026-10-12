@@ -7,6 +7,7 @@ import {
 } from 'ai'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Camera } from 'lucide-react'
+import { isTouchKeyboard, newlineOnTouch, useAutosize } from './composer'
 import { Button } from '@/components/ui/button'
 import { photoEligiblePlaces } from '#/core/community'
 import { agentName } from '#/core/identity'
@@ -257,6 +258,7 @@ export const ChatPanel = ({
   photoPrompt,
   voice = false,
   keyboardOpen = false,
+  bottomInset = 0,
 }: {
   agent: Agent
   suggestions?: string[]
@@ -265,12 +267,17 @@ export const ChatPanel = ({
   voice?: boolean
   /** The on-screen keyboard covers the home-indicator area, so no safe-area padding. */
   keyboardOpen?: boolean
+  /** Room kept below the composer for controls the OS floats over the page. */
+  bottomInset?: number
 }) => {
   const { view, config, tripId } = useChatContext()
   const { t, tx } = useI18n()
   const { status, stop, error } = agent.chat
   const messages = useShownMessages(agent.chat.messages)
   const [input, setInput] = useState('')
+  const composer = useRef<HTMLTextAreaElement>(null)
+  useAutosize(composer, input)
+  const touch = useMemo(isTouchKeyboard, [])
   const last = messages.at(-1)
   // The open question of the latest message, if the app asked one.
   const open =
@@ -398,6 +405,7 @@ export const ChatPanel = ({
       </Conversation>
       <div
         className={`border-t bg-background ${keyboardOpen ? '' : 'pb-safe'}`}
+        style={keyboardOpen ? { paddingBottom: bottomInset } : undefined}
       >
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-2 p-3">
           {!open && chips.length > 0 && (
@@ -417,8 +425,16 @@ export const ChatPanel = ({
           <PromptInput onSubmit={({ text }) => send(text)}>
             <PromptInputBody>
               <PromptInputTextarea
+                ref={composer}
+                // One line to start; grows a line at a time (see composer.ts).
+                rows={1}
+                className="min-h-0"
                 value={input}
                 onChange={(e) => setInput(e.currentTarget.value)}
+                onKeyDown={newlineOnTouch(setInput)}
+                enterKeyHint={touch ? 'enter' : 'send'}
+                // Not a field iOS should offer passwords, cards or addresses for.
+                autoComplete="off"
                 placeholder={open?.hint ?? t('chat.placeholder')}
                 maxLength={1000}
               />

@@ -28,6 +28,18 @@ export type Viewport = {
   offsetTop: number
 }
 
+/**
+ * iOS floats its keyboard controls (hide-keyboard button, AutoFill strip)
+ * *over the page*, just above the keyboard. Keep that strip free so they
+ * never cover the composer's send button.
+ */
+const IOS_KEYBOARD_CONTROLS = 52
+
+const isIOS = () =>
+  typeof navigator !== 'undefined' &&
+  (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
+
 /** Below this, a smaller visual viewport is browser chrome, not a keyboard. */
 const KEYBOARD_MIN = 120
 
@@ -73,6 +85,8 @@ export const useKeyboardSheet = (open: boolean) => {
     drawer: { repositionInputs: false } as const,
     style: frame ?? undefined,
     keyboardOpen: frame !== null,
+    /** Bottom padding to leave inside the sheet while the keyboard is open. */
+    bottomInset: frame !== null && isIOS() ? IOS_KEYBOARD_CONTROLS : 0,
     /** Full screen while typing: square corners, no top border, no drag handle. */
     className:
       frame === null
