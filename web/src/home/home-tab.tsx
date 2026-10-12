@@ -140,11 +140,15 @@ export const HomeTab = ({
         description={t('home.heroBody', {
           name: view.state.plan.nickname || t('common.runner'),
         })}
+        action={
+          <Button size="lg" className="min-h-12 w-full" onClick={onRace}>
+            {view.state.phase >= 3
+              ? t('home.viewRecord')
+              : t('home.prepareRace')}
+            <ArrowRight />
+          </Button>
+        }
       />
-      <Button size="lg" className="min-h-12" onClick={onRace}>
-        {view.state.phase >= 3 ? t('home.viewRecord') : t('home.prepareRace')}
-        <ArrowRight />
-      </Button>
       <RaceHeadline event={config.event} />
       <MyPlan config={config} view={view} />
       <AfterRace config={config} view={view} />

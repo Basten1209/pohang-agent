@@ -13,8 +13,8 @@ export const Section = ({
   action?: ReactNode
   children?: ReactNode
 }) => (
-  <section className="flex flex-col gap-3">
-    <Separator />
+  <section className="flex flex-col gap-3 pt-4">
+    <Separator className="mb-2" />
     {title && (
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
