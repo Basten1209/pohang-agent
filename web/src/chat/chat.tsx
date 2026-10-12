@@ -258,7 +258,6 @@ export const ChatPanel = ({
   photoPrompt,
   voice = false,
   keyboardOpen = false,
-  bottomInset = 0,
 }: {
   agent: Agent
   suggestions?: string[]
@@ -267,8 +266,6 @@ export const ChatPanel = ({
   voice?: boolean
   /** The on-screen keyboard covers the home-indicator area, so no safe-area padding. */
   keyboardOpen?: boolean
-  /** Room kept below the composer for controls the OS floats over the page. */
-  bottomInset?: number
 }) => {
   const { view, config, tripId } = useChatContext()
   const { t, tx } = useI18n()
@@ -405,7 +402,6 @@ export const ChatPanel = ({
       </Conversation>
       <div
         className={`border-t bg-background ${keyboardOpen ? '' : 'pb-safe'}`}
-        style={keyboardOpen ? { paddingBottom: bottomInset } : undefined}
       >
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-2 p-3">
           {!open && chips.length > 0 && (

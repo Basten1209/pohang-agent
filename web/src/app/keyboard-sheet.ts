@@ -11,9 +11,15 @@ import type { CSSProperties } from 'react'
  * blank space below it.
  *
  * Instead, turn vaul's repositioning off and pin the sheet to the visual
- * viewport: its bottom sits on the keyboard and it fills the whole visible
- * area, like a full-screen chat — the little room left above a keyboard is
- * too small for a sheet with a rounded top and a drag handle.
+ * viewport: it fills the whole visible area, like a full-screen chat — the
+ * little room left above a keyboard is too small for a sheet with a rounded
+ * top and a drag handle.
+ *
+ * The sheet itself still reaches the bottom of the screen; only its content
+ * stops at the keyboard (bottom padding). iOS counts its floating, see-through
+ * bars (Safari's ∧ ∨ ✓ form bar, Chrome's keyboard buttons) as part of the
+ * keyboard, so cutting the sheet at the visible edge let the page behind it
+ * show through around them.
  */
 
 /**
@@ -28,18 +34,6 @@ export type Viewport = {
   offsetTop: number
 }
 
-/**
- * iOS floats its keyboard controls (hide-keyboard button, AutoFill strip)
- * *over the page*, just above the keyboard. Keep that strip free so they
- * never cover the composer's send button.
- */
-const IOS_KEYBOARD_CONTROLS = 52
-
-const isIOS = () =>
-  typeof navigator !== 'undefined' &&
-  (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
-
 /** Below this, a smaller visual viewport is browser chrome, not a keyboard. */
 const KEYBOARD_MIN = 120
 
@@ -47,12 +41,14 @@ const KEYBOARD_MIN = 120
 export const sheetFrame = (v: Viewport): CSSProperties | null => {
   const hidden = v.layoutHeight - v.height
   if (hidden < KEYBOARD_MIN) return null
-  const height = Math.max(0, v.height)
+  // From the top of the visible area to the bottom of the screen…
+  const height = Math.max(0, v.layoutHeight - v.offsetTop)
   return {
-    // The layout viewport's bottom is under the keyboard; sit on top of it.
-    bottom: Math.max(0, v.layoutHeight - v.offsetTop - v.height),
+    bottom: 0,
     height,
     maxHeight: height,
+    // …with the content kept above the keyboard and its bars.
+    paddingBottom: Math.max(0, height - v.height),
   }
 }
 
@@ -85,8 +81,6 @@ export const useKeyboardSheet = (open: boolean) => {
     drawer: { repositionInputs: false } as const,
     style: frame ?? undefined,
     keyboardOpen: frame !== null,
-    /** Bottom padding to leave inside the sheet while the keyboard is open. */
-    bottomInset: frame !== null && isIOS() ? IOS_KEYBOARD_CONTROLS : 0,
     /** Full screen while typing: square corners, no top border, no drag handle. */
     className:
       frame === null

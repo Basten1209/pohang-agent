@@ -12,14 +12,15 @@ describe('키보드가 열렸을 때 바텀시트 위치', () => {
     ).toBeNull()
   })
 
-  it('키보드 바로 위에 붙고 보이는 영역을 채움', () => {
-    // iPhone: 336px keyboard, the page not scrolled.
+  it('보이는 영역을 채우고, 바탕은 화면 아래까지 — 내용은 키보드 위', () => {
+    // iPhone: 336px keyboard (with its bars), the page not scrolled.
     expect(
       sheetFrame({ layoutHeight: 844, height: 508, offsetTop: 0 }),
     ).toEqual({
-      bottom: 336,
-      height: 508,
-      maxHeight: 508,
+      bottom: 0,
+      height: 844,
+      maxHeight: 844,
+      paddingBottom: 336,
     })
   })
 
@@ -32,6 +33,7 @@ describe('키보드가 열렸을 때 바텀시트 위치', () => {
       bottom: 0,
       height: 508,
       maxHeight: 508,
+      paddingBottom: 0,
     })
   })
 })
