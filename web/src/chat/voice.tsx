@@ -3,7 +3,6 @@ import { experimental_useRealtime } from '@ai-sdk/react'
 import type { Experimental_RealtimeServerEvent } from 'ai'
 import { Mic, MicOff } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import type { VoiceConfig } from '#/core/voice'
@@ -127,11 +126,11 @@ const VoiceSession = ({
         {live ? t('voice.stop') : t('voice.start')}
       </Button>
       {live && (
-        <Badge variant="secondary" className="tabular-nums">
+        <span className="text-xs text-muted-foreground tabular-nums">
           {t('voice.listening', {
             time: minutes(realtime.session?.usage?.seconds ?? 0),
           })}
-        </Badge>
+        </span>
       )}
       {!live && !starting && (failed || realtime.status === 'error') && (
         <span role="alert" className="text-xs text-destructive">

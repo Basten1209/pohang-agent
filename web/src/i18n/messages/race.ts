@@ -5,7 +5,6 @@ export default defineMessages(
     'race.live.ready': '오늘의 레이스',
     'race.live.finished': '끝까지 달린 나에게',
     'race.live.running': '나의 레이스',
-    'race.live.badge': '가상 GPS 시연',
     'race.live.notice':
       '경로·거리·기록은 발표용 가상 데이터예요. 실제 GPS 위치를 수집하지 않아요.',
     'race.live.title': '첫 걸음부터, 함께 달려요.',
@@ -103,7 +102,6 @@ export default defineMessages(
       'race.live.ready': "Today's race",
       'race.live.finished': 'To me, who ran all the way',
       'race.live.running': 'My race',
-      'race.live.badge': 'Simulated GPS demo',
       'race.live.notice':
         'Route, distance and times are simulated for the demo. No real GPS location is collected.',
       'race.live.title': "From the first step, let's run together.",
@@ -201,7 +199,6 @@ export default defineMessages(
       'race.live.ready': '今日のレース',
       'race.live.finished': '最後まで走り切った自分へ',
       'race.live.running': '私のレース',
-      'race.live.badge': '仮想GPSデモ',
       'race.live.notice':
         'ルート・距離・記録は発表用の仮想データです。実際のGPS位置は収集しません。',
       'race.live.title': '最初の一歩から、一緒に走りましょう。',
@@ -300,7 +297,6 @@ export default defineMessages(
       'race.live.ready': '今天的比赛',
       'race.live.finished': '致跑完全程的自己',
       'race.live.running': '我的比赛',
-      'race.live.badge': '虚拟GPS演示',
       'race.live.notice':
         '路线、距离和成绩均为演示用虚拟数据，不会收集真实的GPS位置。',
       'race.live.title': '从第一步开始，一起跑吧。',

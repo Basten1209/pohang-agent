@@ -12,11 +12,9 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -58,11 +56,8 @@ export const RaceHeadline = ({ event: source }: { event: RaceEvent }) => {
       <CardHeader>
         <CardTitle>{event.name}</CardTitle>
         <CardDescription>
-          {t('race.bib', { category: event.category, bib })}
+          {t('race.bib', { category: event.category, bib })} · {t('race.demo')}
         </CardDescription>
-        <CardAction>
-          <Badge variant="outline">{t('race.demo')}</Badge>
-        </CardAction>
       </CardHeader>
       <CardContent>
         <ItemGroup>
