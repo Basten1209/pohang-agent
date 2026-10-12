@@ -146,6 +146,20 @@ export type Observations = z.infer<typeof observationsSchema>
 // ── Config: places ──────────────────────────────────────────────────────
 export const geoSchema = z.object({ lat: z.number(), lng: z.number() })
 /** A sourced visit candidate, not an automatically scheduled stop. */
+const translatedLocale = z.enum(['en', 'ja', 'zh'])
+
+/** A venue's readable text in another language; the Korean name stays the key. */
+export const venueTextSchema = z
+  .object({
+    name: z.string(),
+    highlight: z.string(),
+    description: z.string(),
+    tenTaste: z.string(),
+    note: z.string(),
+  })
+  .partial()
+export type VenueText = z.infer<typeof venueTextSchema>
+
 export const venueSchema = z.object({
   id: placeIdSchema,
   name: z.string(),
@@ -167,8 +181,23 @@ export const venueSchema = z.object({
     ])
     .optional(),
   source: z.object({ title: z.string(), url: z.url(), checkedAt: z.string() }),
+  translations: z.partialRecord(translatedLocale, venueTextSchema).optional(),
 })
 export type Venue = z.infer<typeof venueSchema>
+/** A place's readable text in another language; missing fields stay Korean. */
+export const placeTextSchema = z
+  .object({
+    title: z.string(),
+    short: z.string(),
+    subtitle: z.string(),
+    desc: z.string(),
+    detail: z.string(),
+    actionLabel: z.string(),
+    tips: z.string(),
+  })
+  .partial()
+export type PlaceText = z.infer<typeof placeTextSchema>
+
 export const placeSchema = z.object({
   id: placeIdSchema,
   kind: z.string(),
@@ -193,6 +222,9 @@ export const placeSchema = z.object({
       defaultDwell: z.number().int().positive(),
       geo: geoSchema,
       candidates: z.array(venueSchema).optional(),
+      translations: z
+        .partialRecord(translatedLocale, placeTextSchema)
+        .optional(),
     })
     .passthrough(),
   meta: z.record(z.string(), z.unknown()).default({}),

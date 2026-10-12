@@ -345,7 +345,7 @@ export const ProfileForm = ({
 
             <Field>
               <FieldLabel htmlFor="depart-time">
-                {mode.noun === '귀가'
+                {mode.id === 'LOCAL'
                   ? t('profile.returnTime')
                   : t('profile.departTime', {
                       noun: d(`noun.${mode.id}`, mode.noun),

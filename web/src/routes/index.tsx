@@ -7,6 +7,7 @@ import { clock } from '#/core/time'
 import type { TripView } from '#/core/view'
 import type { AgentUIMessage } from '#/server/agent/harness'
 import { Shell } from '#/home/shell'
+import { localizeConfig } from '#/i18n/config'
 import { useI18n } from '#/i18n/react'
 
 export const Route = createFileRoute('/')({
@@ -57,7 +58,9 @@ const Offline = () => {
 }
 
 function Home() {
-  const { config } = Route.useLoaderData()
+  const { config: source } = Route.useLoaderData()
+  const { locale } = useI18n()
+  const config = useMemo(() => localizeConfig(source, locale), [source, locale])
   const tripId = useMemo(currentTripId, [])
   const [loaded, setLoaded] = useState<Loaded | 'offline' | null>(null)
 

@@ -1,4 +1,5 @@
 import type { Venue } from '../schema'
+import { venueTranslations } from './venue-translations'
 
 export const pohangTenTastesUrl = 'https://blog.naver.com/inpohang/223464918169'
 const city = (id: number) => ({
@@ -18,6 +19,7 @@ const listing = (id: string) => ({
 })
 const venue = (v: Omit<Venue, 'detour'> & { detour?: boolean }): Venue => ({
   detour: false,
+  translations: venueTranslations[v.id],
   ...v,
 })
 

@@ -177,7 +177,7 @@ export function ItineraryTimeline({
                 <AccordionTrigger className="items-center gap-2 py-1 text-xs font-normal">
                   <Icon className="size-3.5 shrink-0" />
                   <span className="min-w-0 flex-1 leading-relaxed">
-                    {leg.label}
+                    {`${point(leg.from)?.name ?? leg.from} → ${point(leg.to)?.name ?? leg.to}`}
                     <span className="ml-1.5 whitespace-nowrap">
                       ·{' '}
                       {t('tour.modeAbout', {

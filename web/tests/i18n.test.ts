@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { seedConfig } from '#/core/defaults'
 import { eventIn } from '#/core/race-event'
+import { localizeConfig } from '#/i18n/config'
 import { activeCourses } from '#/core/route'
 import { liveSessionConfig } from '#/core/voice'
 import {
@@ -93,5 +94,27 @@ describe('다국어 (ko/en/ja/zh)', () => {
     }
     const partial = { ...event, translations: { en: { name: 'Beach Run' } } }
     expect(eventIn(partial, 'en').faq).toEqual(event.faq)
+  })
+
+  it('장소·지점 이름과 설명도 언어별로, 아이디·좌표·시간은 그대로', () => {
+    expect(localizeConfig(seedConfig, 'ko')).toBe(seedConfig)
+    for (const locale of others) {
+      const c = localizeConfig(seedConfig, locale)
+      c.places.forEach((p, i) => {
+        const original = seedConfig.places[i]!
+        expect(p.id).toBe(original.id)
+        expect(p.attrs.geo).toEqual(original.attrs.geo)
+        expect(p.attrs.defaultDwell).toBe(original.attrs.defaultDwell)
+        expect(p.attrs.short, `${locale} ${p.id}`).not.toBe(
+          original.attrs.short,
+        )
+        expect(p.attrs.title, `${locale} ${p.id}`).not.toBe(
+          original.attrs.title,
+        )
+      })
+      const race = c.anchors.find((a) => a.id === 'RACE')!
+      expect(race.name).not.toBe('영일대해수욕장')
+      expect(c.modes.find((m) => m.id === 'LOCAL')!.noun).not.toBe('귀가')
+    }
   })
 })
