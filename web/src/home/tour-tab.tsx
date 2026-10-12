@@ -1,4 +1,4 @@
-import { Camera, MapPin } from 'lucide-react'
+import { Camera, MapPin, RefreshCw } from 'lucide-react'
 import { useEffect, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -112,34 +112,26 @@ export const TourTab = ({
           </p>
         </div>
       </div>
-      <div className="rounded-2xl border bg-muted/30 p-3 text-sm">
-        <p>
-          {it.planningSource === 'OPENAI'
-            ? t('tour.source.ai')
-            : t('tour.source.demo')}
-        </p>
-        {it.needsReview && (
-          <p className="mt-1 text-muted-foreground">{t('tour.needsReview')}</p>
+      {it.needsReview && (
+        <p className="text-sm text-muted-foreground">{t('tour.needsReview')}</p>
+      )}
+      {(it.needsReview ||
+        it.validationErrors?.length ||
+        it.planningSource !== 'OPENAI') &&
+        stage !== 'DONE' && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="self-start"
+            disabled={busy}
+            onClick={() =>
+              ask('최신 관측과 내 조건에 맞춰 일정을 다시 제안해 줘')
+            }
+          >
+            <RefreshCw />
+            {t('tour.requestCustom')}
+          </Button>
         )}
-        {(it.needsReview ||
-          it.validationErrors?.length ||
-          it.planningSource !== 'OPENAI') &&
-          stage !== 'DONE' && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-2"
-              disabled={busy}
-              onClick={() =>
-                ask('최신 관측과 내 조건에 맞춰 일정을 다시 제안해 줘')
-              }
-            >
-              {it.planningSource === 'OPENAI'
-                ? t('tour.reviewAgain')
-                : t('tour.requestCustom')}
-            </Button>
-          )}
-      </div>
       <Card className="border-primary/25">
         <CardHeader>
           <CardDescription>{t('tour.nowTodo')}</CardDescription>

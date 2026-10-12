@@ -17,8 +17,21 @@ interface InstallPrompt extends Event {
 }
 
 /** iPhone Chrome uses the system share sheet, not beforeinstallprompt. */
-export function InstallApp({ compact = false }: { compact?: boolean }) {
-  const [open, setOpen] = useState(false)
+export function InstallApp({
+  compact = false,
+  open: openProp,
+  onOpenChange,
+}: {
+  compact?: boolean
+  /** Opened from elsewhere (the menu): no button of its own. */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}) {
+  const [openState, setOpenState] = useState(false)
+  const controlled = openProp !== undefined
+  const open = controlled ? openProp : openState
+  const setOpen = (next: boolean) =>
+    controlled ? onOpenChange?.(next) : setOpenState(next)
   const [prompt, setPrompt] = useState<InstallPrompt | null>(null)
   const [installed, setInstalled] = useState(false)
   const [standalone, setStandalone] = useState(false)
@@ -71,19 +84,21 @@ export function InstallApp({ compact = false }: { compact?: boolean }) {
   }
   return (
     <>
-      <Button
-        type="button"
-        variant="outline"
-        size={compact ? 'sm' : 'default'}
-        onClick={() => setOpen(true)}
-      >
-        {installed ? <Check /> : <Download />}
-        {standalone
-          ? t('install.running')
-          : installed
-            ? t('install.installed')
-            : t('install.button')}
-      </Button>
+      {!controlled && (
+        <Button
+          type="button"
+          variant="outline"
+          size={compact ? 'sm' : 'default'}
+          onClick={() => setOpen(true)}
+        >
+          {installed ? <Check /> : <Download />}
+          {standalone
+            ? t('install.running')
+            : installed
+              ? t('install.installed')
+              : t('install.button')}
+        </Button>
+      )}
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
           side="bottom"

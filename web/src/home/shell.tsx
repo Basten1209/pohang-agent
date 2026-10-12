@@ -118,6 +118,7 @@ export const Shell = ({
   }
   const [chatOpen, setChatOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [installOpen, setInstallOpen] = useState(false)
   const [finishOpen, setFinishOpen] = useState(false)
   const [communityRevision, setCommunityRevision] = useState(0)
   const [visitPosts, setVisitPosts] = useState<CommunityPost[]>([])
@@ -281,6 +282,12 @@ export const Shell = ({
                   <DropdownMenuGroup>
                     <DropdownMenuItem onSelect={() => setProfileOpen(true)}>
                       {t('menu.editPlan')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="sm:hidden"
+                      onSelect={() => setInstallOpen(true)}
+                    >
+                      {t('install.button')}
                     </DropdownMenuItem>
                     <DropdownMenuSub>
                       <DropdownMenuSubTrigger disabled={agent.busy}>
@@ -480,6 +487,8 @@ export const Shell = ({
           />
         </DrawerContent>
       </Drawer>
+
+      <InstallApp open={installOpen} onOpenChange={setInstallOpen} />
 
       <Drawer open={profileOpen} onOpenChange={setProfileOpen}>
         <DrawerContent className="h-[88dvh] data-[vaul-drawer-direction=bottom]:max-h-[88dvh]">
