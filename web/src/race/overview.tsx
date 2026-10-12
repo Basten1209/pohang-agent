@@ -1,17 +1,10 @@
-import {
-  CalendarDays,
-  CircleDot,
-  Flag,
-  MapPin,
-  Navigation,
-} from 'lucide-react'
+import { CalendarDays, CircleDot, Flag, MapPin } from 'lucide-react'
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
-import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
   Item,
@@ -24,6 +17,7 @@ import {
 import { eventIn } from '#/core/race-event'
 import type { RaceEvent } from '#/core/schema'
 import { bib } from './mock'
+import { ProgressiveBlur } from '#/app/progressive-blur'
 import { useI18n } from '#/i18n/react'
 import { Section } from '#/home/section'
 
@@ -46,34 +40,38 @@ export const RaceHeadline = ({ event: source }: { event: RaceEvent }) => {
         className="aspect-[4/3] w-full object-cover sm:aspect-[2/1]"
       />
       {/* The essentials over the photo; the rest lives in the race guide. */}
-      <div className="absolute inset-0 flex flex-col justify-end bg-linear-to-t from-black/75 via-black/30 to-transparent p-4 text-white">
+      <div className="absolute inset-x-0 bottom-0 h-3/5">
+        <ProgressiveBlur />
+        <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent" />
+      </div>
+      <div className="absolute inset-x-0 bottom-0 flex flex-col p-4 text-white">
         <p className="text-xs text-white/80">
-          {t('race.bib', { category: event.category, bib })} · {t('race.demo')}
+          {t('race.bib', {
+            category: `${event.course.distanceKm}km`,
+            bib,
+          })}
         </p>
         <h2 className="mt-1 font-heading text-xl leading-snug font-semibold">
           {event.name}
         </h2>
-        <div className="mt-2 flex items-end justify-between gap-3">
-          <div className="flex min-w-0 flex-col gap-1 text-sm text-white/90">
-            <span className="flex items-center gap-1.5">
-              <CalendarDays className="size-4 shrink-0" />
-              {event.dateLabel} · {t('race.gun', { time: event.gun })}
+        <div className="mt-2 flex flex-col gap-1 text-sm text-white/90">
+          <span className="flex items-center gap-1.5">
+            <CalendarDays className="size-4 shrink-0" />
+            {event.dateLabel} · {t('race.gun', { time: event.gun })}
+          </span>
+          {/* The venue opens directions to it. */}
+          <a
+            href={directions}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`${event.venue} · ${t('race.directions')}`}
+            className="flex w-fit items-center gap-1.5 underline-offset-2 hover:underline"
+          >
+            <MapPin className="size-4 shrink-0" />
+            <span className="truncate underline decoration-white/50">
+              {event.venue}
             </span>
-            <span className="flex items-center gap-1.5">
-              <MapPin className="size-4 shrink-0" />
-              <span className="truncate">{event.venue}</span>
-            </span>
-          </div>
-          <Button asChild size="sm" variant="secondary" className="shrink-0">
-            <a
-              href={directions}
-              target="_blank"
-              rel="noreferrer"
-              aria-label={t('race.directions')}
-            >
-              <Navigation />
-            </a>
-          </Button>
+          </a>
         </div>
       </div>
     </Card>

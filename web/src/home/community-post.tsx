@@ -15,6 +15,7 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { ProgressiveBlur } from '#/app/progressive-blur'
 import type { CommunityPost } from '#/core/community'
 
 const fallback = '/images/guryongpo-harbor.jpg'
@@ -30,15 +31,6 @@ export type PostText = {
   /** The demo-photo disclosure, when the photo is not a real one. */
   note?: string
 }
-
-// Each layer blurs a little more and starts a little lower: a soft
-// progressive blur instead of a hard edge.
-const blurLayers = [
-  { px: 1, from: 0 },
-  { px: 2, from: 20 },
-  { px: 4, from: 40 },
-  { px: 8, from: 60 },
-]
 
 /** A thumbnail-first tile; the title and date rise over a blur on hover. */
 export const PostTile = ({
@@ -69,18 +61,7 @@ export const PostTile = ({
       />
       {/* On hover or focus; always on touch screens, where nothing hovers. */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 [@media(hover:none)]:opacity-100">
-        {blurLayers.map(({ px, from }) => (
-          <div
-            key={px}
-            className="absolute inset-0"
-            style={{
-              backdropFilter: `blur(${px}px)`,
-              WebkitBackdropFilter: `blur(${px}px)`,
-              maskImage: `linear-gradient(to bottom, transparent ${from}%, black ${from + 25}%)`,
-              WebkitMaskImage: `linear-gradient(to bottom, transparent ${from}%, black ${from + 25}%)`,
-            }}
-          />
-        ))}
+        <ProgressiveBlur />
         <div className="absolute inset-0 bg-linear-to-t from-black/55 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 px-3 pb-2.5 text-white">
           <p className="line-clamp-2 text-sm font-medium">{text.title}</p>
